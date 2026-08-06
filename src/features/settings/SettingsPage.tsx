@@ -1,0 +1,14 @@
+import { useState } from 'react'
+import { useMutation } from '@tanstack/react-query'
+import { authApi } from '../../api/auth'
+import { getErrorMessage } from '../../api/client'
+import { Avatar, Button, Card, Input, Tabs } from '../../components/ui'
+import { useToast } from '../../components/ui/Toast'
+import { useAuth } from '../../hooks/useAuth'
+
+export function SettingsPage() {
+  const { user, can } = useAuth(); const { toast } = useToast(); const [tab, setTab] = useState('Profile'); const [passwords, setPasswords] = useState({ current: '', next: '' })
+  const password = useMutation({ mutationFn: () => authApi.changePassword(passwords.current, passwords.next), onSuccess: () => { toast('Password updated', 'success'); setPasswords({ current: '', next: '' }) }, onError: (e) => toast(getErrorMessage(e), 'error') })
+  const tabs = can('SUPER_ADMIN') ? ['Profile', 'Security', 'Organization'] : ['Profile', 'Security']
+  return <div><div className="mb-6"><p className="text-sm font-semibold uppercase tracking-wider text-accent">Preferences</p><h1 className="text-3xl font-semibold">Settings</h1><p className="mt-1 text-muted">Manage your profile, security, and organization.</p></div><Card className="p-0"><Tabs tabs={tabs} active={tab} onChange={setTab} /><div className="max-w-2xl p-6">{tab === 'Profile' && <form className="space-y-5" onSubmit={(e) => { e.preventDefault(); toast('Profile saved', 'success') }}><div className="flex items-center gap-4"><Avatar name={user?.name ?? 'User'} src={user?.avatarUrl} size="lg" /><div><Button type="button" variant="secondary" size="sm">Change photo</Button><p className="mt-1 text-xs text-muted">JPG or PNG, max 2 MB</p></div></div><div className="grid gap-4 sm:grid-cols-2"><Input label="Full name" defaultValue={user?.name} /><Input label="Work email" defaultValue={user?.email} type="email" /><Input label="Department" defaultValue={user?.department} /><Input label="Role" value={user?.role.replace('_', ' ')} disabled /></div><Button type="submit">Save changes</Button></form>}{tab === 'Security' && <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); password.mutate() }}><Input label="Current password" type="password" value={passwords.current} onChange={(e) => setPasswords((v) => ({ ...v, current: e.target.value }))} required /><Input label="New password" type="password" value={passwords.next} minLength={8} onChange={(e) => setPasswords((v) => ({ ...v, next: e.target.value }))} required /><Button type="submit" loading={password.isPending}>Change password</Button></form>}{tab === 'Organization' && <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); toast('Organization settings saved', 'success') }}><Input label="Organization name" defaultValue="Hearth Technologies" /><Input label="Primary location" defaultValue="Bengaluru, India" /><Input label="Financial year starts" type="month" /><Button type="submit">Save organization</Button></form>}</div></Card></div>
+}

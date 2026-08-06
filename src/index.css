@@ -1,0 +1,55 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Lora:wght@500;600;700&family=Outfit:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-background: 250 248 245;
+  --color-surface: 255 255 255;
+  --color-primary: 61 43 107;
+  --color-accent: 192 125 58;
+  --color-foreground: 31 27 46;
+  --color-muted: 107 100 120;
+  --color-border: 234 230 224;
+  color-scheme: light;
+  font-family: 'Outfit', sans-serif;
+  color: rgb(var(--color-foreground));
+  background: rgb(var(--color-background));
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+.dark {
+  --color-background: 27 23 36;
+  --color-surface: 39 33 51;
+  --color-primary: 139 107 196;
+  --color-accent: 220 157 88;
+  --color-foreground: 246 242 250;
+  --color-muted: 181 172 194;
+  --color-border: 62 53 77;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html { min-width: 320px; background: rgb(var(--color-background)); }
+body { margin: 0; min-width: 320px; min-height: 100vh; background: rgb(var(--color-background)); }
+button, input, select, textarea { font: inherit; }
+h1, h2, h3, h4, h5, h6 { font-family: 'Lora', serif; color: rgb(var(--color-foreground)); }
+::selection { background: rgb(var(--color-accent) / 0.25); }
+
+@layer base {
+  :focus-visible { @apply outline-none ring-2 ring-accent ring-offset-2 ring-offset-background; }
+}
+
+@layer utilities {
+  .scrollbar-thin { scrollbar-width: thin; scrollbar-color: rgb(var(--color-border)) transparent; }
+  .text-balance { text-wrap: balance; }
+}
+
+@media print {
+  .no-print { display: none !important; }
+  body { background: white; color: #1f1b2e; }
+  .print-surface { box-shadow: none !important; border: 0 !important; }
+}

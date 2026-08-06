@@ -1,0 +1,14 @@
+import { useQuery } from '@tanstack/react-query'
+import { Download, TrendingDown } from 'lucide-react'
+import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { reportsApi } from '../../api/reports'
+import { Button, Card, DataTable, EmptyState, Skeleton, type Column } from '../../components/ui'
+import { downloadCsv } from '../../lib/utils'
+
+export function ReportsPage() {
+  const query = useQuery({ queryKey: ['reports'], queryFn: () => reportsApi.overview('12m') })
+  if (query.isLoading) return <Skeleton className="h-[700px]" />
+  if (!query.data) return <EmptyState title="Reports unavailable" action={<Button onClick={() => query.refetch()}>Retry</Button>} />
+  const data = query.data; const keys = data.rows.length ? Object.keys(data.rows[0]) : []; const columns: Column<Record<string, string | number>>[] = keys.map((key) => ({ key, header: key.replace(/([A-Z])/g, ' $1'), sortable: true }))
+  return <div><div className="mb-6 flex flex-wrap items-end justify-between gap-4"><div><p className="text-sm font-semibold uppercase tracking-wider text-accent">Insights</p><h1 className="text-3xl font-semibold">Reports</h1><p className="mt-1 text-muted">Understand trends across your workforce.</p></div><Button variant="secondary" onClick={() => downloadCsv(data.rows, 'hrms-report.csv')} disabled={!data.rows.length}><Download size={17} />Export CSV</Button></div><div className="grid gap-6 xl:grid-cols-2"><Card><h2 className="text-xl font-semibold">Headcount by department</h2><div className="h-72"><ResponsiveContainer><PieChart><Pie data={data.headcountByDepartment} dataKey="value" nameKey="name" innerRadius={60} outerRadius={95} paddingAngle={3}>{data.headcountByDepartment.map((_, i) => <Cell key={i} fill={['#3D2B6B','#C07D3A','#8B6BC4','#D9A86C','#6B6478'][i % 5]} />)}</Pie><Tooltip /></PieChart></ResponsiveContainer></div></Card><Card><div className="flex justify-between"><div><h2 className="text-xl font-semibold">Attendance trend</h2><p className="text-sm text-muted">Monthly presence</p></div><div className="text-right"><span className="flex items-center gap-1 text-sm text-emerald-600"><TrendingDown size={15} />Turnover</span><strong className="font-mono text-2xl">{data.turnoverRate}%</strong></div></div><div className="h-72"><ResponsiveContainer><BarChart data={data.attendanceByMonth}><CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgb(var(--color-border))" /><XAxis dataKey="month" axisLine={false} tickLine={false} /><YAxis axisLine={false} tickLine={false} /><Tooltip /><Bar dataKey="present" fill="#3D2B6B" radius={[5,5,0,0]} /></BarChart></ResponsiveContainer></div></Card></div><Card className="mt-6"><h2 className="mb-5 text-xl font-semibold">Detailed report</h2>{data.rows.length ? <DataTable data={data.rows} columns={columns} getRowKey={(row) => JSON.stringify(row)} /> : <EmptyState title="No report rows" />}</Card></div>
+}

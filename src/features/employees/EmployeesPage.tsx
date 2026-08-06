@@ -1,0 +1,33 @@
+import { useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Link, useParams } from 'react-router-dom'
+import { Plus } from 'lucide-react'
+import { employeesApi } from '../../api/employees'
+import { getErrorMessage } from '../../api/client'
+import { Avatar, Badge, Button, Card, DataTable, Drawer, EmptyState, Input, Select, Skeleton, Tabs, type Column } from '../../components/ui'
+import { useToast } from '../../components/ui/Toast'
+import type { Employee, EmployeeInput } from '../../types'
+import { formatDate } from '../../lib/utils'
+import { useForm } from 'react-hook-form'
+
+const emptyEmployee: EmployeeInput = { employeeId: '', firstName: '', lastName: '', email: '', department: '', jobTitle: '', role: 'EMPLOYEE', status: 'ACTIVE', joiningDate: '' }
+
+function EmployeeForm({ employee, close }: { employee?: Employee; close: () => void }) {
+  const queryClient = useQueryClient(); const { toast } = useToast(); const { register, handleSubmit, formState: { isSubmitting } } = useForm<EmployeeInput>({ defaultValues: employee ?? emptyEmployee })
+  const mutation = useMutation({ mutationFn: (values: EmployeeInput) => employee ? employeesApi.update(employee.id, values) : employeesApi.create(values), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['employees'] }); toast(`Employee ${employee ? 'updated' : 'added'}`, 'success'); close() }, onError: (error) => toast(getErrorMessage(error), 'error') })
+  return <form className="grid gap-4 sm:grid-cols-2" onSubmit={handleSubmit((values) => mutation.mutate(values))}><Input label="Employee ID" required {...register('employeeId')} /><Input label="Email" type="email" required {...register('email')} /><Input label="First name" required {...register('firstName')} /><Input label="Last name" required {...register('lastName')} /><Input label="Department" required {...register('department')} /><Input label="Job title" required {...register('jobTitle')} /><Select label="Role" {...register('role')}><option value="EMPLOYEE">Employee</option><option value="HR_MANAGER">HR Manager</option><option value="SUPER_ADMIN">Super Admin</option></Select><Select label="Status" {...register('status')}><option value="ACTIVE">Active</option><option value="ON_LEAVE">On leave</option><option value="INACTIVE">Inactive</option></Select><Input label="Joining date" type="date" {...register('joiningDate')} /><div className="flex items-end gap-2 sm:col-span-2 sm:justify-end"><Button type="button" variant="secondary" onClick={close}>Cancel</Button><Button type="submit" loading={isSubmitting || mutation.isPending}>Save employee</Button></div></form>
+}
+
+export function EmployeesPage() {
+  const [drawer, setDrawer] = useState(false); const [edit, setEdit] = useState<Employee | undefined>(); const query = useQuery({ queryKey: ['employees'], queryFn: () => employeesApi.list({ page: 1, limit: 100 }) })
+  const columns: Column<Employee>[] = [{ key: 'employeeId', header: 'ID', sortable: true, className: 'font-mono' }, { key: 'name', header: 'Employee', render: (row) => <Link to={`/employees/${row.id}`} className="flex items-center gap-3 font-semibold hover:text-primary"><Avatar name={`${row.firstName} ${row.lastName}`} src={row.avatarUrl} size="sm" />{row.firstName} {row.lastName}</Link> }, { key: 'department', header: 'Department', sortable: true }, { key: 'jobTitle', header: 'Role', sortable: true }, { key: 'status', header: 'Status', render: (row) => <Badge variant={row.status}>{row.status.replace('_', ' ')}</Badge> }, { key: 'actions', header: '', render: (row) => <Button variant="ghost" size="sm" onClick={() => { setEdit(row); setDrawer(true) }}>Edit</Button> }]
+  return <div><div className="mb-6 flex flex-wrap items-end justify-between gap-4"><div><p className="text-sm font-semibold uppercase tracking-wider text-accent">People</p><h1 className="text-3xl font-semibold">Employee Directory</h1><p className="mt-1 text-muted">Manage your people and their employment details.</p></div><Button onClick={() => { setEdit(undefined); setDrawer(true) }}><Plus size={18} />Add employee</Button></div><Card>{query.isLoading ? <div className="space-y-3">{Array.from({ length: 7 }).map((_, i) => <Skeleton key={i} className="h-14" />)}</div> : query.isError ? <EmptyState title="Unable to load employees" action={<Button onClick={() => query.refetch()}>Retry</Button>} /> : <DataTable data={query.data?.data ?? []} columns={columns} getRowKey={(row) => row.id} searchPlaceholder="Search name, ID or department..." />}</Card><Drawer open={drawer} onClose={() => setDrawer(false)} title={edit ? 'Edit employee' : 'Add employee'}><EmployeeForm employee={edit} close={() => setDrawer(false)} /></Drawer></div>
+}
+
+export function EmployeeDetailPage() {
+  const { id = '' } = useParams(); const [tab, setTab] = useState('Profile'); const query = useQuery({ queryKey: ['employee', id], queryFn: () => employeesApi.get(id), enabled: Boolean(id) })
+  if (query.isLoading) return <Skeleton className="h-[500px]" />
+  if (!query.data) return <EmptyState title="Employee not found" />
+  const employee = query.data
+  return <div><Card className="mb-6"><div className="flex flex-col gap-5 sm:flex-row sm:items-center"><Avatar name={`${employee.firstName} ${employee.lastName}`} src={employee.avatarUrl} size="lg" /><div className="flex-1"><div className="flex flex-wrap items-center gap-3"><h1 className="text-2xl font-semibold">{employee.firstName} {employee.lastName}</h1><Badge variant={employee.status}>{employee.status.replace('_', ' ')}</Badge></div><p className="text-muted">{employee.jobTitle} · {employee.department}</p><p className="mt-1 font-mono text-xs text-muted">{employee.employeeId}</p></div></div></Card><Card className="p-0"><Tabs tabs={['Profile', 'Documents', 'Attendance', 'Leave history']} active={tab} onChange={setTab} /><div className="p-6">{tab === 'Profile' && <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">{[['Email', employee.email], ['Phone', employee.phone ?? 'Not provided'], ['Department', employee.department], ['Job title', employee.jobTitle], ['Joining date', formatDate(employee.joiningDate)], ['Access role', employee.role.replace('_', ' ')]].map(([label, value]) => <div key={label}><p className="text-xs font-semibold uppercase text-muted">{label}</p><p className="mt-1 font-medium">{value}</p></div>)}</div>}{tab === 'Documents' && <EmptyState title="No documents uploaded" description="Employment documents will appear here." />}{tab === 'Attendance' && <EmptyState title="No attendance records" />}{tab === 'Leave history' && <EmptyState title="No leave history" />}</div></Card></div>
+}
