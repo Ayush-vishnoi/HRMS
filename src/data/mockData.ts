@@ -330,12 +330,12 @@ export const MOCK_PAYSLIPS: Payslip[] = [
 
 export const MOCK_ANALYTICS = {
   headcountByDept: [
-    { name: 'Engineering', count: 42, color: '#3b82f6' },
-    { name: 'Product', count: 18, color: '#8b5cf6' },
-    { name: 'Design', count: 12, color: '#ec4899' },
+    { name: 'Engineering', count: 42, color: '#8B3A4A' },
+    { name: 'Product', count: 18, color: '#A04456' },
+    { name: 'Design', count: 12, color: '#B86B78' },
     { name: 'HR & Ops', count: 10, color: '#10b981' },
     { name: 'Marketing', count: 15, color: '#f59e0b' },
-    { name: 'Finance', count: 8, color: '#6366f1' },
+    { name: 'Finance', count: 8, color: '#5E6673' },
   ],
   monthlyPayrollCost: [
     { month: 'Jan', cost: 180000 },

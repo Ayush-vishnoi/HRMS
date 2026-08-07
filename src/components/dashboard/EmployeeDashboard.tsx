@@ -30,34 +30,34 @@ export const EmployeeDashboard: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Welcome Banner Card */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-indigo-900 via-indigo-800 to-slate-900 border border-indigo-500/20 p-6 shadow-xl">
+      <div className="relative overflow-hidden rounded-2xl bg-surface border border-border p-6 shadow-xl">
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="space-y-1">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-[#8B3A4A]/15 text-[#B86B78] border border-[#8B3A4A]/30">
+              <Sparkles className="w-3.5 h-3.5 text-amber-500" />
               Employee Self-Service (ESS) Portal
             </div>
-            <h2 className="text-2xl font-bold text-white tracking-tight">
+            <h2 className="text-2xl font-bold text-foreground tracking-tight">
               Good Morning, {currentUser.name}! 👋
             </h2>
-            <p className="text-xs text-indigo-200/80 max-w-xl">
-              Here is your daily HR summary. You have <strong className="text-white">8 Casual Leaves</strong> remaining for this year.
+            <p className="text-xs text-secondary max-w-xl">
+              Here is your daily HR summary. You have <strong className="text-foreground">8 Casual Leaves</strong> remaining for this year.
             </p>
           </div>
 
           <div className="flex items-center gap-3">
             <button
               onClick={() => setIsLeaveModalOpen(true)}
-              className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-lg shadow-indigo-600/30 flex items-center gap-2 transition-all"
+              className="px-4 py-2.5 rounded-xl bg-[#8B3A4A] hover:bg-[#A04456] text-white text-xs font-semibold shadow-md flex items-center gap-2 transition-all cursor-pointer"
             >
               <PlusCircle className="w-4 h-4" />
               Apply Leave
             </button>
             <button
               onClick={() => setSelectedPayslip(MOCK_PAYSLIPS[0])}
-              className="px-4 py-2.5 rounded-xl bg-slate-800/90 hover:bg-slate-700/90 text-slate-200 border border-slate-700 text-xs font-semibold flex items-center gap-2 transition-all"
+              className="px-4 py-2.5 rounded-xl bg-surface-elevated hover:bg-border text-foreground border border-border text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer"
             >
-              <FileText className="w-4 h-4 text-indigo-400" />
+              <FileText className="w-4 h-4 text-[#B86B78]" />
               July Payslip
             </button>
           </div>

@@ -1,52 +1,76 @@
 'use client';
 
 import React from 'react';
-import { Clock, Calendar, MapPin, CheckCircle2, AlertTriangle, ShieldCheck, Play, Square } from 'lucide-react';
+import { Clock, Calendar, MapPin, CheckCircle2, AlertTriangle, ShieldCheck, Play, Square, Download } from 'lucide-react';
 import { useHRMS } from '@/context/HRMSContext';
+import { exportToExcel } from '@/utils/exportUtils';
 
 export default function AttendancePage() {
-  const { isClockedIn, clockInTime, toggleClockIn, attendanceLogs } = useHRMS();
+  const { isClockedIn, clockInTime, toggleClockIn, attendanceLogs, currentUser } = useHRMS();
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
       {/* Header Banner */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold text-slate-100 flex items-center gap-2">
-            <Clock className="w-5 h-5 text-indigo-400" />
+          <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
+            <Clock className="w-5 h-5 text-[#B86B78]" />
             Attendance & Shift Management
           </h1>
-          <p className="text-xs text-slate-400">Track biometric check-ins, work hours, shift schedules, and monthly logs</p>
+          <p className="text-xs text-secondary">Track biometric check-ins, work hours, shift schedules, and monthly logs</p>
         </div>
+
+        <button
+          onClick={() => {
+            const todayStr = new Date().toISOString().split('T')[0];
+            const filename = `attendance-report-${todayStr}.xlsx`;
+            const columns = [
+              { header: 'Log ID', key: 'id' as const },
+              { header: 'Employee Name', key: () => currentUser.name },
+              { header: 'Date', key: 'date' as const },
+              { header: 'Check-In', key: 'checkIn' as const },
+              { header: 'Check-Out', key: 'checkOut' as const },
+              { header: 'Hours Worked', key: 'hoursWorked' as const },
+              { header: 'Status', key: 'status' as const },
+              { header: 'Location', key: 'location' as const },
+            ];
+            exportToExcel(attendanceLogs, columns, filename, 'Attendance Report');
+          }}
+          className="px-4 py-2.5 rounded-xl bg-[#8B3A4A] hover:bg-[#A04456] text-white text-xs font-semibold shadow-md flex items-center gap-2 transition-all cursor-pointer"
+          title="Download Attendance Data as Excel"
+        >
+          <Download className="w-4 h-4" />
+          Export Excel
+        </button>
       </div>
 
       {/* Clock In Widget & Shift Info */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Main Punch Card */}
-        <div className="p-6 rounded-2xl bg-gradient-to-br from-slate-900 via-slate-900 to-slate-850 border border-indigo-500/20 shadow-xl space-y-4">
+        <div className="p-6 rounded-2xl bg-surface border border-border shadow-md space-y-4">
           <div className="flex justify-between items-center">
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Live Punch Widget</span>
-            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+            <span className="text-xs font-bold text-secondary uppercase tracking-wider">Live Punch Widget</span>
+            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-surface-elevated text-secondary border border-border">
               Shift A (General)
             </span>
           </div>
 
           <div className="text-center py-2 space-y-1">
-            <span className="text-[11px] text-slate-400">Current Status</span>
-            <div className="text-3xl font-black font-mono text-slate-100">
+            <span className="text-[11px] text-secondary">Current Status</span>
+            <div className="text-3xl font-black font-mono text-foreground">
               {isClockedIn ? clockInTime : '00:00:00'}
             </div>
-            <p className="text-xs font-semibold text-emerald-400">
+            <p className="text-xs font-semibold text-emerald-500">
               {isClockedIn ? '● Shift Active • Recorded at HQ Office' : '○ Shift Inactive • Ready to Punch In'}
             </p>
           </div>
 
           <button
             onClick={toggleClockIn}
-            className={`w-full py-3 rounded-xl text-xs font-bold transition-all shadow-lg flex items-center justify-center gap-2 ${
+            className={`w-full py-3 rounded-xl text-xs font-bold transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer ${
               isClockedIn
-                ? 'bg-rose-600 hover:bg-rose-500 text-white shadow-rose-600/30'
-                : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/30'
+                ? 'bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 border border-rose-500/30'
+                : 'bg-[#8B3A4A] hover:bg-[#A04456] text-white'
             }`}
           >
             {isClockedIn ? (

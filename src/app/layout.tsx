@@ -17,8 +17,24 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark">
-      <body className={`${inter.className} bg-slate-950 text-slate-100 antialiased selection:bg-indigo-500 selection:text-white`}>
+    <html lang="en" className="dark" suppressHydrationWarning>
+      <body className={`${inter.className} antialiased selection:bg-[#8B3A4A] selection:text-white`}>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              try {
+                const savedTheme = localStorage.getItem('hrms_theme');
+                if (savedTheme === 'light') {
+                  document.documentElement.classList.remove('dark');
+                  document.documentElement.classList.add('light');
+                } else {
+                  document.documentElement.classList.add('dark');
+                  document.documentElement.classList.remove('light');
+                }
+              } catch (e) {}
+            `,
+          }}
+        />
         <HRMSProvider>
           <MainLayoutWrapper>{children}</MainLayoutWrapper>
         </HRMSProvider>
@@ -26,3 +42,4 @@ export default function RootLayout({
     </html>
   );
 }
+

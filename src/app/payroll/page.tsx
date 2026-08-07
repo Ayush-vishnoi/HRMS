@@ -4,31 +4,68 @@ import React, { useState } from 'react';
 import { CreditCard, DollarSign, FileText, Download, Printer, Eye, Building2, ShieldCheck } from 'lucide-react';
 import { MOCK_PAYSLIPS, Payslip, CURRENT_USER } from '@/data/mockData';
 import { PayslipModal } from '@/components/modals/PayslipModal';
+import { exportToExcel } from '@/utils/exportUtils';
+import { useHRMS } from '@/context/HRMSContext';
 
 export default function PayrollPage() {
   const [selectedPayslip, setSelectedPayslip] = useState<Payslip | null>(null);
+  const { currentUser } = useHRMS();
 
   const latest = MOCK_PAYSLIPS[0];
+
+  const handleExportExcel = () => {
+    const todayStr = new Date().toISOString().split('T')[0];
+    const filename = `payroll-report-${todayStr}.xlsx`;
+
+    const columns = [
+      { header: 'Payslip ID', key: 'id' as const },
+      { header: 'Employee', key: () => currentUser.name },
+      { header: 'Pay Period', key: 'monthYear' as const },
+      { header: 'Basic Salary', key: 'basicSalary' as const },
+      { header: 'HRA', key: 'hra' as const },
+      { header: 'Allowances', key: (s: Payslip) => s.conveyance + s.specialAllowance },
+      { header: 'PF', key: 'pfDeduction' as const },
+      { header: 'TDS / Tax', key: 'taxDeduction' as const },
+      { header: 'Gross Earnings', key: 'grossEarnings' as const },
+      { header: 'Deductions', key: 'totalDeductions' as const },
+      { header: 'Net Salary', key: 'netPayable' as const },
+      { header: 'Payment Date', key: 'paymentDate' as const },
+      { header: 'Payment Status', key: 'status' as const },
+    ];
+
+    exportToExcel(MOCK_PAYSLIPS, columns, filename, 'Payroll Report');
+  };
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
       {/* Header Banner */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold text-slate-100 flex items-center gap-2">
+          <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
             <CreditCard className="w-5 h-5 text-indigo-400" />
             Payroll & Compensation Portal
           </h1>
-          <p className="text-xs text-slate-400">View salary breakdown, tax withholdings, and download official monthly payslips</p>
+          <p className="text-xs text-muted">View salary breakdown, tax withholdings, and download official monthly payslips</p>
         </div>
 
-        <button
-          onClick={() => setSelectedPayslip(latest)}
-          className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-lg shadow-indigo-600/30 flex items-center gap-2 transition-all"
-        >
-          <FileText className="w-4 h-4" />
-          View Latest Payslip ({latest.monthYear})
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleExportExcel}
+            className="px-4 py-2.5 rounded-xl bg-surface border border-border hover:bg-surface-elevated text-foreground text-xs font-semibold shadow-md flex items-center gap-2 transition-all cursor-pointer"
+            title="Download Payroll Report as Excel"
+          >
+            <Download className="w-4 h-4 text-indigo-400" />
+            Export Excel
+          </button>
+
+          <button
+            onClick={() => setSelectedPayslip(latest)}
+            className="px-4 py-2.5 rounded-xl bg-[#8B3A4A] hover:bg-[#A04456] text-white text-xs font-semibold shadow-lg shadow-[#8B3A4A]/20 flex items-center gap-2 transition-all cursor-pointer"
+          >
+            <FileText className="w-4 h-4" />
+            View Latest Payslip ({latest.monthYear})
+          </button>
+        </div>
       </div>
 
       {/* Salary Overview Highlight */}

@@ -1,26 +1,69 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #0d1117;
+  --surface: #161b22;
+  --surface-elevated: #21262d;
+  --border: #30363d;
+  --text-primary: #f0f6fc;
+  --text-secondary: #8b949e;
+  --text-muted: #6e7681;
+  --accent: #8B3A4A;
+  --accent-hover: #A04456;
+  --success: #238636;
+  --warning: #9e6a03;
+  --error: #da3633;
+  --info: #1f6feb;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+.light {
+  --background: #F6F7F9;
+  --surface: #FFFFFF;
+  --surface-elevated: #F9FAFB;
+  --border: #D8DDE5;
+  --text-primary: #171A1F;
+  --text-secondary: #5E6673;
+  --text-muted: #8A92A0;
+  --accent: #8B3A4A;
+  --accent-hover: #A04456;
+  --success: #198754;
+  --warning: #B58100;
+  --error: #DC3545;
+  --info: #0D6EFD;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--background);
+  color: var(--text-primary);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  letter-spacing: -0.01em;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
+
+/* Theme utility classes */
+.bg-app { background-color: var(--background); }
+.bg-surface { background-color: var(--surface); }
+.bg-surface-elevated { background-color: var(--surface-elevated); }
+.border-border { border-color: var(--border); }
+.text-foreground { color: var(--text-primary); }
+.text-muted { color: var(--text-secondary); }
+.bg-burgundy { background-color: var(--accent); }
+.hover\:bg-burgundy-hover:hover { background-color: var(--accent-hover); }
+
+/* Custom Enterprise Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--background);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
+}
+
+
