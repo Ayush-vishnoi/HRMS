@@ -3,6 +3,7 @@
 import React from 'react';
 import { X, Mail, Phone, MapPin, Calendar, Briefcase, Building2, UserCheck, DollarSign } from 'lucide-react';
 import { Employee } from '@/data/mockData';
+import { formatINR } from '@/utils/formatters';
 
 interface EmployeeDetailsModalProps {
   employee: Employee | null;
@@ -112,7 +113,7 @@ export const EmployeeDetailsModal: React.FC<EmployeeDetailsModalProps> = ({ empl
               <DollarSign className="w-5 h-5 text-emerald-400" />
               <div>
                 <span className="text-[10px] uppercase font-bold text-slate-400">Annual Compensation</span>
-                <p className="text-sm font-bold text-slate-100">${employee.salary.toLocaleString()} / year</p>
+                <p className="text-sm font-bold text-slate-100">{formatINR(employee.salary)} / year</p>
               </div>
             </div>
             <button className="px-3 py-1.5 rounded-lg bg-slate-700 text-slate-200 text-xs font-medium hover:bg-slate-600 transition-colors">

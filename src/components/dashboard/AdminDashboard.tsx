@@ -12,6 +12,7 @@ import {
   UserPlus
 } from 'lucide-react';
 import { MOCK_ANALYTICS } from '@/data/mockData';
+import { formatINR } from '@/utils/formatters';
 
 export const AdminDashboard: React.FC = () => {
   return (
@@ -32,7 +33,7 @@ export const AdminDashboard: React.FC = () => {
             <span>Monthly Payroll Expense</span>
             <DollarSign className="w-4 h-4 text-[#3fb950]" />
           </div>
-          <div className="text-2xl font-black text-[#F0F2F5] mt-2">$220,000</div>
+          <div className="text-2xl font-black text-[#F0F2F5] mt-2">{formatINR(MOCK_ANALYTICS.monthlyPayrollCost.at(-1)?.cost ?? 0)}</div>
           <span className="text-[11px] text-[#8B949E]">July 2026 Processed</span>
         </div>
 
@@ -98,10 +99,10 @@ export const AdminDashboard: React.FC = () => {
           <div className="space-y-3">
             <div className="p-3 rounded-xl bg-[#21262d] border border-[#30363d] space-y-1">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-[#F0F2F5]">Form I-9 Verifications</span>
+                <span className="text-xs font-bold text-[#F0F2F5]">Employee KYC Verifications</span>
                 <span className="text-[9px] px-2 py-0.5 rounded bg-[#9e6a03]/15 text-[#d29922] border border-[#9e6a03]/30 font-bold">3 Pending</span>
               </div>
-              <p className="text-[11px] text-[#8B949E]">3 new hires require identity verification completion.</p>
+              <p className="text-[11px] text-[#8B949E]">3 new hires require Aadhaar and PAN verification completion.</p>
             </div>
 
             <div className="p-3 rounded-xl bg-[#21262d] border border-[#30363d] space-y-1">

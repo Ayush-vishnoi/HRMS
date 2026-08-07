@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 import {
   MOCK_EMPLOYEES,
   INITIAL_LEAVE_REQUESTS,
@@ -27,32 +27,32 @@ export interface UserAccount {
 export const DEMO_ACCOUNTS: Record<UserRole, UserAccount> = {
   employee: {
     id: 'EMP-001',
-    name: 'Sarah Jenkins',
-    email: 'sarah.j@company.com',
-    role: 'Senior Product Designer',
+    name: 'Ayush Vishnoi',
+    email: 'ayush.vishnoi@company.com',
+    role: 'AI/ML Intern Developer',
     userRole: 'employee',
-    department: 'Design',
-    avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80',
-    employeeCode: 'EMP-2023-089',
+    department: 'AI/ML',
+    avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
+    employeeCode: 'EMP-2026-089',
   },
   manager: {
     id: 'EMP-002',
-    name: 'Alex Rivera',
-    email: 'alex.rivera@company.com',
+    name: 'Arjun Mehta',
+    email: 'arjun.mehta@company.com',
     role: 'Engineering Manager',
     userRole: 'manager',
     department: 'Engineering',
-    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
+    avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80',
     employeeCode: 'EMP-2019-012',
   },
   admin: {
     id: 'EMP-006',
-    name: 'Elena Vance',
-    email: 'elena.vance@company.com',
-    role: 'VP of Human Resources',
+    name: 'Priya Sharma',
+    email: 'priya.sharma@company.com',
+    role: 'Head of Human Resources',
     userRole: 'admin',
     department: 'Human Resources',
-    avatar: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=150&auto=format&fit=crop&q=80',
+    avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80',
     employeeCode: 'EMP-2017-003',
   },
 };
@@ -69,6 +69,7 @@ interface HRMSContextType {
   attendanceLogs: AttendanceRecord[];
   isClockedIn: boolean;
   clockInTime: string | null;
+  elapsedWorkTime: string;
   toggleClockIn: () => void;
   addLeaveRequest: (newLeave: Omit<LeaveRequest, 'id' | 'employeeId' | 'employeeName' | 'employeeAvatar' | 'status' | 'appliedOn'>) => void;
   updateLeaveStatus: (id: string, status: 'Approved' | 'Rejected') => void;
@@ -78,19 +79,50 @@ interface HRMSContextType {
 
 const HRMSContext = createContext<HRMSContextType | undefined>(undefined);
 
+const formatElapsedWorkTime = (totalSeconds: number) => {
+  const safeSeconds = Math.max(0, totalSeconds);
+  const hours = Math.floor(safeSeconds / 3600);
+  const minutes = Math.floor((safeSeconds % 3600) / 60);
+  const seconds = safeSeconds % 60;
+
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+};
+
+const formatWorkedHours = (totalSeconds: number) => {
+  const hours = Math.floor(Math.max(0, totalSeconds) / 3600);
+  const minutes = Math.floor((Math.max(0, totalSeconds) % 3600) / 60);
+
+  return `${hours}h ${minutes}m`;
+};
+
 export const HRMSProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(true);
-  const [activeRole, setActiveRole] = useState<UserRole>('employee');
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [currentUser, setCurrentUser] = useState<UserAccount>(DEMO_ACCOUNTS.employee);
   const [employees, setEmployees] = useState<Employee[]>(MOCK_EMPLOYEES);
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>(INITIAL_LEAVE_REQUESTS);
   const [attendanceLogs, setAttendanceLogs] = useState<AttendanceRecord[]>(MOCK_ATTENDANCE_LOGS);
-  const [isClockedIn, setIsClockedIn] = useState<boolean>(true);
-  const [clockInTime, setClockInTime] = useState<string | null>('09:02 AM');
+  const [isClockedIn, setIsClockedIn] = useState<boolean>(false);
+  const [clockInTime, setClockInTime] = useState<string | null>(null);
+  const [clockInAt, setClockInAt] = useState<number | null>(null);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
 
+  useEffect(() => {
+    if (!isClockedIn || clockInAt === null) {
+      return;
+    }
+
+    const updateElapsedTime = () => {
+      setElapsedSeconds(Math.max(0, Math.floor((Date.now() - clockInAt) / 1000)));
+    };
+
+    const intervalId = window.setInterval(updateElapsedTime, 1000);
+    return () => window.clearInterval(intervalId);
+  }, [clockInAt, isClockedIn]);
+
+  const elapsedWorkTime = formatElapsedWorkTime(elapsedSeconds);
+
   const login = (role: UserRole) => {
-    setActiveRole(role);
     setCurrentUser(DEMO_ACCOUNTS[role]);
     setIsAuthenticated(true);
   };
@@ -111,31 +143,41 @@ export const HRMSProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const toggleClockIn = () => {
-    if (isClockedIn) {
-      setIsClockedIn(false);
-      setClockInTime(null);
-      const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const now = new Date();
+    const nowTime = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    if (isClockedIn && clockInAt !== null) {
+      const workedSeconds = Math.max(0, Math.floor((now.getTime() - clockInAt) / 1000));
       setAttendanceLogs((prev) =>
         prev.map((log, index) =>
-          index === 0 ? { ...log, checkOut: nowTime, hoursWorked: '8h 45m' } : log
+          index === 0
+            ? { ...log, checkOut: nowTime, hoursWorked: formatWorkedHours(workedSeconds) }
+            : log
         )
       );
-    } else {
-      setIsClockedIn(true);
-      const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      setClockInTime(nowTime);
-      const todayStr = new Date().toISOString().split('T')[0];
-      const newLog: AttendanceRecord = {
-        id: `ATT-${Date.now()}`,
-        date: todayStr,
-        checkIn: nowTime,
-        checkOut: 'In Progress',
-        hoursWorked: '0h 01m',
-        status: 'On Time',
-        location: 'Office - HQ',
-      };
-      setAttendanceLogs((prev) => [newLog, ...prev]);
+      setIsClockedIn(false);
+      setClockInTime(null);
+      setClockInAt(null);
+      setElapsedSeconds(0);
+      return;
     }
+
+    const todayStr = now.toISOString().split('T')[0];
+    const newLog: AttendanceRecord = {
+      id: `ATT-${now.getTime()}`,
+      date: todayStr,
+      checkIn: nowTime,
+      checkOut: 'In Progress',
+      hoursWorked: '0h 0m',
+      status: 'On Time',
+      location: 'Office - HQ',
+    };
+
+    setAttendanceLogs((prev) => [newLog, ...prev]);
+    setClockInTime(nowTime);
+    setClockInAt(now.getTime());
+    setElapsedSeconds(0);
+    setIsClockedIn(true);
   };
 
   const addLeaveRequest = (
@@ -174,6 +216,7 @@ export const HRMSProvider: React.FC<{ children: React.ReactNode }> = ({ children
         attendanceLogs,
         isClockedIn,
         clockInTime,
+        elapsedWorkTime,
         toggleClockIn,
         addLeaveRequest,
         updateLeaveStatus,

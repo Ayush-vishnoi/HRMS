@@ -25,6 +25,7 @@ import {
   Cell
 } from 'recharts';
 import { MOCK_ANALYTICS } from '@/data/mockData';
+import { formatCompactINR, formatINR } from '@/utils/formatters';
 
 export default function AnalyticsPage() {
   return (
@@ -58,7 +59,7 @@ export default function AnalyticsPage() {
 
         <div className="p-4 rounded-2xl bg-surface border border-border shadow-md">
           <span className="text-xs font-bold text-secondary uppercase tracking-wider">Avg Salary Per Employee</span>
-          <div className="text-2xl font-black text-emerald-500 mt-2">$118,500 / yr</div>
+          <div className="text-2xl font-black text-emerald-500 mt-2">{formatINR(1185000)} / yr</div>
           <span className="text-[11px] text-secondary">Market Competitive Index 1.05</span>
         </div>
 
@@ -76,7 +77,7 @@ export default function AnalyticsPage() {
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
               <DollarSign className="w-4 h-4 text-emerald-500" />
-              Monthly Payroll Expense Trend ($)
+              Monthly Payroll Expense Trend (INR)
             </h3>
             <span className="text-xs text-secondary">2026 YTD</span>
           </div>
@@ -92,8 +93,9 @@ export default function AnalyticsPage() {
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                 <XAxis dataKey="month" stroke="var(--secondary)" fontSize={11} />
-                <YAxis stroke="var(--secondary)" fontSize={11} />
+                <YAxis stroke="var(--secondary)" fontSize={11} tickFormatter={(value) => formatCompactINR(Number(value))} />
                 <Tooltip
+                  formatter={(value) => formatINR(Number(value))}
                   contentStyle={{ backgroundColor: 'var(--surface-elevated)', borderColor: 'var(--border)', borderRadius: '12px', fontSize: '12px', color: 'var(--foreground)' }}
                 />
                 <Area type="monotone" dataKey="cost" stroke="#10b981" strokeWidth={2} fillOpacity={1} fill="url(#colorCost)" />

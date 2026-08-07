@@ -6,11 +6,14 @@ import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard,
   Users,
+  UsersRound,
   Clock,
   CalendarDays,
+  CalendarRange,
   CreditCard,
   Target,
   BarChart3,
+  ScanSearch,
   Building2,
   ChevronRight,
   ShieldCheck,
@@ -28,12 +31,15 @@ export const Sidebar: React.FC = () => {
 
   const NAV_ITEMS = [
     { name: 'Dashboard', href: '/', icon: LayoutDashboard, roles: ['employee', 'manager', 'admin'] },
+    { name: 'My Team', href: '/my-team', icon: UsersRound, roles: ['manager'] },
     { name: 'Employee Directory', href: '/employees', icon: Users, roles: ['manager', 'admin'] },
     { name: 'Attendance & Time', href: '/attendance', icon: Clock, roles: ['employee', 'manager', 'admin'] },
     { name: 'Leave Management', href: '/leaves', icon: CalendarDays, roles: ['employee', 'manager', 'admin'] },
+    { name: 'Meetings & Calendar', href: '/meetings/calendar', icon: CalendarRange, roles: ['employee', 'manager', 'admin'] },
     { name: 'Payroll & Payslips', href: '/payroll', icon: CreditCard, roles: ['employee', 'admin'] },
     { name: 'Performance & OKRs', href: '/performance', icon: Target, roles: ['employee', 'manager', 'admin'] },
     { name: 'Reports & Analytics', href: '/analytics', icon: BarChart3, roles: ['admin'] },
+    { name: 'Recruitment', href: '/recruitment', icon: ScanSearch, roles: ['admin'] },
   ];
 
   const allowedNav = NAV_ITEMS.filter((item) => item.roles.includes(role));
@@ -78,7 +84,7 @@ export const Sidebar: React.FC = () => {
         <div className="px-2 pb-1.5 text-[10px] font-semibold tracking-wider text-[#6e7681] uppercase">Navigation</div>
         {allowedNav.map((item) => {
           const Icon = item.icon;
-          const isActive = pathname === item.href;
+          const isActive = pathname === item.href || (item.href === '/meetings/calendar' && pathname.startsWith('/meetings'));
           return (
             <Link
               key={item.href}
@@ -118,7 +124,7 @@ export const Sidebar: React.FC = () => {
           className="w-full py-1.5 px-2.5 rounded-md bg-[#da3633]/10 hover:bg-[#da3633]/20 text-[#f85149] border border-[#da3633]/30 text-[11px] font-medium flex items-center justify-center gap-1.5 transition-colors"
         >
           <LogOut className="w-3.5 h-3.5" />
-          Switch Account / Logout
+          Logout
         </button>
       </div>
     </aside>

@@ -15,6 +15,7 @@ export default function AttendancePage() {
   const {
     isClockedIn,
     clockInTime,
+    elapsedWorkTime,
     toggleClockIn,
     attendanceLogs,
     currentUser,
@@ -96,12 +97,12 @@ export default function AttendancePage() {
             </span>
 
             <div className="text-3xl font-black font-mono text-[#F0F2F5]">
-              {isClockedIn ? clockInTime : '00:00:00'}
+              {isClockedIn ? elapsedWorkTime : '00:00:00'}
             </div>
 
             <p className="text-xs font-semibold text-emerald-500">
               {isClockedIn
-                ? '● Shift Active • Recorded at HQ Office'
+                ? `● Shift Active • Clocked in at ${clockInTime}`
                 : '○ Shift Inactive • Ready to Punch In'}
             </p>
           </div>

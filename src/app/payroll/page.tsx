@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { CreditCard, DollarSign, FileText, Download, Printer, Eye, Building2, ShieldCheck } from 'lucide-react';
 import { MOCK_PAYSLIPS, Payslip, CURRENT_USER } from '@/data/mockData';
 import { PayslipModal } from '@/components/modals/PayslipModal';
+import { formatINR } from '@/utils/formatters';
 import { exportToExcel } from '@/utils/exportUtils';
 import { useHRMS } from '@/context/HRMSContext';
 
@@ -74,7 +75,7 @@ export default function PayrollPage() {
           <div className="flex justify-between items-start">
             <div>
               <span className="text-xs uppercase font-bold text-[#B86B78]">Monthly Take-Home Salary</span>
-              <div className="text-3xl font-black text-foreground mt-1">${latest.netPayable.toLocaleString()}</div>
+              <div className="text-3xl font-black text-foreground mt-1">{formatINR(latest.netPayable)}</div>
             </div>
             <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
               Direct Deposited
@@ -84,25 +85,25 @@ export default function PayrollPage() {
           <div className="pt-4 border-t border-border grid grid-cols-2 gap-4 text-xs">
             <div>
               <span className="text-secondary">Gross Earnings:</span>
-              <span className="font-bold text-emerald-500 block">${latest.grossEarnings.toLocaleString()}</span>
+              <span className="font-bold text-emerald-500 block">{formatINR(latest.grossEarnings)}</span>
             </div>
             <div>
               <span className="text-secondary">Total Deductions:</span>
-              <span className="font-bold text-rose-500 block">${latest.totalDeductions.toLocaleString()}</span>
+              <span className="font-bold text-rose-500 block">{formatINR(latest.totalDeductions)}</span>
             </div>
           </div>
         </div>
 
         <div className="p-4 rounded-2xl bg-surface border border-border shadow-md">
           <span className="text-xs font-bold text-secondary uppercase tracking-wider">Annual CTC Tier</span>
-          <div className="text-2xl font-black text-foreground mt-2">${CURRENT_USER.salary.toLocaleString()}</div>
+          <div className="text-2xl font-black text-foreground mt-2">{formatINR(CURRENT_USER.salary)}</div>
           <p className="text-[11px] text-secondary mt-1">Band: Senior Level II</p>
         </div>
 
         <div className="p-4 rounded-2xl bg-surface border border-border shadow-md">
           <span className="text-xs font-bold text-secondary uppercase tracking-wider">Tax & Deductions</span>
-          <div className="text-2xl font-black text-rose-500 mt-2">${latest.taxDeduction.toLocaleString()}</div>
-          <p className="text-[11px] text-secondary mt-1">PF Contribution: ${latest.pfDeduction.toLocaleString()}</p>
+          <div className="text-2xl font-black text-rose-500 mt-2">{formatINR(latest.taxDeduction)}</div>
+          <p className="text-[11px] text-secondary mt-1">PF Contribution: {formatINR(latest.pfDeduction)}</p>
         </div>
       </div>
 
@@ -131,9 +132,9 @@ export default function PayrollPage() {
                 <tr key={slip.id} className="hover:bg-surface-elevated/40 transition-colors">
                   <td className="py-3 px-4 font-bold text-foreground">{slip.monthYear}</td>
                   <td className="py-3 px-4 text-secondary">{slip.paymentDate}</td>
-                  <td className="py-3 px-4 font-semibold text-emerald-500">${slip.grossEarnings.toLocaleString()}</td>
-                  <td className="py-3 px-4 text-rose-500">${slip.totalDeductions.toLocaleString()}</td>
-                  <td className="py-3 px-4 font-bold text-foreground">${slip.netPayable.toLocaleString()}</td>
+                  <td className="py-3 px-4 font-semibold text-emerald-500">{formatINR(slip.grossEarnings)}</td>
+                  <td className="py-3 px-4 text-rose-500">{formatINR(slip.totalDeductions)}</td>
+                  <td className="py-3 px-4 font-bold text-foreground">{formatINR(slip.netPayable)}</td>
                   <td className="py-3 px-4">
                     <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
                       {slip.status}

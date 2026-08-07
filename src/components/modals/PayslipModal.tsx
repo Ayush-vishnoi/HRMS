@@ -3,6 +3,7 @@
 import React from 'react';
 import { X, Printer, Download, Building2, CheckCircle2 } from 'lucide-react';
 import { Payslip, CURRENT_USER } from '@/data/mockData';
+import { formatINR } from '@/utils/formatters';
 
 interface PayslipModalProps {
   payslip: Payslip | null;
@@ -50,9 +51,9 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({ payslip, onClose }) 
           {/* Company Branding & Statement */}
           <div className="flex items-start justify-between border-b border-border pb-6">
             <div>
-              <h2 className="text-xl font-extrabold text-foreground tracking-tight">Apex Global Technologies Inc.</h2>
-              <p className="text-xs text-secondary">100 Tech Plaza, Suite 800, San Francisco, CA 94105</p>
-              <p className="text-xs text-secondary">Tax ID / EIN: 94-3829102</p>
+              <h2 className="text-xl font-extrabold text-foreground tracking-tight">Apex Digital Technologies Private Limited</h2>
+              <p className="text-xs text-secondary">100 Innovation Park, Whitefield, Bengaluru, Karnataka 560066</p>
+              <p className="text-xs text-secondary">PAN / TAN: AABCA1234M / BLRA12345E</p>
             </div>
             <div className="text-right">
               <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 mb-1">
@@ -73,9 +74,9 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({ payslip, onClose }) 
               <p className="text-secondary font-medium">Department: <span className="text-foreground">{CURRENT_USER.department}</span></p>
             </div>
             <div>
-              <p className="text-secondary font-medium">Bank Name: <span className="text-foreground font-semibold">Silicon Valley Bank</span></p>
+              <p className="text-secondary font-medium">Bank Name: <span className="text-foreground font-semibold">HDFC Bank</span></p>
               <p className="text-secondary font-medium">Account No: <span className="text-foreground font-semibold">•••• •••• 4921</span></p>
-              <p className="text-secondary font-medium">PF Number: <span className="text-foreground">PF-SF-904812</span></p>
+              <p className="text-secondary font-medium">UAN / PF Number: <span className="text-foreground">100234567890</span></p>
               <p className="text-secondary font-medium">Days Paid: <span className="text-foreground font-semibold">31 Days</span></p>
             </div>
           </div>
@@ -86,28 +87,28 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({ payslip, onClose }) 
             <div className="border border-border rounded-xl overflow-hidden">
               <div className="bg-surface-elevated px-4 py-2.5 text-xs font-bold text-foreground border-b border-border flex justify-between">
                 <span>Earnings Breakdown</span>
-                <span>Amount ($)</span>
+                <span>Amount (INR)</span>
               </div>
               <div className="p-4 space-y-2.5 text-xs">
                 <div className="flex justify-between text-secondary">
                   <span>Basic Salary</span>
-                  <span className="font-semibold text-foreground">${payslip.basicSalary.toLocaleString()}</span>
+                  <span className="font-semibold text-foreground">{formatINR(payslip.basicSalary)}</span>
                 </div>
                 <div className="flex justify-between text-secondary">
                   <span>House Rent Allowance (HRA)</span>
-                  <span className="font-semibold text-foreground">${payslip.hra.toLocaleString()}</span>
+                  <span className="font-semibold text-foreground">{formatINR(payslip.hra)}</span>
                 </div>
                 <div className="flex justify-between text-secondary">
                   <span>Conveyance Allowance</span>
-                  <span className="font-semibold text-foreground">${payslip.conveyance.toLocaleString()}</span>
+                  <span className="font-semibold text-foreground">{formatINR(payslip.conveyance)}</span>
                 </div>
                 <div className="flex justify-between text-secondary">
                   <span>Special Allowance</span>
-                  <span className="font-semibold text-foreground">${payslip.specialAllowance.toLocaleString()}</span>
+                  <span className="font-semibold text-foreground">{formatINR(payslip.specialAllowance)}</span>
                 </div>
                 <div className="pt-2 border-t border-border flex justify-between font-bold text-foreground">
                   <span>Gross Earnings</span>
-                  <span className="text-emerald-500">${payslip.grossEarnings.toLocaleString()}</span>
+                  <span className="text-emerald-500">{formatINR(payslip.grossEarnings)}</span>
                 </div>
               </div>
             </div>
@@ -116,28 +117,28 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({ payslip, onClose }) 
             <div className="border border-border rounded-xl overflow-hidden">
               <div className="bg-surface-elevated px-4 py-2.5 text-xs font-bold text-foreground border-b border-border flex justify-between">
                 <span>Deductions Breakdown</span>
-                <span>Amount ($)</span>
+                <span>Amount (INR)</span>
               </div>
               <div className="p-4 space-y-2.5 text-xs">
                 <div className="flex justify-between text-secondary">
                   <span>Provident Fund (PF)</span>
-                  <span className="font-semibold text-foreground">${payslip.pfDeduction.toLocaleString()}</span>
+                  <span className="font-semibold text-foreground">{formatINR(payslip.pfDeduction)}</span>
                 </div>
                 <div className="flex justify-between text-secondary">
                   <span>Income Tax (TDS)</span>
-                  <span className="font-semibold text-foreground">${payslip.taxDeduction.toLocaleString()}</span>
+                  <span className="font-semibold text-foreground">{formatINR(payslip.taxDeduction)}</span>
                 </div>
                 <div className="flex justify-between text-secondary">
                   <span>Professional Tax</span>
-                  <span className="font-semibold text-foreground">$0</span>
+                  <span className="font-semibold text-foreground">{formatINR(0)}</span>
                 </div>
                 <div className="flex justify-between text-secondary text-transparent select-none">
                   <span>Filler</span>
-                  <span>$0</span>
+                  <span>{formatINR(0)}</span>
                 </div>
                 <div className="pt-2 border-t border-border flex justify-between font-bold text-foreground">
                   <span>Total Deductions</span>
-                  <span className="text-rose-500">${payslip.totalDeductions.toLocaleString()}</span>
+                  <span className="text-rose-500">{formatINR(payslip.totalDeductions)}</span>
                 </div>
               </div>
             </div>
@@ -147,7 +148,7 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({ payslip, onClose }) 
           <div className="p-5 rounded-2xl bg-surface border border-border flex items-center justify-between">
             <div>
               <span className="text-xs uppercase font-bold text-[#B86B78]">Net Take-Home Pay</span>
-              <p className="text-2xl font-black text-foreground mt-0.5">${payslip.netPayable.toLocaleString()}</p>
+              <p className="text-2xl font-black text-foreground mt-0.5">{formatINR(payslip.netPayable)}</p>
             </div>
             <div className="text-right text-xs text-secondary font-medium">
               <p>Direct Deposited to Bank</p>

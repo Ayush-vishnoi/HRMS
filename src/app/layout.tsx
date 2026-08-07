@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google';
 import './globals.css';
 import { HRMSProvider } from '@/context/HRMSContext';
 import { MainLayoutWrapper } from '@/components/layout/MainLayoutWrapper';
+import { MeetingsQueryProvider } from '@/components/providers/MeetingsQueryProvider';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -17,7 +18,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark" suppressHydrationWarning>
+    <html lang="en-IN" className="dark" suppressHydrationWarning>
       <body className={`${inter.className} antialiased selection:bg-[#8B3A4A] selection:text-white`}>
         <script
           dangerouslySetInnerHTML={{
@@ -36,7 +37,9 @@ export default function RootLayout({
           }}
         />
         <HRMSProvider>
-          <MainLayoutWrapper>{children}</MainLayoutWrapper>
+          <MeetingsQueryProvider>
+            <MainLayoutWrapper>{children}</MainLayoutWrapper>
+          </MeetingsQueryProvider>
         </HRMSProvider>
       </body>
     </html>

@@ -4,6 +4,17 @@ import React, { useState, useEffect } from 'react';
 import { Building2, ShieldCheck, UserCheck, Briefcase, Lock, Mail, ArrowRight, Sun, Moon } from 'lucide-react';
 import { useHRMS, UserRole, DEMO_ACCOUNTS } from '@/context/HRMSContext';
 
+const ROLE_OPTIONS: Array<{
+  role: UserRole;
+  label: string;
+  access: string;
+  icon: React.FC<{ className?: string }>;
+}> = [
+  { role: 'employee', label: 'Employee', access: 'ESS Portal', icon: UserCheck },
+  { role: 'manager', label: 'Manager', access: 'Team View', icon: Briefcase },
+  { role: 'admin', label: 'HR Admin', access: 'Full Access', icon: ShieldCheck },
+];
+
 export const LoginPage: React.FC = () => {
   const { login } = useHRMS();
   const [selectedRole, setSelectedRole] = useState<UserRole>('employee');
@@ -78,47 +89,36 @@ export const LoginPage: React.FC = () => {
               Authorization Role
             </label>
             <div className="grid grid-cols-3 gap-2">
-              <button
-                type="button"
-                onClick={() => handleRoleSelect('employee')}
-                className={`p-3 rounded-xl border text-center transition-all ${
-                  selectedRole === 'employee'
-                    ? 'bg-[#8B3A4A]/10 border-[#8B3A4A] text-[#B86B78]'
-                    : 'bg-[#21262d] border-[#30363d] text-slate-400 hover:border-slate-600 hover:text-slate-300'
-                }`}
-              >
-                <UserCheck className="w-4 h-4 mx-auto mb-1.5 text-[#B86B78]" />
-                <span className="text-xs font-semibold block text-slate-200">Employee</span>
-                <span className="text-[10px] text-slate-400 mt-0.5 block">ESS Portal</span>
-              </button>
+              {ROLE_OPTIONS.map(({ role, label, access, icon: Icon }) => {
+                const account = DEMO_ACCOUNTS[role];
+                const isSelected = selectedRole === role;
 
-              <button
-                type="button"
-                onClick={() => handleRoleSelect('manager')}
-                className={`p-3 rounded-xl border text-center transition-all ${
-                  selectedRole === 'manager'
-                    ? 'bg-[#8B3A4A]/10 border-[#8B3A4A] text-[#B86B78]'
-                    : 'bg-[#21262d] border-[#30363d] text-slate-400 hover:border-slate-600 hover:text-slate-300'
-                }`}
-              >
-                <Briefcase className="w-4 h-4 mx-auto mb-1.5 text-[#B86B78]" />
-                <span className="text-xs font-semibold block text-slate-200">Manager</span>
-                <span className="text-[10px] text-slate-400 mt-0.5 block">Team View</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleRoleSelect('admin')}
-                className={`p-3 rounded-xl border text-center transition-all ${
-                  selectedRole === 'admin'
-                    ? 'bg-[#8B3A4A]/10 border-[#8B3A4A] text-[#B86B78]'
-                    : 'bg-[#21262d] border-[#30363d] text-slate-400 hover:border-slate-600 hover:text-slate-300'
-                }`}
-              >
-                <ShieldCheck className="w-4 h-4 mx-auto mb-1.5 text-[#B86B78]" />
-                <span className="text-xs font-semibold block text-slate-200">HR Admin</span>
-                <span className="text-[10px] text-slate-400 mt-0.5 block">Full Access</span>
-              </button>
+                return (
+                  <button
+                    key={role}
+                    type="button"
+                    onClick={() => handleRoleSelect(role)}
+                    aria-pressed={isSelected}
+                    className={`login-role-card p-3 rounded-xl border text-center transition-all ${
+                      isSelected
+                        ? 'bg-[#8B3A4A]/10 border-[#8B3A4A] text-[#B86B78]'
+                        : 'bg-[#21262d] border-[#30363d] text-slate-400 hover:border-slate-600 hover:text-slate-300'
+                    }`}
+                  >
+                    <span className="login-avatar-wrap block w-12 h-12 mx-auto mb-2 rounded-2xl p-0.5">
+                      <img
+                        src={account.avatar}
+                        alt={`${account.name} profile`}
+                        className="w-full h-full rounded-[14px] object-cover"
+                      />
+                    </span>
+                    <Icon className="w-3.5 h-3.5 mx-auto mb-1 text-[#B86B78]" />
+                    <span className="text-xs font-semibold block text-slate-200">{label}</span>
+                    <span className="text-[10px] text-slate-400 mt-0.5 block">{access}</span>
+                    <span className="text-[10px] text-[#B86B78] mt-1 block truncate">{account.name}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -156,7 +156,7 @@ export const LoginPage: React.FC = () => {
               type="submit"
               className="w-full py-2.5 rounded-xl bg-[#8B3A4A] hover:bg-[#A04456] text-white text-xs font-semibold flex items-center justify-center gap-2 transition-colors mt-2 shadow-sm"
             >
-              Sign in to {selectedRole === 'admin' ? 'HR Admin' : selectedRole.charAt(0).toUpperCase() + selectedRole.slice(1)} Dashboard
+              Sign in
               <ArrowRight className="w-4 h-4" />
             </button>
           </form>
@@ -166,7 +166,7 @@ export const LoginPage: React.FC = () => {
             <img
               src={DEMO_ACCOUNTS[selectedRole].avatar}
               alt={DEMO_ACCOUNTS[selectedRole].name}
-              className="w-9 h-9 rounded-lg object-cover border border-[#30363d]"
+              className="w-9 h-9 rounded-lg object-cover border border-[#30363d] login-preview-avatar"
             />
             <div className="flex-1 min-w-0">
               <p className="text-xs font-semibold text-slate-200 truncate">{DEMO_ACCOUNTS[selectedRole].name}</p>

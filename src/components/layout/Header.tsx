@@ -4,8 +4,6 @@ import React, { useState, useEffect } from 'react';
 import {
   Search,
   Bell,
-  Clock,
-  LogOut,
   ShieldCheck,
   UserCheck,
   Briefcase,
@@ -17,26 +15,17 @@ import {
 import { useHRMS } from '@/context/HRMSContext';
 
 export const Header: React.FC = () => {
-  const { currentUser, logout, isClockedIn, clockInTime, toggleClockIn } = useHRMS();
+  const { currentUser, isClockedIn, clockInTime, toggleClockIn } = useHRMS();
   const [showNotifications, setShowNotifications] = useState(false);
-  const [currentTime, setCurrentTime] = useState<string>('');
   const [isDarkMode, setIsDarkMode] = useState<boolean>(true);
 
   useEffect(() => {
-    const updateTime = () => {
-      setCurrentTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
-    };
-    updateTime();
-    const interval = setInterval(updateTime, 1000);
-
     const saved = localStorage.getItem('hrms_theme');
     if (saved === 'light') {
       setIsDarkMode(false);
     } else {
       setIsDarkMode(true);
     }
-
-    return () => clearInterval(interval);
   }, []);
 
   const toggleTheme = () => {
@@ -81,12 +70,8 @@ export const Header: React.FC = () => {
 
       {/* Right Header Actions */}
       <div className="flex items-center gap-3">
-        {/* Live Clock & Quick Check-in Button */}
+        {/* Quick Check-in Button */}
         <div className="flex items-center bg-[#0d1117] border border-[#30363d] rounded-md p-0.5">
-          <div className="px-2.5 py-1 text-[11px] font-mono text-[#3fb950] flex items-center gap-1.5 border-r border-[#30363d]">
-            <Clock className="w-3.5 h-3.5 text-[#3fb950]" />
-            <span>{currentTime || '09:00 AM'}</span>
-          </div>
           <button
             onClick={toggleClockIn}
             className={`px-2.5 py-1 rounded text-xs font-medium flex items-center gap-1.5 transition-colors ${
@@ -136,7 +121,7 @@ export const Header: React.FC = () => {
                   <CheckCircle2 className="w-4 h-4 text-[#3fb950] shrink-0 mt-0.5" />
                   <div>
                     <p className="text-xs font-medium text-[#f0f6fc]">Leave Request Approved</p>
-                    <p className="text-[11px] text-[#8b949e]">Casual Leave for July 20-21 was approved by Alex Rivera.</p>
+                    <p className="text-[11px] text-[#8b949e]">Casual Leave for July 20-21 was approved by Arjun Mehta.</p>
                     <span className="text-[10px] text-[#6e7681] mt-0.5 block">2 hours ago</span>
                   </div>
                 </div>
@@ -145,15 +130,6 @@ export const Header: React.FC = () => {
           )}
         </div>
 
-        {/* Logout Action Button */}
-        <button
-          onClick={logout}
-          className="p-1.5 rounded-md bg-[#da3633]/10 hover:bg-[#da3633]/20 border border-[#da3633]/30 text-[#f85149] transition-colors flex items-center gap-1 text-xs font-medium"
-          title="Sign out of HRMS"
-        >
-          <LogOut className="w-4 h-4" />
-          <span className="hidden sm:inline">Logout</span>
-        </button>
       </div>
     </header>
   );

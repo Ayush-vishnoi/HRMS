@@ -19,9 +19,10 @@ import { useHRMS } from '@/context/HRMSContext';
 import { ApplyLeaveModal } from '@/components/modals/ApplyLeaveModal';
 import { PayslipModal } from '@/components/modals/PayslipModal';
 import { MOCK_PAYSLIPS, Payslip } from '@/data/mockData';
+import { UpcomingMeetingsCard } from '@/components/dashboard/UpcomingMeetingsCard';
 
 export const EmployeeDashboard: React.FC = () => {
-  const { currentUser, leaveBalances, isClockedIn, clockInTime, toggleClockIn, leaveRequests } = useHRMS();
+  const { currentUser, leaveBalances, isClockedIn, clockInTime, elapsedWorkTime, toggleClockIn, leaveRequests } = useHRMS();
   const [isLeaveModalOpen, setIsLeaveModalOpen] = useState(false);
   const [selectedPayslip, setSelectedPayslip] = useState<Payslip | null>(null);
 
@@ -127,8 +128,8 @@ export const EmployeeDashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Middle Section: Attendance Punch Card & Announcements */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      {/* Middle Section: Attendance, Announcements, and Meetings */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Attendance Punch Card */}
         <div className="p-6 rounded-2xl bg-[#161b22] border border-[#30363d] shadow-md flex flex-col justify-between space-y-4">
           <div className="flex items-center justify-between">
@@ -144,10 +145,10 @@ export const EmployeeDashboard: React.FC = () => {
           <div className="p-4 rounded-xl bg-[#21262d] border border-[#30363d] text-center space-y-2">
             <span className="text-[11px] text-[#8B949E] uppercase font-semibold">Today's Check-in Status</span>
             <div className="text-2xl font-black text-[#238636] font-mono">
-              {isClockedIn ? clockInTime : 'Not Clocked In'}
+              {isClockedIn ? elapsedWorkTime : 'Not Clocked In'}
             </div>
             <p className="text-[11px] text-[#8B949E]">
-              {isClockedIn ? 'Punch in registered • On Time' : 'Click below to register your daily attendance'}
+              {isClockedIn ? `Clocked in at ${clockInTime} • Shift active` : 'Click below to register your daily attendance'}
             </p>
           </div>
 
@@ -164,7 +165,7 @@ export const EmployeeDashboard: React.FC = () => {
         </div>
 
         {/* Company Announcements */}
-        <div className="md:col-span-2 p-6 rounded-2xl bg-[#161b22] border border-[#30363d] shadow-md space-y-4">
+        <div className="p-6 rounded-2xl bg-[#161b22] border border-[#30363d] shadow-md space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-bold text-[#F0F2F5] flex items-center gap-2">
               <Megaphone className="w-4 h-4 text-amber-500" />
@@ -180,11 +181,11 @@ export const EmployeeDashboard: React.FC = () => {
               </div>
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
-                  <h4 className="text-xs font-bold text-[#F0F2F5]">Annual Hackathon 2026 Announced</h4>
-                  <span className="text-[9px] px-2 py-0.5 rounded bg-[#8B3A4A]/20 text-[#B86B78] border border-[#8B3A4A]/30 font-semibold">New</span>
+                  <h4 className="text-xs font-bold text-[#F0F2F5]">Independence Day Celebration 2026</h4>
+                  <span className="text-[9px] px-2 py-0.5 rounded bg-[#8B3A4A]/20 text-[#B86B78] border border-[#8B3A4A]/30 font-semibold">Event</span>
                 </div>
-                <p className="text-xs text-[#8B949E]">Register your team of 4 by August 20th. Cash prizes up to $25,000 for top innovative solutions!</p>
-                <span className="text-[10px] text-[#6e7681]">Posted by HR Communications • 2 days ago</span>
+                <p className="text-xs text-[#8B949E]">Join us for the flag-hoisting ceremony, cultural performances, and breakfast on August 15 at 9:00 AM in the office courtyard.</p>
+                <span className="text-[10px] text-[#6e7681]">Posted by People & Culture • Today</span>
               </div>
             </div>
 
@@ -200,6 +201,8 @@ export const EmployeeDashboard: React.FC = () => {
             </div>
           </div>
         </div>
+
+        <UpcomingMeetingsCard />
       </div>
 
       {/* Applied Leave History Table */}
