@@ -105,10 +105,10 @@ export default function LeavesPage() {
       </div>
 
       {/* Leave Requests Table Card */}
-      <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 shadow-md space-y-4">
+      <div className="p-6 rounded-2xl bg-surface border border-border shadow-md space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <h3 className="text-sm font-bold text-slate-100 flex items-center gap-2">
-            <FileText className="w-4 h-4 text-indigo-400" />
+          <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
+            <FileText className="w-4 h-4 text-[#B86B78]" />
             Leave Applications Queue
           </h3>
 
@@ -120,8 +120,8 @@ export default function LeavesPage() {
                 onClick={() => setFilterStatus(status)}
                 className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${
                   filterStatus === status
-                    ? 'bg-indigo-600 text-white shadow-sm'
-                    : 'bg-slate-800 text-slate-400 hover:text-slate-200'
+                    ? 'bg-[#8B3A4A] text-white shadow-sm'
+                    : 'bg-surface-elevated text-secondary hover:text-foreground'
                 }`}
               >
                 {status}
@@ -133,7 +133,7 @@ export default function LeavesPage() {
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs border-collapse">
             <thead>
-              <tr className="border-b border-slate-800 text-slate-400 font-semibold bg-slate-850/50">
+              <tr className="border-b border-border text-secondary font-semibold bg-surface-elevated/50">
                 <th className="py-3 px-4">Applicant</th>
                 <th className="py-3 px-4">Type</th>
                 <th className="py-3 px-4">Dates</th>
@@ -143,27 +143,27 @@ export default function LeavesPage() {
                 {currentUser.userRole !== 'employee' && <th className="py-3 px-4 text-right">Manager Action</th>}
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800 text-slate-300">
+            <tbody className="divide-y divide-border text-foreground">
               {filteredRequests.map((req) => (
-                <tr key={req.id} className="hover:bg-slate-800/40 transition-colors">
+                <tr key={req.id} className="hover:bg-surface-elevated/40 transition-colors">
                   <td className="py-3 px-4">
                     <div className="flex items-center gap-2.5">
                       <img src={req.employeeAvatar} alt={req.employeeName} className="w-7 h-7 rounded-full object-cover" />
-                      <span className="font-bold text-slate-100">{req.employeeName}</span>
+                      <span className="font-bold text-foreground">{req.employeeName}</span>
                     </div>
                   </td>
-                  <td className="py-3 px-4 font-semibold text-slate-200">{req.leaveType} Leave</td>
-                  <td className="py-3 px-4 text-slate-300">{req.startDate} to {req.endDate}</td>
-                  <td className="py-3 px-4 font-semibold text-slate-100">{req.days} Day(s)</td>
-                  <td className="py-3 px-4 text-slate-400 max-w-xs truncate">{req.reason}</td>
+                  <td className="py-3 px-4 font-semibold text-foreground">{req.leaveType} Leave</td>
+                  <td className="py-3 px-4 text-secondary">{req.startDate} to {req.endDate}</td>
+                  <td className="py-3 px-4 font-semibold text-foreground">{req.days} Day(s)</td>
+                  <td className="py-3 px-4 text-secondary max-w-xs truncate">{req.reason}</td>
                   <td className="py-3 px-4">
                     <span
                       className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${
                         req.status === 'Approved'
-                          ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                          ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
                           : req.status === 'Pending'
-                          ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                          : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                          ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20'
+                          : 'bg-rose-500/10 text-rose-500 border border-rose-500/20'
                       }`}
                     >
                       {req.status}
@@ -189,7 +189,7 @@ export default function LeavesPage() {
                           </button>
                         </div>
                       ) : (
-                        <span className="text-[11px] text-slate-500 font-medium">Decided</span>
+                        <span className="text-[11px] text-secondary font-medium">Decided</span>
                       )}
                     </td>
                   )}
