@@ -1,36 +1,55 @@
 @import "tailwindcss";
 
 :root {
-  --background: #0d1117;
-  --surface: #161b22;
-  --surface-elevated: #21262d;
-  --border: #30363d;
-  --text-primary: #f0f6fc;
-  --text-secondary: #8b949e;
-  --text-muted: #6e7681;
-  --accent: #8B3A4A;
-  --accent-hover: #A04456;
-  --success: #238636;
-  --warning: #9e6a03;
-  --error: #da3633;
-  --info: #1f6feb;
+  --background: #F2F1EC;
+  --surface: #FFFFFF;
+  --surface-elevated: #F8F9FA;
+  --subtle-section: #F1F3F5;
+  --border: #D9DEE3;
+  --border-strong: #C9D0D7;
+  --text-primary: #172033;
+  --text-secondary: #6F7985;
+  --text-muted: #8A939D;
+  --accent: #C96F58;
+  --accent-hover: #A95745;
+  --primary-brand: #B0D0EA;
+  --primary-cta-text: #17324A;
+  --success: #4F9B68;
+  --success-bg: #E7F3EA;
+  --warning: #D9A441;
+  --warning-bg: #FFF3D9;
+  --error: #C85C5C;
+  --error-bg: #FBEAEA;
+  --soft-blue: #B0D0EA;
+  --light-blue-grey: #DFE6EC;
+  --blue-grey: #6F7F90;
 }
 
 .light {
-  --background: #F6F7F9;
+  --background: #F2F1EC;
   --surface: #FFFFFF;
-  --surface-elevated: #F9FAFB;
-  --border: #D8DDE5;
-  --text-primary: #171A1F;
-  --text-secondary: #5E6673;
-  --text-muted: #8A92A0;
-  --accent: #8B3A4A;
-  --accent-hover: #A04456;
-  --success: #198754;
-  --warning: #B58100;
-  --error: #DC3545;
-  --info: #0D6EFD;
+  --surface-elevated: #F8F9FA;
+  --subtle-section: #F1F3F5;
+  --border: #D9DEE3;
+  --border-strong: #C9D0D7;
+  --text-primary: #172033;
+  --text-secondary: #6F7985;
+  --text-muted: #8A939D;
+  --accent: #C96F58;
+  --accent-hover: #A95745;
+  --primary-brand: #B0D0EA;
+  --primary-cta-text: #17324A;
+  --success: #4F9B68;
+  --success-bg: #E7F3EA;
+  --warning: #D9A441;
+  --warning-bg: #FFF3D9;
+  --error: #C85C5C;
+  --error-bg: #FBEAEA;
+  --soft-blue: #B0D0EA;
+  --light-blue-grey: #DFE6EC;
+  --blue-grey: #6F7F90;
 }
+
 
 body {
   background-color: var(--background);
@@ -86,7 +105,7 @@ body {
 }
 
 .login-avatar-wrap {
-  background: linear-gradient(145deg, #B86B78, #30363d 65%);
+  background: linear-gradient(145deg, #B86B78, #f2f1ec 65%);
   animation: login-avatar-float 3.6s ease-in-out infinite, login-avatar-glow 3.6s ease-in-out infinite;
   transition: transform 200ms ease, filter 200ms ease;
 }

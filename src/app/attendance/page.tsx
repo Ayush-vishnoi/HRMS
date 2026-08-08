@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -22,16 +23,16 @@ export default function AttendancePage() {
   } = useHRMS();
 
   return (
-    <div className="min-h-screen bg-[#0d1117] text-[#F0F2F5] space-y-6">
+    <div className="space-y-6">
 
       {/* Header Banner */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-black tracking-tight text-[#F0F2F5]">
+          <h1 className="text-2xl font-black tracking-tight text-[#17324A]">
             Attendance & Shift Management
           </h1>
 
-          <p className="mt-1 text-sm text-[#8B949E]">
+          <p className="mt-1 text-sm text-[#667085]">
             Track biometric check-ins, work hours, shift schedules, and monthly logs
           </p>
         </div>
@@ -67,7 +68,7 @@ export default function AttendancePage() {
               'Attendance Report'
             );
           }}
-          className="px-4 py-2.5 rounded-xl bg-[#8B3A4A] hover:bg-[#A04456] text-white text-xs font-semibold shadow-md flex items-center gap-2 transition-all cursor-pointer"
+          className="px-4 py-2.5 rounded-xl bg-[#B0D0EA] hover:bg-[#9FC5E2] text-[#17324A] border border-[#9FC5E2] text-xs font-semibold shadow-md flex items-center gap-2 transition-all cursor-pointer"
           title="Download Attendance Data as Excel"
         >
           <Download className="w-4 h-4" />
@@ -79,41 +80,38 @@ export default function AttendancePage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 
         {/* Live Punch Widget */}
-        <div className="p-6 rounded-2xl bg-[#161b22] border border-[#30363d] shadow-md space-y-4">
+        <div className="p-6 rounded-2xl bg-white border border-[#D9E5EE] shadow-md space-y-4">
 
           <div className="flex justify-between items-center">
-            <span className="text-xs font-bold text-[#8B949E] uppercase tracking-wider">
+            <span className="text-xs font-bold text-[#667085] uppercase tracking-wider">
               Live Punch Widget
             </span>
 
-            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#21262d] text-[#8B949E] border border-[#30363d]">
+            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#B0D0EA] text-[#17324A] border border-[#9FC5E2]">
               Shift A (General)
             </span>
           </div>
 
           <div className="text-center py-2 space-y-1">
-            <span className="text-[11px] text-[#8B949E]">
+            <span className="text-[11px] text-[#667085]">
               Current Status
             </span>
 
-            <div className="text-3xl font-black font-mono text-[#F0F2F5]">
+            <div className="text-3xl font-black font-mono text-[#17324A]">
               {isClockedIn ? elapsedWorkTime : '00:00:00'}
             </div>
 
-            <p className="text-xs font-semibold text-emerald-500">
+            <p className="text-xs font-semibold text-emerald-600">
               {isClockedIn
                 ? `● Shift Active • Clocked in at ${clockInTime}`
                 : '○ Shift Inactive • Ready to Punch In'}
             </p>
           </div>
 
+          {/* Clock In / Clock Out */}
           <button
             onClick={toggleClockIn}
-            className={`w-full py-3 rounded-xl text-xs font-bold transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer ${
-              isClockedIn
-                ? 'bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 border border-rose-500/30'
-                : 'bg-[#8B3A4A] hover:bg-[#A04456] text-white'
-            }`}
+            className="w-full py-3 rounded-xl text-xs font-bold transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer bg-[#B0D0EA] hover:bg-[#9FC5E2] text-[#17324A] border border-[#9FC5E2]"
           >
             {isClockedIn ? (
               <>
@@ -130,40 +128,40 @@ export default function AttendancePage() {
         </div>
 
         {/* Shift Policy */}
-        <div className="p-6 rounded-2xl bg-[#161b22] border border-[#30363d] shadow-md space-y-4">
+        <div className="p-6 rounded-2xl bg-white border border-[#D9E5EE] shadow-md space-y-4">
 
-          <h3 className="text-xs font-bold text-[#8B949E] uppercase tracking-wider">
+          <h3 className="text-xs font-bold text-[#667085] uppercase tracking-wider">
             Shift Policy Details
           </h3>
 
           <div className="space-y-3 text-xs">
 
-            <div className="p-3 rounded-xl bg-[#21262d] border border-[#30363d] flex justify-between gap-4">
-              <span className="text-[#8B949E]">
+            <div className="p-3 rounded-xl bg-[#F5F9FC] border border-[#D9E5EE] flex justify-between gap-4">
+              <span className="text-[#667085]">
                 Standard Working Hours
               </span>
 
-              <span className="font-bold text-[#F0F2F5]">
+              <span className="font-bold text-[#17324A]">
                 09:00 AM - 06:00 PM
               </span>
             </div>
 
-            <div className="p-3 rounded-xl bg-[#21262d] border border-[#30363d] flex justify-between gap-4">
-              <span className="text-[#8B949E]">
+            <div className="p-3 rounded-xl bg-[#F5F9FC] border border-[#D9E5EE] flex justify-between gap-4">
+              <span className="text-[#667085]">
                 Grace Period Allowance
               </span>
 
-              <span className="font-bold text-amber-400">
+              <span className="font-bold text-amber-600">
                 15 Minutes
               </span>
             </div>
 
-            <div className="p-3 rounded-xl bg-[#21262d] border border-[#30363d] flex justify-between gap-4">
-              <span className="text-[#8B949E]">
+            <div className="p-3 rounded-xl bg-[#F5F9FC] border border-[#D9E5EE] flex justify-between gap-4">
+              <span className="text-[#667085]">
                 Break Duration
               </span>
 
-              <span className="font-bold text-[#F0F2F5]">
+              <span className="font-bold text-[#17324A]">
                 1 Hour (1:00 PM - 2:00 PM)
               </span>
             </div>
@@ -172,51 +170,50 @@ export default function AttendancePage() {
         </div>
 
         {/* Monthly Attendance */}
-        <div className="p-6 rounded-2xl bg-[#161b22] border border-[#30363d] shadow-md space-y-4">
+        <div className="p-6 rounded-2xl bg-white border border-[#D9E5EE] shadow-md space-y-4">
 
-          <h3 className="text-xs font-bold text-[#8B949E] uppercase tracking-wider">
+          <h3 className="text-xs font-bold text-[#667085] uppercase tracking-wider">
             August Attendance Record
           </h3>
 
           <div className="grid grid-cols-2 gap-3 text-center">
 
-            <div className="p-3 rounded-xl bg-[#21262d] border border-[#30363d]">
-              <span className="text-[10px] text-[#8B949E] uppercase font-semibold">
+            <div className="p-3 rounded-xl bg-[#F5F9FC] border border-[#D9E5EE]">
+              <span className="text-[10px] text-[#667085] uppercase font-semibold">
                 Days Present
               </span>
 
-              <div className="text-xl font-bold text-emerald-400 mt-1">
+              <div className="text-xl font-bold text-emerald-600 mt-1">
                 18 / 18
               </div>
             </div>
 
-            <div className="p-3 rounded-xl bg-[#21262d] border border-[#30363d]">
-              <span className="text-[10px] text-[#8B949E] uppercase font-semibold">
+            <div className="p-3 rounded-xl bg-[#F5F9FC] border border-[#D9E5EE]">
+              <span className="text-[10px] text-[#667085] uppercase font-semibold">
                 Late Arrivals
               </span>
 
-              <div className="text-xl font-bold text-amber-400 mt-1">
+              <div className="text-xl font-bold text-amber-600 mt-1">
                 1 Day
               </div>
             </div>
 
-            <div className="p-3 rounded-xl bg-[#21262d] border border-[#30363d]">
-              <span className="text-[10px] text-[#8B949E] uppercase font-semibold">
+            <div className="p-3 rounded-xl bg-[#F5F9FC] border border-[#D9E5EE]">
+              <span className="text-[10px] text-[#667085] uppercase font-semibold">
                 Total Hours Worked
               </span>
 
-              {/* NO BLUE / INDIGO */}
-              <div className="text-xl font-bold text-[#B86B78] mt-1">
+              <div className="text-xl font-bold text-[#17324A] mt-1">
                 144 hrs
               </div>
             </div>
 
-            <div className="p-3 rounded-xl bg-[#21262d] border border-[#30363d]">
-              <span className="text-[10px] text-[#8B949E] uppercase font-semibold">
+            <div className="p-3 rounded-xl bg-[#F5F9FC] border border-[#D9E5EE]">
+              <span className="text-[10px] text-[#667085] uppercase font-semibold">
                 Adherence Score
               </span>
 
-              <div className="text-xl font-bold text-[#F0F2F5] mt-1">
+              <div className="text-xl font-bold text-[#17324A] mt-1">
                 98.5%
               </div>
             </div>
@@ -226,11 +223,10 @@ export default function AttendancePage() {
       </div>
 
       {/* Attendance History */}
-      <div className="p-6 rounded-2xl bg-[#161b22] border border-[#30363d] shadow-md space-y-4">
+      <div className="p-6 rounded-2xl bg-white border border-[#D9E5EE] shadow-md space-y-4">
 
-        <h3 className="text-sm font-bold text-[#F0F2F5] flex items-center gap-2">
-          {/* NO BLUE / INDIGO */}
-          <Calendar className="w-4 h-4 text-[#B86B78]" />
+        <h3 className="text-sm font-bold text-[#17324A] flex items-center gap-2">
+          <Calendar className="w-4 h-4 text-[#17324A]" />
           Daily Attendance Logs
         </h3>
 
@@ -239,7 +235,7 @@ export default function AttendancePage() {
           <table className="w-full text-left text-xs border-collapse">
 
             <thead>
-              <tr className="border-b border-[#30363d] text-[#8B949E] font-semibold bg-[#21262d]/50">
+              <tr className="border-b border-[#D9E5EE] text-[#667085] font-semibold bg-[#EAF2F8]">
 
                 <th className="py-3 px-4">
                   Date
@@ -268,33 +264,33 @@ export default function AttendancePage() {
               </tr>
             </thead>
 
-            <tbody className="divide-y divide-[#30363d] text-[#8B949E]">
+            <tbody className="divide-y divide-[#D9E5EE] text-[#667085]">
 
               {attendanceLogs.map((log) => (
 
                 <tr
                   key={log.id}
-                  className="hover:bg-[#21262d]/60 transition-colors"
+                  className="hover:bg-[#F5F9FC] transition-colors"
                 >
 
-                  <td className="py-3 px-4 font-bold text-[#F0F2F5]">
+                  <td className="py-3 px-4 font-bold text-[#17324A]">
                     {log.date}
                   </td>
 
-                  <td className="py-3 px-4 font-mono text-emerald-400">
+                  <td className="py-3 px-4 font-mono text-emerald-600">
                     {log.checkIn}
                   </td>
 
-                  <td className="py-3 px-4 font-mono text-[#8B949E]">
+                  <td className="py-3 px-4 font-mono text-[#667085]">
                     {log.checkOut}
                   </td>
 
-                  <td className="py-3 px-4 font-semibold text-[#F0F2F5]">
+                  <td className="py-3 px-4 font-semibold text-[#17324A]">
                     {log.hoursWorked}
                   </td>
 
-                  <td className="py-3 px-4 text-[#8B949E] flex items-center gap-1.5">
-                    <MapPin className="w-3.5 h-3.5 text-[#8B949E]" />
+                  <td className="py-3 px-4 text-[#667085] flex items-center gap-1.5">
+                    <MapPin className="w-3.5 h-3.5 text-[#667085]" />
                     {log.location}
                   </td>
 
@@ -303,10 +299,10 @@ export default function AttendancePage() {
                     <span
                       className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${
                         log.status === 'On Time'
-                          ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                          ? 'bg-emerald-50 text-emerald-600 border border-emerald-200'
                           : log.status === 'Late'
-                          ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                          : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                          ? 'bg-amber-50 text-amber-600 border border-amber-200'
+                          : 'bg-rose-50 text-rose-600 border border-rose-200'
                       }`}
                     >
                       {log.status}
@@ -328,3 +324,4 @@ export default function AttendancePage() {
     </div>
   );
 }
+
