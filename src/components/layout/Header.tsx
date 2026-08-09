@@ -4,9 +4,11 @@ import React, { useState } from 'react';
 import {
   Bell,
   CheckCircle2,
+  Headset,
   X,
 } from 'lucide-react';
 import { useHRMS } from '@/context/HRMSContext';
+import { HRHelpDeskModal } from '@/components/modals/HRHelpDeskModal';
 
 interface HeaderProps {
   onClockAction: () => void;
@@ -15,6 +17,7 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({ onClockAction }) => {
   const { currentUser, isClockedIn, clockInTime, lateClockInRequest } = useHRMS();
   const [showNotifications, setShowNotifications] = useState(false);
+  const [isHelpDeskOpen, setIsHelpDeskOpen] = useState(false);
 
   return (
     <header className="h-14 border-b border-border bg-surface/90 backdrop-blur-md sticky top-0 z-30 px-6 flex items-center justify-end">
@@ -37,6 +40,19 @@ export const Header: React.FC<HeaderProps> = ({ onClockAction }) => {
               {isClockedIn ? `Clocked In (${clockInTime})` : lateClockInRequest?.status === 'pending' ? 'HR Approval Pending' : 'Clock In Now'}
             </button>
           </div>
+        )}
+
+        {currentUser.userRole === 'employee' && (
+          <button
+            type="button"
+            onClick={() => setIsHelpDeskOpen(true)}
+            className="inline-flex items-center gap-1.5 rounded-md border border-[#9FC2DC] bg-[#F4F9FC] px-2.5 py-1.5 text-xs font-semibold text-[#315B76] transition-colors hover:bg-[#E8F2FA] hover:text-[#17324A]"
+            aria-label="Ask HR help desk"
+            title="Ask HR help desk"
+          >
+            <Headset className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Ask HR</span>
+          </button>
         )}
 
         {/* Notifications Button */}
@@ -73,9 +89,9 @@ export const Header: React.FC<HeaderProps> = ({ onClockAction }) => {
             </div>
           )}
         </div>
-
-      </div>
-    </header>
+</div>
+<HRHelpDeskModal isOpen={isHelpDeskOpen} onClose={() => setIsHelpDeskOpen(false)} />
+</header>
   );
 };
 

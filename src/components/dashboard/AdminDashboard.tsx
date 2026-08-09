@@ -1,18 +1,24 @@
 
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Users,
   TrendingUp,
   Building,
   UserPlus,
   AlertTriangle,
+  CheckCircle2,
+  Headset,
 } from 'lucide-react';
 
 import { MOCK_ANALYTICS } from '@/data/mockData';
+import { useHRMS } from '@/context/HRMSContext';
 
 export const AdminDashboard: React.FC = () => {
+  const { helpDeskTickets, updateHelpDeskTicket } = useHRMS();
+  const [resolutionNotes, setResolutionNotes] = useState<Record<string, string>>({});
+  const openTicketCount = helpDeskTickets.filter((ticket) => ticket.status !== 'Resolved').length;
 
   return (
     <div className="space-y-6">
@@ -192,6 +198,73 @@ export const AdminDashboard: React.FC = () => {
           </div>
         </div>
       </div>
+
+      <section className="rounded-2xl border border-[#B0D0EA] bg-white p-5 shadow-sm">
+        <div className="flex flex-col gap-2 border-b border-[#D9E5EE] pb-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="flex items-center gap-2 text-sm font-bold text-[#17324A]">
+              <Headset className="h-4 w-4" />
+              Employee HR Help Desk
+            </h2>
+            <p className="mt-1 text-[11px] text-[#667085]">Review employee issues, provide updates, and resolve tickets.</p>
+          </div>
+          <span className="w-fit rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[10px] font-bold text-amber-700">
+            {openTicketCount} Active
+          </span>
+        </div>
+
+        {helpDeskTickets.length === 0 ? (
+          <div className="py-10 text-center">
+            <CheckCircle2 className="mx-auto h-8 w-8 text-emerald-500" />
+            <p className="mt-2 text-xs font-semibold text-[#17324A]">No help desk tickets</p>
+            <p className="mt-1 text-[11px] text-[#667085]">New employee requests will appear here.</p>
+          </div>
+        ) : (
+          <div className="mt-4 space-y-3">
+            {helpDeskTickets.map((ticket) => (
+              <article key={ticket.id} className="rounded-xl border border-[#D9E5EE] bg-[#F9FBFD] p-4">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-mono text-[10px] font-bold text-[#315B76]">{ticket.id}</span>
+                      <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold ${ticket.status === 'Resolved' ? 'bg-emerald-100 text-emerald-700' : ticket.status === 'In Progress' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'}`}>{ticket.status}</span>
+                      <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold ${ticket.priority === 'High' ? 'bg-red-100 text-red-700' : ticket.priority === 'Medium' ? 'bg-orange-100 text-orange-700' : 'bg-slate-200 text-slate-600'}`}>{ticket.priority}</span>
+                    </div>
+                    <h3 className="mt-2 break-words text-xs font-bold text-[#17324A]">{ticket.subject}</h3>
+                    <p className="mt-1 text-[11px] text-[#667085]">{ticket.employeeName} · {ticket.employeeCode} · {ticket.category}</p>
+                    <p className="mt-2 break-words text-xs leading-5 text-[#52677A]">{ticket.description}</p>
+                    <p className="mt-2 text-[10px] text-[#98A2B3]">Raised {ticket.createdAt}</p>
+                  </div>
+
+                  {ticket.status !== 'Resolved' && (
+                    <div className="w-full shrink-0 space-y-2 lg:w-72">
+                      <textarea
+                        value={resolutionNotes[ticket.id] ?? ''}
+                        onChange={(event) => setResolutionNotes((current) => ({ ...current, [ticket.id]: event.target.value }))}
+                        placeholder="Add an update or resolution note..."
+                        rows={3}
+                        className="w-full resize-none rounded-lg border border-[#D9E5EE] bg-white px-3 py-2 text-[11px] text-[#17324A] outline-none placeholder:text-[#98A2B3] focus:border-[#6FA6C9]"
+                      />
+                      <div className="flex flex-wrap justify-end gap-2">
+                        {ticket.status === 'Open' && (
+                          <button type="button" onClick={() => updateHelpDeskTicket(ticket.id, 'In Progress', resolutionNotes[ticket.id])} className="rounded-lg border border-[#9FC2DC] bg-white px-3 py-1.5 text-[10px] font-bold text-[#315B76] hover:bg-[#E8F2FA]">Mark in progress</button>
+                        )}
+                        <button type="button" disabled={!resolutionNotes[ticket.id]?.trim()} onClick={() => updateHelpDeskTicket(ticket.id, 'Resolved', resolutionNotes[ticket.id])} className="rounded-lg bg-emerald-600 px-3 py-1.5 text-[10px] font-bold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50">Resolve ticket</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                {ticket.resolution && (
+                  <div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2">
+                    <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-700">HR update</p>
+                    <p className="mt-1 text-[11px] text-emerald-800">{ticket.resolution}</p>
+                  </div>
+                )}
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
     </div>
   );
 };

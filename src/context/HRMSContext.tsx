@@ -13,6 +13,23 @@ import {
 
 export type UserRole = 'employee' | 'manager' | 'admin';
 export type LateClockInRequestStatus = 'pending' | 'approved' | 'rejected';
+export type HelpDeskTicketStatus = 'Open' | 'In Progress' | 'Resolved';
+export type HelpDeskTicketPriority = 'Low' | 'Medium' | 'High';
+
+export interface HelpDeskTicket {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  employeeCode: string;
+  category: string;
+  priority: HelpDeskTicketPriority;
+  subject: string;
+  description: string;
+  status: HelpDeskTicketStatus;
+  createdAt: string;
+  resolution?: string;
+  resolvedAt?: string;
+}
 
 export interface LateClockInRequest {
   status: LateClockInRequestStatus;
@@ -54,6 +71,7 @@ export const DEMO_ACCOUNTS: Record<UserRole, UserAccount> = {
 };
 
 const AUTH_STORAGE_KEY = 'hrms-auth-role';
+const HELP_DESK_STORAGE_KEY = 'hrms-help-desk-tickets';
 
 const isUserRole = (value: string | null): value is UserRole =>
   value === 'employee' || value === 'manager' || value === 'admin';
@@ -77,6 +95,9 @@ interface HRMSContextType {
   submitLateClockInRequest: (reason: string) => { success: boolean; message: string };
   addLeaveRequest: (newLeave: Omit<LeaveRequest, 'id' | 'employeeId' | 'employeeName' | 'employeeAvatar' | 'status' | 'appliedOn'>) => void;
   updateLeaveStatus: (id: string, status: 'Approved' | 'Rejected') => void;
+  helpDeskTickets: HelpDeskTicket[];
+  submitHelpDeskTicket: (ticket: Pick<HelpDeskTicket, 'category' | 'priority' | 'subject' | 'description'>) => string;
+  updateHelpDeskTicket: (id: string, status: HelpDeskTicketStatus, resolution?: string) => void;
   selectedEmployee: Employee | null;
   setSelectedEmployee: (emp: Employee | null) => void;
 }
@@ -113,14 +134,19 @@ export const HRMSProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [activeAttendanceId, setActiveAttendanceId] = useState<string | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [lateClockInRequest, setLateClockInRequest] = useState<LateClockInRequest | null>(null);
+  const [helpDeskTickets, setHelpDeskTickets] = useState<HelpDeskTicket[]>([]);
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
 
   useEffect(() => {
     try {
       const storedRole = window.localStorage.getItem(AUTH_STORAGE_KEY);
+      const storedTickets = window.localStorage.getItem(HELP_DESK_STORAGE_KEY);
       if (isUserRole(storedRole)) {
         setCurrentUser(DEMO_ACCOUNTS[storedRole]);
         setIsAuthenticated(true);
+      }
+      if (storedTickets) {
+        setHelpDeskTickets(JSON.parse(storedTickets) as HelpDeskTicket[]);
       }
     } finally {
       setIsAuthReady(true);
@@ -206,7 +232,37 @@ export const HRMSProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
   const updateLeaveStatus = (id: string, status: 'Approved' | 'Rejected') => setLeaveRequests((prev) => prev.map((req) => req.id === id ? { ...req, status } : req));
 
-  return <HRMSContext.Provider value={{ isAuthenticated, isAuthReady, currentUser, login, logout, employees, addEmployee, leaveRequests, leaveBalances: MOCK_LEAVE_BALANCES, attendanceLogs, isClockedIn, clockInTime, elapsedWorkTime, lateClockInRequest, toggleClockIn, submitLateClockInRequest, addLeaveRequest, updateLeaveStatus, selectedEmployee, setSelectedEmployee }}>{children}</HRMSContext.Provider>;
+  const persistHelpDeskTickets = (tickets: HelpDeskTicket[]) => {
+    setHelpDeskTickets(tickets);
+    window.localStorage.setItem(HELP_DESK_STORAGE_KEY, JSON.stringify(tickets));
+  };
+
+  const submitHelpDeskTicket = (ticket: Pick<HelpDeskTicket, 'category' | 'priority' | 'subject' | 'description'>) => {
+    const id = `HR-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
+    const created: HelpDeskTicket = {
+      ...ticket,
+      id,
+      employeeId: currentUser.id,
+      employeeName: currentUser.name,
+      employeeCode: currentUser.employeeCode,
+      status: 'Open',
+      createdAt: new Date().toLocaleString('en-IN'),
+    };
+    persistHelpDeskTickets([created, ...helpDeskTickets]);
+    return id;
+  };
+
+  const updateHelpDeskTicket = (id: string, status: HelpDeskTicketStatus, resolution?: string) => {
+    const updated = helpDeskTickets.map((ticket) => ticket.id === id ? {
+      ...ticket,
+      status,
+      resolution: resolution?.trim() || ticket.resolution,
+      ...(status === 'Resolved' ? { resolvedAt: new Date().toLocaleString('en-IN') } : {}),
+    } : ticket);
+    persistHelpDeskTickets(updated);
+  };
+
+  return <HRMSContext.Provider value={{ isAuthenticated, isAuthReady, currentUser, login, logout, employees, addEmployee, leaveRequests, leaveBalances: MOCK_LEAVE_BALANCES, attendanceLogs, isClockedIn, clockInTime, elapsedWorkTime, lateClockInRequest, toggleClockIn, submitLateClockInRequest, addLeaveRequest, updateLeaveStatus, helpDeskTickets, submitHelpDeskTicket, updateHelpDeskTicket, selectedEmployee, setSelectedEmployee }}>{children}</HRMSContext.Provider>;
 };
 
 export const useHRMS = () => {

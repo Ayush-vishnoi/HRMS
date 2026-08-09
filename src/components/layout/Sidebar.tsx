@@ -11,6 +11,8 @@ import {
   CalendarDays,
   CalendarRange,
   CreditCard,
+  Headset,
+  Archive,
   Target,
   FileText,
   BookOpenCheck,
@@ -49,6 +51,8 @@ export const Sidebar: React.FC = () => {
     { name: 'Documents', href: '/documents', icon: FileText, roles: ['employee', 'manager', 'admin'] },
     { name: 'Policy Center', href: '/policies', icon: BookOpenCheck, roles: ['employee', 'manager', 'admin'] },
     { name: 'Reports & Analytics', href: '/analytics', icon: BarChart3, roles: ['admin'] },
+    { name: 'HR Help Desk', href: '/help-desk', icon: Headset, roles: ['admin'] },
+    { name: 'Asset & Inventory', href: '/assets', icon: Archive, roles: ['admin'] },
     { name: 'Recruitment', href: '/recruitment', icon: ScanSearch, roles: ['admin'] },
   ];
 
