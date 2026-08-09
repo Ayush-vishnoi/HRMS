@@ -4,7 +4,6 @@
 import React from 'react';
 import {
   Users,
-  DollarSign,
   TrendingUp,
   Building,
   UserPlus,
@@ -12,9 +11,9 @@ import {
 } from 'lucide-react';
 
 import { MOCK_ANALYTICS } from '@/data/mockData';
-import { formatINR } from '@/utils/formatters';
 
 export const AdminDashboard: React.FC = () => {
+
   return (
     <div className="space-y-6">
 
@@ -35,7 +34,7 @@ export const AdminDashboard: React.FC = () => {
       </div>
 
       {/* Top Stat Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
 
         {/* Total Headcount */}
         <div className="p-4 rounded-2xl bg-white border border-[#B0D0EA] shadow-sm hover:border-[#17324A]/40 transition-colors">
@@ -50,24 +49,6 @@ export const AdminDashboard: React.FC = () => {
 
           <span className="text-[11px] text-[#17324A]/70 font-medium">
             +8 new hires this month
-          </span>
-        </div>
-
-        {/* Payroll */}
-        <div className="p-4 rounded-2xl bg-white border border-[#B0D0EA] shadow-sm hover:border-[#17324A]/40 transition-colors">
-          <div className="flex justify-between items-center text-[#17324A]/70 text-xs font-semibold">
-            <span>Monthly Payroll Expense</span>
-            <DollarSign className="w-4 h-4 text-[#17324A]" />
-          </div>
-
-          <div className="text-2xl font-black text-[#17324A] mt-2">
-            {formatINR(
-              MOCK_ANALYTICS.monthlyPayrollCost.at(-1)?.cost ?? 0
-            )}
-          </div>
-
-          <span className="text-[11px] text-[#17324A]/60">
-            July 2026 Processed
           </span>
         </div>
 

@@ -2,6 +2,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { ClockInPermissionModal } from '@/components/modals/ClockInPermissionModal';
 import {
   CalendarDays,
   Clock,
@@ -30,11 +31,21 @@ export const EmployeeDashboard: React.FC = () => {
     clockInTime,
     elapsedWorkTime,
     toggleClockIn,
+    lateClockInRequest,
     leaveRequests
   } = useHRMS();
 
   const [isLeaveModalOpen, setIsLeaveModalOpen] = useState(false);
   const [selectedPayslip, setSelectedPayslip] = useState<Payslip | null>(null);
+  const [isPermissionModalOpen, setIsPermissionModalOpen] = useState(false);
+  const [clockNotice, setClockNotice] = useState('');
+
+  const handleClockAction = () => {
+    const result = toggleClockIn();
+    if (result.status === 'permission-required') setIsPermissionModalOpen(true);
+    if (result.status === 'permission-pending') setClockNotice('Your late clock-in request is pending HR approval.');
+    if (result.status === 'clocked-out') setClockNotice('You have been clocked out.');
+  };
 
   const pendingLeaves = leaveRequests.filter(
     (r) => r.employeeId === currentUser.id
@@ -261,7 +272,7 @@ export const EmployeeDashboard: React.FC = () => {
           <div className="p-4 rounded-xl bg-[#EAF2F8] border border-[#D9E5EE] text-center space-y-2">
 
             <span className="text-[11px] text-[#5F7180] uppercase font-semibold">
-              Today's Check-in Status
+              Today’s Check-in Status
             </span>
 
             <div className="text-2xl font-black text-[#238636] font-mono">
@@ -277,7 +288,7 @@ export const EmployeeDashboard: React.FC = () => {
           </div>
 
           <button
-            onClick={toggleClockIn}
+            onClick={handleClockAction}
             className={`w-full py-3 rounded-xl text-xs font-bold transition-all shadow-sm ${
               isClockedIn
                 ? 'bg-[#da3633]/10 text-[#da3633] border border-[#da3633]/20 hover:bg-[#da3633]/15'
@@ -451,6 +462,18 @@ export const EmployeeDashboard: React.FC = () => {
         </div>
       </div>
 
+      {clockNotice && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800">
+          {clockNotice}
+        </div>
+      )}
+
+      {lateClockInRequest?.status === 'pending' && !isClockedIn && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800">
+          Late clock-in permission is pending HR approval.
+        </div>
+      )}
+
       {/* Modals */}
       <ApplyLeaveModal
         isOpen={isLeaveModalOpen}
@@ -460,6 +483,11 @@ export const EmployeeDashboard: React.FC = () => {
       <PayslipModal
         payslip={selectedPayslip}
         onClose={() => setSelectedPayslip(null)}
+      />
+
+      <ClockInPermissionModal
+        isOpen={isPermissionModalOpen}
+        onClose={() => setIsPermissionModalOpen(false)}
       />
 
     </div>

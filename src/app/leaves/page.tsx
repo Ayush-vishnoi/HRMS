@@ -23,6 +23,7 @@ export default function LeavesPage() {
     leaveRequests,
     updateLeaveStatus,
     currentUser,
+    employees,
   } = useHRMS();
 
   const [isApplyModalOpen, setIsApplyModalOpen] = useState(false);
@@ -31,9 +32,19 @@ export default function LeavesPage() {
     'All' | 'Pending' | 'Approved' | 'Rejected'
   >('All');
 
-  const filteredRequests = leaveRequests.filter((req) => {
+  const roleVisibleRequests =
+    currentUser.userRole === 'employee'
+      ? leaveRequests.filter((request) => request.employeeId === currentUser.id)
+      : currentUser.userRole === 'manager'
+        ? leaveRequests.filter((request) => {
+            const employee = employees.find((item) => item.id === request.employeeId);
+            return employee?.manager === currentUser.name;
+          })
+        : leaveRequests;
+
+  const filteredRequests = roleVisibleRequests.filter((request) => {
     if (filterStatus === 'All') return true;
-    return req.status === filterStatus;
+    return request.status === filterStatus;
   });
 
   return (
@@ -48,7 +59,11 @@ export default function LeavesPage() {
           </h1>
 
           <p className="mt-1 text-sm text-[#667085]">
-            Request annual leave, view balances, and approve team time-off
+            {currentUser.userRole === 'employee'
+              ? 'Request time off and review only your own leave history'
+              : currentUser.userRole === 'manager'
+                ? 'Review and approve time-off requests from your direct reports'
+                : 'Review leave balances and manage employee time-off requests'}
           </p>
         </div>
 
@@ -63,12 +78,7 @@ export default function LeavesPage() {
 
               const filename = `leave-report-${todayStr}.xlsx`;
 
-              const exportableData =
-                currentUser.userRole === 'employee'
-                  ? leaveRequests.filter(
-                      (r) => r.employeeId === currentUser.id
-                    )
-                  : leaveRequests;
+              const exportableData = roleVisibleRequests;
 
               const columns = [
                 {
@@ -279,7 +289,7 @@ export default function LeavesPage() {
 
           <h3 className="text-sm font-bold text-[#17324A] flex items-center gap-2">
             <FileText className="w-4 h-4 text-[#17324A]" />
-            Leave Applications Queue
+            {currentUser.userRole === 'employee' ? 'My Leave Applications' : 'Leave Applications Queue'}
           </h3>
 
           {/* Status Filters */}

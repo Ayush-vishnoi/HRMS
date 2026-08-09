@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   ShieldCheck,
   UserCheck,
@@ -43,6 +44,7 @@ const ROLE_OPTIONS: Array<{
 
 export const LoginPage: React.FC = () => {
   const { login } = useHRMS();
+  const router = useRouter();
 
   const [selectedRole, setSelectedRole] =
     useState<UserRole>('employee');
@@ -62,6 +64,7 @@ export const LoginPage: React.FC = () => {
   const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     login(selectedRole);
+    router.replace('/');
   };
 
   return (

@@ -26,9 +26,7 @@ export default function EmployeesPage() {
   const [activeEmployee, setActiveEmployee] = useState<Employee | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
-  const canAddEmployee =
-    currentUser.userRole === 'admin' ||
-    currentUser.userRole === 'manager';
+  const canAddEmployee = currentUser.userRole === 'admin';
 
   const departments = [
     'All',
@@ -53,6 +51,18 @@ export default function EmployeesPage() {
     return matchesSearch && matchesDept;
   });
 
+  if (currentUser.userRole === 'employee') {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <div className="rounded-2xl border border-[#D9E5EE] bg-white p-8 text-center shadow-md">
+          <ShieldCheck className="mx-auto mb-4 h-12 w-12 rounded-full bg-[#EAF2F8] p-3 text-[#17324A]" />
+          <h2 className="text-lg font-bold text-[#17324A]">Manager or HR Admin access required</h2>
+          <p className="mt-2 text-sm text-[#55708A]">The employee directory is restricted to people managers and HR.</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-7xl mx-auto space-y-6">
 
@@ -64,7 +74,7 @@ export default function EmployeesPage() {
             People directory
           </p>
 
-          <h1 className="text-xl font-bold text-[#1F2933] flex items-center gap-2">
+          <h1 className="flex items-center gap-2 text-xl font-bold text-[#17324A]">
             <Users className="w-5 h-5 text-[#17324A]" />
             Employee Management Directory
           </h1>
@@ -88,7 +98,7 @@ export default function EmployeesPage() {
           )}
 
           {/* Grid / List Toggle */}
-          <div className="flex items-center bg-[#FFFFFF] border border-[#E1E5EA] p-1 rounded-md">
+          <div className="flex items-center rounded-md border border-[#D9E5EE] bg-white p-1">
 
             <button
               onClick={() => setViewMode('grid')}
@@ -282,7 +292,7 @@ export default function EmployeesPage() {
 
               <thead>
 
-                <tr className="border-b border-[#E1E5EA] text-[#667085] font-semibold bg-[#F1F3F5]">
+                <tr className="border-b border-[#D9E5EE] bg-[#EAF2F8] font-semibold text-[#667085]">
 
                   <th className="py-3 px-4">
                     Employee
@@ -312,7 +322,7 @@ export default function EmployeesPage() {
 
               </thead>
 
-              <tbody className="divide-y divide-[#E1E5EA] text-[#1F2933]">
+              <tbody className="divide-y divide-[#D9E5EE] text-[#17324A]">
 
                 {filteredEmployees.map((emp) => (
 

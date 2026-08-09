@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { X, UserPlus, Building2, CheckCircle2, ShieldCheck } from 'lucide-react';
+import { X, UserPlus, CheckCircle2 } from 'lucide-react';
 import { useHRMS } from '@/context/HRMSContext';
 
 interface AddEmployeeModalProps {
@@ -17,7 +17,6 @@ export const AddEmployeeModal: React.FC<AddEmployeeModalProps> = ({ isOpen, onCl
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('+91 98765 00000');
   const [location, setLocation] = useState('Bengaluru, Karnataka');
-  const [salary, setSalary] = useState(1200000);
   const [manager, setManager] = useState('Arjun Mehta');
   const [status, setStatus] = useState<'Active' | 'On Leave' | 'Remote'>('Active');
   const [submitted, setSubmitted] = useState(false);
@@ -26,7 +25,6 @@ export const AddEmployeeModal: React.FC<AddEmployeeModalProps> = ({ isOpen, onCl
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const avatar = `https://images.unsplash.com/photo-${1500000000000 + Math.floor(Math.random() * 1000000)}?w=150&auto=format&fit=crop&q=80`;
     addEmployee({
       name,
       role,
@@ -34,7 +32,7 @@ export const AddEmployeeModal: React.FC<AddEmployeeModalProps> = ({ isOpen, onCl
       email,
       phone,
       location,
-      salary: Number(salary),
+      salary: 0,
       manager,
       status,
       joinDate: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
@@ -156,18 +154,7 @@ export const AddEmployeeModal: React.FC<AddEmployeeModalProps> = ({ isOpen, onCl
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-3">
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Annual CTC (INR)</label>
-                <input
-                  type="number"
-                  value={salary}
-                  onChange={(e) => setSalary(Number(e.target.value))}
-                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-500 font-mono"
-                  required
-                />
-              </div>
-
+            <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1">Manager</label>
                 <input
@@ -182,7 +169,7 @@ export const AddEmployeeModal: React.FC<AddEmployeeModalProps> = ({ isOpen, onCl
                 <label className="block text-xs font-semibold text-slate-300 mb-1">Status</label>
                 <select
                   value={status}
-                  onChange={(e) => setStatus(e.target.value as any)}
+                  onChange={(e) => setStatus(e.target.value as 'Active' | 'On Leave' | 'Remote')}
                   className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-500"
                 >
                   <option value="Active">Active</option>

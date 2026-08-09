@@ -1,7 +1,7 @@
 
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Calendar,
   MapPin,
@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { useHRMS } from '@/context/HRMSContext';
 import { exportToExcel } from '@/utils/exportUtils';
+import { ClockInPermissionModal } from '@/components/modals/ClockInPermissionModal';
 
 export default function AttendancePage() {
   const {
@@ -18,9 +19,20 @@ export default function AttendancePage() {
     clockInTime,
     elapsedWorkTime,
     toggleClockIn,
+    lateClockInRequest,
     attendanceLogs,
     currentUser,
   } = useHRMS();
+
+  const [isPermissionModalOpen, setIsPermissionModalOpen] = useState(false);
+  const [clockNotice, setClockNotice] = useState('');
+
+  const handleClockAction = () => {
+    const result = toggleClockIn();
+    if (result.status === 'permission-required') setIsPermissionModalOpen(true);
+    if (result.status === 'permission-pending') setClockNotice('Your late clock-in request is pending HR approval.');
+    if (result.status === 'clocked-out') setClockNotice('You have been clocked out successfully.');
+  };
 
   return (
     <div className="space-y-6">
@@ -110,7 +122,7 @@ export default function AttendancePage() {
 
           {/* Clock In / Clock Out */}
           <button
-            onClick={toggleClockIn}
+            onClick={handleClockAction}
             className="w-full py-3 rounded-xl text-xs font-bold transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer bg-[#B0D0EA] hover:bg-[#9FC5E2] text-[#17324A] border border-[#9FC5E2]"
           >
             {isClockedIn ? (
@@ -148,11 +160,11 @@ export default function AttendancePage() {
 
             <div className="p-3 rounded-xl bg-[#F5F9FC] border border-[#D9E5EE] flex justify-between gap-4">
               <span className="text-[#667085]">
-                Grace Period Allowance
+                Normal Clock-in Window
               </span>
 
               <span className="font-bold text-amber-600">
-                15 Minutes
+                09:00 AM - 10:00 AM
               </span>
             </div>
 
@@ -321,6 +333,9 @@ export default function AttendancePage() {
         </div>
       </div>
 
+      {clockNotice && <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-semibold text-amber-800">{clockNotice}</div>}
+      {lateClockInRequest?.status === 'pending' && !isClockedIn && <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-semibold text-amber-800">Late clock-in permission is pending HR approval.</div>}
+      <ClockInPermissionModal isOpen={isPermissionModalOpen} onClose={() => setIsPermissionModalOpen(false)} />
     </div>
   );
 }

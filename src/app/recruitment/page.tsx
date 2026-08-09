@@ -10,10 +10,8 @@ import {
   Mail,
   MapPin,
   Search,
-  ScanSearch,
   Sparkles,
   Upload,
-  UserPlus,
   X,
 } from 'lucide-react';
 
@@ -23,6 +21,7 @@ import {
   MOCK_RECRUITMENT_CANDIDATES,
   MOCK_RECRUITMENT_JOBS,
   RecruitmentCandidate,
+  RecruitmentJob,
 } from '@/data/mockData';
 
 const stages = [
@@ -93,6 +92,10 @@ const stageTone = (
 export default function RecruitmentPage() {
   const { currentUser } = useHRMS();
 
+  const [jobs, setJobs] = useState<RecruitmentJob[]>(
+    MOCK_RECRUITMENT_JOBS
+  );
+
   const [selectedJobId, setSelectedJobId] = useState(
     MOCK_RECRUITMENT_JOBS[0].id
   );
@@ -117,10 +120,21 @@ export default function RecruitmentPage() {
   const [isUploadOpen, setIsUploadOpen] =
     useState(false);
 
+  const [isAddJdOpen, setIsAddJdOpen] =
+    useState(false);
+
+  const [jdForm, setJdForm] = useState({
+    title: '',
+    department: '',
+    location: '',
+    employmentType: 'Full-time' as RecruitmentJob['employmentType'],
+    openings: '1',
+    description: '',
+    requirements: '',
+  });
+
   const selectedJob =
-    MOCK_RECRUITMENT_JOBS.find(
-      (job) => job.id === selectedJobId
-    ) ?? MOCK_RECRUITMENT_JOBS[0];
+    jobs.find((job) => job.id === selectedJobId) ?? jobs[0];
 
   const jobCandidates = useMemo(
     () =>
@@ -165,10 +179,9 @@ export default function RecruitmentPage() {
         candidate.id === selectedCandidateId
     ) ?? jobCandidates[0];
 
-  const openJobs =
-    MOCK_RECRUITMENT_JOBS.filter(
-      (job) => job.status === 'Open'
-    ).length;
+  const openJobs = jobs.filter(
+    (job) => job.status === 'Open'
+  ).length;
 
   const screenedCount =
     MOCK_RECRUITMENT_CANDIDATES.filter(
@@ -211,6 +224,43 @@ export default function RecruitmentPage() {
     );
   };
 
+  const addJobDescription = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    const newJob: RecruitmentJob = {
+      id: `JOB-${String(jobs.length + 1).padStart(3, '0')}`,
+      title: jdForm.title.trim(),
+      department: jdForm.department.trim(),
+      location: jdForm.location.trim(),
+      employmentType: jdForm.employmentType,
+      openings: Math.max(1, Number(jdForm.openings) || 1),
+      applicants: 0,
+      status: 'Open',
+      postedOn: '09 Aug 2026',
+      description: jdForm.description.trim(),
+      requirements: jdForm.requirements
+        .split(',')
+        .map((requirement) => requirement.trim())
+        .filter(Boolean),
+    };
+
+    setJobs((current) => [...current, newJob]);
+    setSelectedJobId(newJob.id);
+    setSelectedCandidateId('');
+    setStage('All');
+    setJdForm({
+      title: '',
+      department: '',
+      location: '',
+      employmentType: 'Full-time',
+      openings: '1',
+      description: '',
+      requirements: '',
+    });
+    setIsAddJdOpen(false);
+    showNotice(`${newJob.title} job description added`);
+  };
+
   /* -----------------------------
      ACCESS CONTROL
   ----------------------------- */
@@ -233,7 +283,7 @@ export default function RecruitmentPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#B0D0EA] text-[#17324A] p-4 md:p-6 space-y-6">
+    <div className="min-w-0 max-w-full space-y-6 overflow-x-hidden text-[#17324A]">
 
       {/* =========================
           HEADER
@@ -347,13 +397,13 @@ export default function RecruitmentPage() {
           MAIN RECRUITMENT AREA
       ========================= */}
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[250px_minmax(360px,1fr)_380px]">
+      <div className="grid min-w-0 grid-cols-1 gap-4 xl:grid-cols-[220px_minmax(0,1fr)] 2xl:grid-cols-[220px_minmax(0,1fr)_320px]">
 
         {/* =========================
             REQUISITIONS
         ========================= */}
 
-        <aside className="rounded-xl border border-[#9FC2DC] bg-white p-3 shadow-sm">
+        <aside className="min-w-0 rounded-xl border border-[#9FC2DC] bg-white p-3 shadow-sm">
 
           <div className="mb-3 flex items-center justify-between">
 
@@ -363,23 +413,20 @@ export default function RecruitmentPage() {
 
             <button
               type="button"
-              onClick={() =>
-                showNotice(
-                  'New requisition form is ready for configuration'
-                )
-              }
-              title="Create requisition"
-              aria-label="Create requisition"
-              className="rounded-md p-1.5 text-[#315B76] transition-colors hover:bg-[#B0D0EA] hover:text-[#17324A]"
+              onClick={() => setIsAddJdOpen(true)}
+              title="Add job description"
+              aria-label="Add job description"
+              className="inline-flex items-center gap-1 rounded-md border border-[#9FC2DC] bg-[#F4F9FC] px-2 py-1.5 text-[10px] font-semibold text-[#315B76] transition-colors hover:bg-[#E8F2FA] hover:text-[#17324A]"
             >
-              <UserPlus className="h-4 w-4" />
+              <FileText className="h-3.5 w-3.5" />
+              Add JD
             </button>
 
           </div>
 
           <div className="space-y-2">
 
-            {MOCK_RECRUITMENT_JOBS.map(
+            {jobs.map(
               (job) => (
                 <button
                   key={job.id}
@@ -396,7 +443,7 @@ export default function RecruitmentPage() {
 
                     setStage('All');
                   }}
-                  className={`w-full rounded-lg border p-3 text-left transition-all ${
+                  className={`min-w-0 w-full rounded-lg border p-3 text-left transition-all ${
                     selectedJob.id === job.id
                       ? 'border-[#6FA6C9] bg-[#E8F2FA] shadow-sm'
                       : 'border-[#C3D9E8] bg-white hover:border-[#6FA6C9] hover:bg-[#F4F9FC]'
@@ -405,7 +452,7 @@ export default function RecruitmentPage() {
 
                   <div className="flex items-start justify-between gap-2">
 
-                    <span className="text-xs font-semibold text-[#17324A]">
+                    <span className="min-w-0 break-words text-xs font-semibold text-[#17324A]">
                       {job.title}
                     </span>
 
@@ -448,9 +495,9 @@ export default function RecruitmentPage() {
 
           <div className="border-b border-[#C3D9E8] p-4">
 
-            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div className="flex min-w-0 flex-col gap-3 md:flex-row md:items-center md:justify-between">
 
-              <div>
+              <div className="min-w-0">
 
                 <h2 className="text-sm font-bold text-[#17324A]">
                   {selectedJob.title}
@@ -463,19 +510,6 @@ export default function RecruitmentPage() {
                 </p>
 
               </div>
-
-              <button
-                type="button"
-                onClick={() =>
-                  showNotice(
-                    'Screening queue refreshed'
-                  )
-                }
-                className="inline-flex items-center gap-1.5 rounded-lg border border-[#9FC2DC] bg-[#F4F9FC] px-3 py-2 text-[11px] font-semibold text-[#17324A] transition-colors hover:bg-[#E8F2FA]"
-              >
-                <ScanSearch className="h-3.5 w-3.5 text-[#315B76]" />
-                Run AI screening
-              </button>
 
             </div>
 
@@ -639,11 +673,11 @@ export default function RecruitmentPage() {
         ========================= */}
 
         {selectedCandidate ? (
-          <section className="rounded-xl border border-[#9FC2DC] bg-white p-4 shadow-sm">
+          <section className="min-w-0 overflow-hidden rounded-xl border border-[#9FC2DC] bg-white p-4 shadow-sm xl:col-span-2 2xl:col-span-1">
 
-            <div className="flex items-start justify-between gap-3">
+            <div className="flex min-w-0 items-start justify-between gap-3">
 
-              <div className="flex items-center gap-3">
+              <div className="flex min-w-0 items-center gap-3">
 
                 <img
                   src={selectedCandidate.avatar}
@@ -651,13 +685,13 @@ export default function RecruitmentPage() {
                   className="h-12 w-12 rounded-full border border-[#9FC2DC] object-cover"
                 />
 
-                <div>
+                <div className="min-w-0">
 
-                  <h2 className="text-sm font-bold text-[#17324A]">
+                  <h2 className="truncate text-sm font-bold text-[#17324A]">
                     {selectedCandidate.name}
                   </h2>
 
-                  <p className="text-xs text-[#315B76]">
+                  <p className="break-words text-xs text-[#315B76]">
                     {selectedCandidate.currentRole}
                   </p>
 
@@ -760,7 +794,7 @@ export default function RecruitmentPage() {
 
             {/* Experience + Location */}
 
-            <div className="mt-5 grid grid-cols-2 gap-3 text-xs">
+            <div className="mt-5 grid grid-cols-1 gap-3 text-xs sm:grid-cols-2">
 
               <div className="rounded-lg border border-[#C3D9E8] bg-[#F4F9FC] p-3">
 
@@ -780,7 +814,7 @@ export default function RecruitmentPage() {
                   Location
                 </p>
 
-                <p className="mt-1 flex items-center gap-1 font-semibold text-[#17324A]">
+                <p className="mt-1 flex min-w-0 items-center gap-1 break-words font-semibold text-[#17324A]">
 
                   <MapPin className="h-3 w-3 text-[#315B76]" />
 
@@ -845,7 +879,7 @@ export default function RecruitmentPage() {
 
             {/* Actions */}
 
-            <div className="mt-5 flex gap-2">
+            <div className="mt-5 flex flex-col gap-2 sm:flex-row">
 
               <button
                 type="button"
@@ -894,6 +928,40 @@ export default function RecruitmentPage() {
         )}
 
       </div>
+
+      {/* =========================
+          ADD JOB DESCRIPTION MODAL
+      ========================= */}
+
+      {isAddJdOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#17324A]/30 p-4 backdrop-blur-sm">
+          <form
+            onSubmit={addJobDescription}
+            className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl border border-[#9FC2DC] bg-white p-5 shadow-2xl"
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-sm font-bold text-[#17324A]">Add job description</h2>
+                <p className="mt-1 text-xs text-[#5D7D94]">Create a requisition and define the role requirements.</p>
+              </div>
+              <button type="button" onClick={() => setIsAddJdOpen(false)} aria-label="Close add job description dialog" className="rounded-md p-1.5 text-[#5D7D94] hover:bg-[#E8F2FA] hover:text-[#17324A]"><X className="h-4 w-4" /></button>
+            </div>
+
+            <div className="mt-5 grid gap-3 sm:grid-cols-2">
+              <label className="flex flex-col gap-1 text-[11px] font-semibold text-[#315B76]">Job title<input required value={jdForm.title} onChange={(event) => setJdForm((current) => ({ ...current, title: event.target.value }))} placeholder="e.g. Product Designer" className="rounded-lg border border-[#C3D9E8] px-3 py-2 text-xs font-normal text-[#17324A] outline-none focus:border-[#6FA6C9]" /></label>
+              <label className="flex flex-col gap-1 text-[11px] font-semibold text-[#315B76]">Department<input required value={jdForm.department} onChange={(event) => setJdForm((current) => ({ ...current, department: event.target.value }))} placeholder="e.g. Engineering" className="rounded-lg border border-[#C3D9E8] px-3 py-2 text-xs font-normal text-[#17324A] outline-none focus:border-[#6FA6C9]" /></label>
+              <label className="flex flex-col gap-1 text-[11px] font-semibold text-[#315B76]">Location<input required value={jdForm.location} onChange={(event) => setJdForm((current) => ({ ...current, location: event.target.value }))} placeholder="e.g. Bengaluru / Hybrid" className="rounded-lg border border-[#C3D9E8] px-3 py-2 text-xs font-normal text-[#17324A] outline-none focus:border-[#6FA6C9]" /></label>
+              <label className="flex flex-col gap-1 text-[11px] font-semibold text-[#315B76]">Employment type<select value={jdForm.employmentType} onChange={(event) => setJdForm((current) => ({ ...current, employmentType: event.target.value as RecruitmentJob['employmentType'] }))} className="rounded-lg border border-[#C3D9E8] bg-white px-3 py-2 text-xs font-normal text-[#17324A] outline-none focus:border-[#6FA6C9]"><option>Full-time</option><option>Contract</option></select></label>
+              <label className="flex flex-col gap-1 text-[11px] font-semibold text-[#315B76]">Openings<input required min="1" type="number" value={jdForm.openings} onChange={(event) => setJdForm((current) => ({ ...current, openings: event.target.value }))} className="rounded-lg border border-[#C3D9E8] px-3 py-2 text-xs font-normal text-[#17324A] outline-none focus:border-[#6FA6C9]" /></label>
+            </div>
+
+            <label className="mt-3 flex flex-col gap-1 text-[11px] font-semibold text-[#315B76]">Job description<textarea required rows={3} value={jdForm.description} onChange={(event) => setJdForm((current) => ({ ...current, description: event.target.value }))} placeholder="Describe the role, responsibilities, and outcomes" className="resize-y rounded-lg border border-[#C3D9E8] px-3 py-2 text-xs font-normal text-[#17324A] outline-none focus:border-[#6FA6C9]" /></label>
+            <label className="mt-3 flex flex-col gap-1 text-[11px] font-semibold text-[#315B76]">Required skills <span className="font-normal text-[#6F91A8]">Comma-separated</span><input required value={jdForm.requirements} onChange={(event) => setJdForm((current) => ({ ...current, requirements: event.target.value }))} placeholder="React, TypeScript, Communication" className="rounded-lg border border-[#C3D9E8] px-3 py-2 text-xs font-normal text-[#17324A] outline-none focus:border-[#6FA6C9]" /></label>
+
+            <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><button type="button" onClick={() => setIsAddJdOpen(false)} className="rounded-lg border border-[#9FC2DC] bg-[#F4F9FC] px-3 py-2 text-xs font-semibold text-[#17324A] hover:bg-[#E8F2FA]">Cancel</button><button type="submit" className="rounded-lg bg-[#17324A] px-3 py-2 text-xs font-semibold text-white hover:bg-[#315B76]">Add JD</button></div>
+          </form>
+        </div>
+      )}
 
       {/* =========================
           UPLOAD MODAL

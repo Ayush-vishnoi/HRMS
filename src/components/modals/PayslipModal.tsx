@@ -3,7 +3,6 @@
 import React from 'react';
 import { X, Printer, Download, Building2, CheckCircle2 } from 'lucide-react';
 import { Payslip, CURRENT_USER } from '@/data/mockData';
-import { formatINR } from '@/utils/formatters';
 
 interface PayslipModalProps {
   payslip: Payslip | null;
@@ -20,7 +19,7 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({ payslip, onClose }) 
         <div className="px-6 py-4 border-b border-border flex items-center justify-between bg-surface">
           <div className="flex items-center gap-2">
             <Building2 className="w-5 h-5 text-[#B86B78]" />
-            <h3 className="text-sm font-bold text-foreground">Official Salary Payslip</h3>
+            <h3 className="text-sm font-bold text-foreground">Official Payslip</h3>
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -81,78 +80,32 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({ payslip, onClose }) 
             </div>
           </div>
 
-          {/* Earnings & Deductions Table */}
-          <div className="grid grid-cols-2 gap-6">
-            {/* Earnings */}
-            <div className="border border-border rounded-xl overflow-hidden">
-              <div className="bg-surface-elevated px-4 py-2.5 text-xs font-bold text-foreground border-b border-border flex justify-between">
-                <span>Earnings Breakdown</span>
-                <span>Amount (INR)</span>
-              </div>
-              <div className="p-4 space-y-2.5 text-xs">
-                <div className="flex justify-between text-secondary">
-                  <span>Basic Salary</span>
-                  <span className="font-semibold text-foreground">{formatINR(payslip.basicSalary)}</span>
-                </div>
-                <div className="flex justify-between text-secondary">
-                  <span>House Rent Allowance (HRA)</span>
-                  <span className="font-semibold text-foreground">{formatINR(payslip.hra)}</span>
-                </div>
-                <div className="flex justify-between text-secondary">
-                  <span>Conveyance Allowance</span>
-                  <span className="font-semibold text-foreground">{formatINR(payslip.conveyance)}</span>
-                </div>
-                <div className="flex justify-between text-secondary">
-                  <span>Special Allowance</span>
-                  <span className="font-semibold text-foreground">{formatINR(payslip.specialAllowance)}</span>
-                </div>
-                <div className="pt-2 border-t border-border flex justify-between font-bold text-foreground">
-                  <span>Gross Earnings</span>
-                  <span className="text-emerald-500">{formatINR(payslip.grossEarnings)}</span>
-                </div>
-              </div>
+          {/* Privacy-safe statement summary */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="rounded-xl border border-border bg-surface-elevated p-4">
+              <p className="text-xs font-bold text-foreground">Statement details protected</p>
+              <p className="mt-2 text-xs leading-5 text-secondary">
+                Financial figures are hidden throughout the HRMS. Use the official payroll channel for authorised financial records.
+              </p>
             </div>
-
-            {/* Deductions */}
-            <div className="border border-border rounded-xl overflow-hidden">
-              <div className="bg-surface-elevated px-4 py-2.5 text-xs font-bold text-foreground border-b border-border flex justify-between">
-                <span>Deductions Breakdown</span>
-                <span>Amount (INR)</span>
-              </div>
-              <div className="p-4 space-y-2.5 text-xs">
-                <div className="flex justify-between text-secondary">
-                  <span>Provident Fund (PF)</span>
-                  <span className="font-semibold text-foreground">{formatINR(payslip.pfDeduction)}</span>
-                </div>
-                <div className="flex justify-between text-secondary">
-                  <span>Income Tax (TDS)</span>
-                  <span className="font-semibold text-foreground">{formatINR(payslip.taxDeduction)}</span>
-                </div>
-                <div className="flex justify-between text-secondary">
-                  <span>Professional Tax</span>
-                  <span className="font-semibold text-foreground">{formatINR(0)}</span>
-                </div>
-                <div className="flex justify-between text-secondary text-transparent select-none">
-                  <span>Filler</span>
-                  <span>{formatINR(0)}</span>
-                </div>
-                <div className="pt-2 border-t border-border flex justify-between font-bold text-foreground">
-                  <span>Total Deductions</span>
-                  <span className="text-rose-500">{formatINR(payslip.totalDeductions)}</span>
-                </div>
-              </div>
+            <div className="rounded-xl border border-border bg-surface-elevated p-4">
+              <p className="text-xs font-bold text-foreground">Processing summary</p>
+              <dl className="mt-2 space-y-2 text-xs text-secondary">
+                <div className="flex justify-between gap-4"><dt>Statement status</dt><dd className="font-semibold text-foreground">{payslip.status}</dd></div>
+                <div className="flex justify-between gap-4"><dt>Pay period</dt><dd className="font-semibold text-foreground">{payslip.monthYear}</dd></div>
+                <div className="flex justify-between gap-4"><dt>Processed on</dt><dd className="font-semibold text-foreground">{payslip.paymentDate}</dd></div>
+              </dl>
             </div>
           </div>
 
-          {/* Net Payable Highlight */}
-          <div className="p-5 rounded-2xl bg-surface border border-border flex items-center justify-between">
+          <div className="flex items-center justify-between rounded-2xl border border-border bg-surface p-5">
             <div>
-              <span className="text-xs uppercase font-bold text-[#B86B78]">Net Take-Home Pay</span>
-              <p className="text-2xl font-black text-foreground mt-0.5">{formatINR(payslip.netPayable)}</p>
+              <span className="text-xs font-bold uppercase text-[#B86B78]">Payment confirmation</span>
+              <p className="mt-1 text-sm font-bold text-foreground">Processed securely</p>
             </div>
-            <div className="text-right text-xs text-secondary font-medium">
-              <p>Direct Deposited to Bank</p>
-              <p className="text-[10px] text-secondary">Transaction Ref: TXN-89302198</p>
+            <div className="text-right text-xs font-medium text-secondary">
+              <p>Deposited to registered bank account</p>
+              <p className="text-[10px]">Transaction Ref: TXN-89302198</p>
             </div>
           </div>
         </div>

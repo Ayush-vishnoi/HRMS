@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard,
   Users,
@@ -12,6 +12,8 @@ import {
   CalendarRange,
   CreditCard,
   Target,
+  FileText,
+  BookOpenCheck,
   BarChart3,
   ScanSearch,
   Building2,
@@ -25,7 +27,13 @@ import { useHRMS } from '@/context/HRMSContext';
 
 export const Sidebar: React.FC = () => {
   const pathname = usePathname();
+  const router = useRouter();
   const { currentUser, logout } = useHRMS();
+
+  const handleLogout = () => {
+    logout();
+    router.replace('/');
+  };
 
   const role = currentUser.userRole;
 
@@ -37,7 +45,9 @@ export const Sidebar: React.FC = () => {
     { name: 'Leave Management', href: '/leaves', icon: CalendarDays, roles: ['employee', 'manager', 'admin'] },
     { name: 'Meetings & Calendar', href: '/meetings/calendar', icon: CalendarRange, roles: ['employee', 'manager', 'admin'] },
     { name: 'Payroll & Payslips', href: '/payroll', icon: CreditCard, roles: ['employee', 'admin'] },
-    { name: 'Performance & OKRs', href: '/performance', icon: Target, roles: ['employee', 'manager', 'admin'] },
+    { name: 'KRA', href: '/performance', icon: Target, roles: ['employee', 'manager', 'admin'] },
+    { name: 'Documents', href: '/documents', icon: FileText, roles: ['employee', 'manager', 'admin'] },
+    { name: 'Policy Center', href: '/policies', icon: BookOpenCheck, roles: ['employee', 'manager', 'admin'] },
     { name: 'Reports & Analytics', href: '/analytics', icon: BarChart3, roles: ['admin'] },
     { name: 'Recruitment', href: '/recruitment', icon: ScanSearch, roles: ['admin'] },
   ];
@@ -120,7 +130,7 @@ export const Sidebar: React.FC = () => {
         </div>
 
         <button
-          onClick={logout}
+          onClick={handleLogout}
           className="w-full py-1.5 px-2.5 rounded-md bg-error-bg hover:bg-error/20 text-error border border-error/30 text-[11px] font-medium flex items-center justify-center gap-1.5 transition-colors"
         >
           <LogOut className="w-3.5 h-3.5" />
