@@ -7,6 +7,7 @@ import {
   CalendarDays,
   Check,
   CheckCircle2,
+  CheckSquare,
   ChevronDown,
   Clock3,
   FileText,
@@ -26,6 +27,7 @@ import {
 } from '@/data/mockData';
 
 import { EmployeeDetailsModal } from '@/components/modals/EmployeeDetailsModal';
+import { AssignTaskModal } from '@/components/modals/AssignTaskModal';
 
 const statusFilters = ['All', 'Active', 'Remote', 'On Leave'] as const;
 
@@ -73,13 +75,16 @@ const getStatusClasses = (status: Employee['status']) => {
 };
 
 export default function MyTeamPage() {
-  const { currentUser, employees } = useHRMS();
+  const { currentUser, employees, tasks } = useHRMS();
 
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] =
     useState<StatusFilter>('All');
 
   const [selectedEmployee, setSelectedEmployee] =
+    useState<Employee | null>(null);
+
+  const [taskAssignee, setTaskAssignee] =
     useState<Employee | null>(null);
 
   const [activeAction, setActiveAction] =
@@ -92,10 +97,16 @@ export default function MyTeamPage() {
 
   const directReports = useMemo(
     () =>
-      employees.filter(
-        (employee) => employee.manager === currentUser.name
-      ),
-    [currentUser.name, employees]
+      employees.filter((employee) => {
+        if (currentUser.userRole === 'ceo') {
+          return employee.manager === currentUser.name || employee.manager === 'Rohan Kapoor' || employee.manager === 'CEO';
+        }
+        if (currentUser.userRole === 'admin') return employee.id !== currentUser.id;
+        if (currentUser.userRole === 'manager') return (employee.manager === currentUser.name || employee.department.toLowerCase() === currentUser.department.toLowerCase()) && employee.id !== currentUser.id;
+        if (currentUser.userRole === 'team_lead') return employee.manager.toLowerCase() === currentUser.name.toLowerCase();
+        return employee.id === currentUser.id;
+      }),
+    [currentUser.name, currentUser.userRole, currentUser.department, currentUser.id, employees]
   );
 
   /* ---------------- TEAM DATA ---------------- */
@@ -184,7 +195,7 @@ export default function MyTeamPage() {
 
   /* ---------------- MANAGER ACCESS ---------------- */
 
-  if (currentUser.userRole !== 'manager') {
+  if (currentUser.userRole !== 'manager' && currentUser.userRole !== 'ceo') {
     return (
       <div className="min-h-[60vh] flex items-center justify-center">
         <div className="rounded-2xl border border-[#B0D0EA] bg-white p-8 text-center shadow-sm">
@@ -291,7 +302,7 @@ export default function MyTeamPage() {
         >
           <div className="flex items-start justify-between">
 
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-[#55708A]">
+            <span className="text-[11px] font-bold uppercase tracking-wide text-[#17324A]">
               Direct reports
             </span>
 
@@ -325,7 +336,7 @@ export default function MyTeamPage() {
         >
           <div className="flex items-start justify-between">
 
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-[#55708A]">
+            <span className="text-[11px] font-bold uppercase tracking-wide text-[#17324A]">
               Average workload
             </span>
 
@@ -359,7 +370,7 @@ export default function MyTeamPage() {
         >
           <div className="flex items-start justify-between">
 
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-[#55708A]">
+            <span className="text-[11px] font-bold uppercase tracking-wide text-[#17324A]">
               Goal progress
             </span>
 
@@ -373,11 +384,11 @@ export default function MyTeamPage() {
           </p>
 
           <p className="mt-1 text-[11px] text-[#55708A]">
-            Average this quarter
+            Across team OKRs
           </p>
         </div>
 
-        {/* Attention */}
+        {/* Open Reviews */}
 
         <div
           className="
@@ -393,8 +404,8 @@ export default function MyTeamPage() {
         >
           <div className="flex items-start justify-between">
 
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-[#55708A]">
-              Needs attention
+            <span className="text-[11px] font-bold uppercase tracking-wide text-[#17324A]">
+              Open reviews
             </span>
 
             <div className="rounded-lg bg-amber-50 p-2">
@@ -816,7 +827,37 @@ export default function MyTeamPage() {
 
                   {/* Action Buttons */}
 
-                  <div className="mt-4 flex gap-2">
+                  <div className="mt-4 flex flex-wrap gap-2">
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setTaskAssignee(employee)
+                      }
+                      className="
+                        inline-flex
+                        flex-1
+                        items-center
+                        justify-center
+                        gap-1.5
+                        rounded-lg
+                        border
+                        border-[#17324A]
+                        bg-[#17324A]
+                        px-3
+                        py-2
+                        text-[11px]
+                        font-bold
+                        text-white
+                        shadow-sm
+                        transition-all
+                        hover:bg-[#234B68]
+                      "
+                    >
+                      <CheckSquare className="h-3.5 w-3.5" />
+
+                      Assign task
+                    </button>
 
                     <button
                       type="button"
@@ -857,7 +898,6 @@ export default function MyTeamPage() {
                       }
                       className="
                         inline-flex
-                        flex-1
                         items-center
                         justify-center
                         gap-1.5
@@ -876,9 +916,41 @@ export default function MyTeamPage() {
                     >
                       <Mail className="h-3.5 w-3.5" />
 
-                      Send reminder
+                      Reminder
                     </button>
                   </div>
+
+                  {/* Assigned Tasks Summary */}
+                  {tasks.filter((t) => t.assignedTo === employee.id).length > 0 && (
+                    <div className="mt-4 pt-3 border-t border-[#B0D0EA] space-y-2">
+                      <div className="flex items-center justify-between text-[11px] font-bold text-[#17324A]">
+                        <span className="flex items-center gap-1.5">
+                          <CheckSquare className="w-3.5 h-3.5 text-[#17324A]" />
+                          Assigned Tasks ({tasks.filter((t) => t.assignedTo === employee.id).length})
+                        </span>
+                        <span className="text-[10px] text-[#55708A]">
+                          {tasks.filter((t) => t.assignedTo === employee.id && t.status === 'Completed').length} Done
+                        </span>
+                      </div>
+                      <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                        {tasks.filter((t) => t.assignedTo === employee.id).map((task) => (
+                          <div key={task.id} className="p-2 rounded-lg bg-[#F5F9FC] border border-[#D9E5EE] text-xs flex items-center justify-between gap-2">
+                            <div className="min-w-0 flex-1">
+                              <p className="font-semibold text-[#17324A] truncate">{task.title}</p>
+                              <p className="text-[10px] text-[#55708A]">Due: {task.dueDate}</p>
+                            </div>
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${
+                              task.status === 'Completed'
+                                ? 'bg-emerald-50 text-emerald-600 border border-emerald-200'
+                                : 'bg-amber-50 text-amber-600 border border-amber-200'
+                            }`}>
+                              {task.status}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Manager Note */}
 
@@ -980,6 +1052,18 @@ export default function MyTeamPage() {
           employee={selectedEmployee}
           onClose={() =>
             setSelectedEmployee(null)
+          }
+        />
+      )}
+
+      {/* ================= ASSIGN TASK MODAL ================= */}
+
+      {taskAssignee && (
+        <AssignTaskModal
+          employee={taskAssignee}
+          isOpen={!!taskAssignee}
+          onClose={() =>
+            setTaskAssignee(null)
           }
         />
       )}

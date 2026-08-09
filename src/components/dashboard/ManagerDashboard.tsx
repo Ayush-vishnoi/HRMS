@@ -56,8 +56,8 @@ export const ManagerDashboard: React.FC = () => {
 
         {/* Direct Reports */}
         <div className="p-4 rounded-lg bg-white border border-[#B0D0EA] shadow-md hover:border-[#17324A]/40 transition-colors">
-          <div className="flex justify-between items-center text-[#17324A]/70 text-xs font-semibold">
-            <span>Direct Reports</span>
+          <div className="flex justify-between items-center text-xs">
+            <span className="font-bold text-[#17324A]">Direct Reports</span>
 
             <Users className="w-4 h-4 text-[#17324A]" />
           </div>
@@ -73,8 +73,8 @@ export const ManagerDashboard: React.FC = () => {
 
         {/* Pending Approvals */}
         <div className="p-4 rounded-lg bg-white border border-[#B0D0EA] shadow-md hover:border-[#17324A]/40 transition-colors">
-          <div className="flex justify-between items-center text-[#17324A]/70 text-xs font-semibold">
-            <span>Pending Approvals</span>
+          <div className="flex justify-between items-center text-xs">
+            <span className="font-bold text-[#17324A]">Pending Approvals</span>
 
             <AlertCircle className="w-4 h-4 text-[#17324A]" />
           </div>
@@ -90,8 +90,8 @@ export const ManagerDashboard: React.FC = () => {
 
         {/* Team Attendance */}
         <div className="p-4 rounded-lg bg-white border border-[#B0D0EA] shadow-md hover:border-[#17324A]/40 transition-colors">
-          <div className="flex justify-between items-center text-[#17324A]/70 text-xs font-semibold">
-            <span>Team Attendance</span>
+          <div className="flex justify-between items-center text-xs">
+            <span className="font-bold text-[#17324A]">Team Attendance</span>
 
             <Clock className="w-4 h-4 text-[#17324A]" />
           </div>
@@ -107,8 +107,8 @@ export const ManagerDashboard: React.FC = () => {
 
         {/* OKR Completion */}
         <div className="p-4 rounded-lg bg-white border border-[#B0D0EA] shadow-md hover:border-[#17324A]/40 transition-colors">
-          <div className="flex justify-between items-center text-[#17324A]/70 text-xs font-semibold">
-            <span>OKR Completion</span>
+          <div className="flex justify-between items-center text-xs">
+            <span className="font-bold text-[#17324A]">OKR Completion</span>
 
             <TrendingUp className="w-4 h-4 text-[#17324A]" />
           </div>
@@ -260,13 +260,12 @@ export const ManagerDashboard: React.FC = () => {
               </div>
 
               <span
-                className={`shrink-0 px-2.5 py-1 rounded-md text-[10px] font-bold ${
-                  emp.status === 'Active'
+                className={`shrink-0 px-2.5 py-1 rounded-md text-[10px] font-bold ${emp.status === 'Active'
                     ? 'bg-[#B0D0EA]/50 text-[#17324A] border border-[#B0D0EA]'
                     : emp.status === 'Remote'
-                    ? 'bg-[#B0D0EA]/30 text-[#17324A] border border-[#B0D0EA]'
-                    : 'bg-[#B0D0EA]/30 text-[#17324A] border border-[#B0D0EA]'
-                }`}
+                      ? 'bg-[#B0D0EA]/30 text-[#17324A] border border-[#B0D0EA]'
+                      : 'bg-[#B0D0EA]/30 text-[#17324A] border border-[#B0D0EA]'
+                  }`}
               >
                 {emp.status}
               </span>

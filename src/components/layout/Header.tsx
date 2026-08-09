@@ -7,6 +7,7 @@ import {
   ShieldCheck,
   UserCheck,
   Briefcase,
+  Crown,
   CheckCircle2,
   X,
   Sun,
@@ -20,10 +21,14 @@ export const Header: React.FC = () => {
 
   const getRoleBadge = () => {
     switch (currentUser.userRole) {
+      case 'ceo':
+        return { label: 'CEO Executive', icon: Crown, color: 'bg-purple-500/15 text-purple-700 border-purple-500/30' };
       case 'admin':
         return { label: 'HR Admin', icon: ShieldCheck, color: 'bg-amber-500/15 text-amber-700 border-amber-500/30' };
       case 'manager':
         return { label: 'Manager', icon: Briefcase, color: 'bg-[#B0D0EA]/30 text-[#17324A] border-[#B0D0EA]' };
+      case 'team_lead':
+        return { label: 'Team Lead', icon: UserCheck, color: 'bg-emerald-500/15 text-emerald-700 border-emerald-500/30' };
       default:
         return { label: 'Employee', icon: UserCheck, color: 'bg-[#C96F58]/15 text-[#A95745] border-[#C96F58]/30' };
     }
@@ -50,11 +55,10 @@ export const Header: React.FC = () => {
         <div className="flex items-center bg-surface-elevated border border-border rounded-md p-0.5">
           <button
             onClick={toggleClockIn}
-            className={`px-2.5 py-1 rounded text-xs font-medium flex items-center gap-1.5 transition-colors ${
-              isClockedIn
+            className={`px-2.5 py-1 rounded text-xs font-medium flex items-center gap-1.5 transition-colors ${isClockedIn
                 ? 'bg-success/15 text-success border border-success/30 hover:bg-success/20'
                 : 'bg-[#B0D0EA] text-[#17324A] hover:bg-[#9FC4E2]'
-            }`}
+              }`}
           >
             <span className={`w-1.5 h-1.5 rounded-full ${isClockedIn ? 'bg-success' : 'bg-[#17324A]'}`} />
             {isClockedIn ? `Clocked In (${clockInTime})` : 'Clock In Now'}

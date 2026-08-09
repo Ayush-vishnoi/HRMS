@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import {
   Users,
   Search,
@@ -10,25 +11,36 @@ import {
   Building2,
   ChevronRight,
   UserPlus,
-  ShieldCheck
+  ShieldCheck,
+  Network,
 } from 'lucide-react';
 import { useHRMS } from '@/context/HRMSContext';
 import { Employee } from '@/data/mockData';
 import { EmployeeDetailsModal } from '@/components/modals/EmployeeDetailsModal';
 import { AddEmployeeModal } from '@/components/modals/AddEmployeeModal';
+import { OrgChart } from '@/components/directory/OrgChart';
 
-export default function EmployeesPage() {
+function EmployeesContent() {
   const { employees, currentUser } = useHRMS();
+  const searchParams = useSearchParams();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDept, setSelectedDept] = useState('All');
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [viewMode, setViewMode] = useState<'grid' | 'list' | 'org-chart'>('grid');
   const [activeEmployee, setActiveEmployee] = useState<Employee | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
+  useEffect(() => {
+    const viewParam = searchParams.get('view');
+    if (viewParam === 'org-chart') {
+      setViewMode('org-chart');
+    }
+  }, [searchParams]);
+
   const canAddEmployee =
     currentUser.userRole === 'admin' ||
-    currentUser.userRole === 'manager';
+    currentUser.userRole === 'manager' ||
+    currentUser.userRole === 'ceo';
 
   const departments = [
     'All',
@@ -36,7 +48,7 @@ export default function EmployeesPage() {
     'Design',
     'Human Resources',
     'Marketing',
-    'Finance'
+    'Finance',
   ];
 
   const filteredEmployees = employees.filter((emp) => {
@@ -47,170 +59,161 @@ export default function EmployeesPage() {
       emp.employeeCode.toLowerCase().includes(searchQuery.toLowerCase());
 
     const matchesDept =
-      selectedDept === 'All' ||
-      emp.department === selectedDept;
+      selectedDept === 'All' || emp.department === selectedDept;
 
     return matchesSearch && matchesDept;
   });
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6">
-
+    <div className="max-w-7xl mx-auto space-y-6 select-none">
       {/* Header Banner */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-
         <div>
           <p className="text-[11px] font-semibold uppercase text-[#17324A]">
             People directory
           </p>
-
           <h1 className="text-xl font-bold text-[#1F2933] flex items-center gap-2">
             <Users className="w-5 h-5 text-[#17324A]" />
             Employee Management Directory
           </h1>
-
           <p className="text-xs text-[#667085]">
             View team members, organization hierarchy, and contact profiles
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
-
-          {/* Add Employee */}
           {canAddEmployee && (
             <button
               onClick={() => setIsAddModalOpen(true)}
-              className="px-4 py-2 rounded-md bg-[#17324A] hover:bg-[#17324A]/90 text-white text-xs font-semibold flex items-center gap-2 transition-colors"
+              className="px-4 py-2 rounded-md bg-[#17324A] hover:bg-[#17324A]/90 text-white text-xs font-semibold flex items-center gap-2 transition-colors cursor-pointer"
             >
               <UserPlus className="w-4 h-4" />
               Add New Employee
             </button>
           )}
 
-          {/* Grid / List Toggle */}
+          {/* Grid / List / Org Chart View Toggle */}
           <div className="flex items-center bg-[#FFFFFF] border border-[#E1E5EA] p-1 rounded-md">
-
             <button
               onClick={() => setViewMode('grid')}
               aria-label="Grid view"
               title="Grid view"
-              className={`p-1.5 rounded text-xs font-semibold flex items-center gap-1 transition-colors ${
+              className={`px-2 py-1.5 rounded text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
                 viewMode === 'grid'
                   ? 'bg-[#B0D0EA] text-[#17324A]'
                   : 'text-[#667085] hover:text-[#17324A] hover:bg-[#B0D0EA]/40'
               }`}
             >
               <LayoutGrid className="w-4 h-4" />
+              <span className="hidden md:inline">Grid</span>
             </button>
 
             <button
               onClick={() => setViewMode('list')}
               aria-label="List view"
               title="List view"
-              className={`p-1.5 rounded text-xs font-semibold flex items-center gap-1 transition-colors ${
+              className={`px-2 py-1.5 rounded text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
                 viewMode === 'list'
                   ? 'bg-[#B0D0EA] text-[#17324A]'
                   : 'text-[#667085] hover:text-[#17324A] hover:bg-[#B0D0EA]/40'
               }`}
             >
               <ListIcon className="w-4 h-4" />
+              <span className="hidden md:inline">List</span>
             </button>
 
+            <button
+              onClick={() => setViewMode('org-chart')}
+              aria-label="Organization Chart view"
+              title="Organization Chart view"
+              className={`px-2.5 py-1.5 rounded text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer ${
+                viewMode === 'org-chart'
+                  ? 'bg-purple-100 text-purple-900 border border-purple-300'
+                  : 'text-[#667085] hover:text-[#17324A] hover:bg-[#B0D0EA]/40'
+              }`}
+            >
+              <Network className="w-4 h-4 text-purple-700" />
+              <span>Org Chart</span>
+            </button>
           </div>
         </div>
       </div>
 
       {/* Role Permission Notice */}
       <div className="p-3 rounded-lg bg-[#FFFFFF] border border-[#E1E5EA] flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between text-xs text-[#667085]">
-
         <div className="flex items-start gap-2">
-
           <ShieldCheck className="w-4 h-4 text-[#17324A] shrink-0" />
-
           <span>
             Permission level:{' '}
             <strong className="text-[#1F2933] uppercase">
               {currentUser.userRole}
             </strong>
             .
-
             {canAddEmployee
               ? ' You can onboard and edit employee records.'
               : ' You have view-only access to the employee directory.'}
           </span>
-
         </div>
 
         <span className="font-bold text-[#1F2933] whitespace-nowrap">
-          {filteredEmployees.length} members listed
+          {filteredEmployees.length} members listed (105 Org Total)
         </span>
-
       </div>
 
-      {/* Filters & Search Bar */}
-      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 p-4 rounded-lg bg-[#FFFFFF] border border-[#E1E5EA]">
+      {/* Filters & Search Bar (Only shown for Grid & List view) */}
+      {viewMode !== 'org-chart' && (
+        <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 p-4 rounded-lg bg-[#FFFFFF] border border-[#E1E5EA]">
+          <div className="relative flex-1 max-w-md">
+            <Search className="w-4 h-4 text-[#667085] absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search by name, designation, email, or code..."
+              className="w-full pl-9 pr-4 py-2 bg-[#F7F8FA] border border-[#E1E5EA] rounded-md text-xs text-[#1F2933] placeholder-[#667085] focus:outline-none focus:border-[#17324A] focus:ring-2 focus:ring-[#B0D0EA]"
+            />
+          </div>
 
-        {/* Search */}
-        <div className="relative flex-1 max-w-md">
-
-          <Search className="w-4 h-4 text-[#667085] absolute left-3 top-1/2 -translate-y-1/2" />
-
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search by name, designation, email, or code..."
-            className="w-full pl-9 pr-4 py-2 bg-[#F7F8FA] border border-[#E1E5EA] rounded-md text-xs text-[#1F2933] placeholder-[#667085] focus:outline-none focus:border-[#17324A] focus:ring-2 focus:ring-[#B0D0EA]"
-          />
-
+          <div className="flex items-center gap-1 overflow-x-auto pb-1 xl:pb-0">
+            {departments.map((dept) => (
+              <button
+                key={dept}
+                onClick={() => setSelectedDept(dept)}
+                className={`px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap transition-colors cursor-pointer ${
+                  selectedDept === dept
+                    ? 'bg-[#B0D0EA] text-[#17324A] border border-[#B0D0EA]'
+                    : 'bg-[#F1F3F5] text-[#667085] hover:text-[#17324A] hover:bg-[#B0D0EA]/40 border border-[#E1E5EA]'
+                }`}
+              >
+                {dept}
+              </button>
+            ))}
+          </div>
         </div>
+      )}
 
-        {/* Department Filter Tabs */}
-        <div className="flex items-center gap-1 overflow-x-auto pb-1 xl:pb-0">
+      {/* VIEW 1: ORG CHART */}
+      {viewMode === 'org-chart' && (
+        <OrgChart onSelectEmployee={(emp) => setActiveEmployee(emp)} />
+      )}
 
-          {departments.map((dept) => (
-
-            <button
-              key={dept}
-              onClick={() => setSelectedDept(dept)}
-              className={`px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap transition-colors ${
-                selectedDept === dept
-                  ? 'bg-[#B0D0EA] text-[#17324A] border border-[#B0D0EA]'
-                  : 'bg-[#F1F3F5] text-[#667085] hover:text-[#17324A] hover:bg-[#B0D0EA]/40 border border-[#E1E5EA]'
-              }`}
-            >
-              {dept}
-            </button>
-
-          ))}
-
-        </div>
-      </div>
-
-      {/* Employees Grid View */}
-      {viewMode === 'grid' ? (
-
+      {/* VIEW 2: GRID VIEW */}
+      {viewMode === 'grid' && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-
           {filteredEmployees.map((emp) => (
-
             <button
               type="button"
               key={emp.id}
               onClick={() => setActiveEmployee(emp)}
               className="p-5 rounded-lg bg-[#FFFFFF] border border-[#E1E5EA] hover:border-[#B0D0EA] hover:bg-[#FFFFFF] transition-colors cursor-pointer group shadow-md flex flex-col justify-between text-left focus:outline-none focus:ring-2 focus:ring-[#B0D0EA]"
             >
-
               <div className="space-y-3">
-
                 <div className="flex items-start justify-between">
-
                   <img
                     src={emp.avatar}
                     alt={emp.name}
                     className="w-14 h-14 rounded-lg object-cover border border-[#E1E5EA] ring-2 ring-[#B0D0EA]/50"
                   />
-
                   <span
                     className={`px-2.5 py-0.5 rounded-md text-[10px] font-bold ${
                       emp.status === 'Active'
@@ -222,200 +225,111 @@ export default function EmployeesPage() {
                   >
                     {emp.status}
                   </span>
-
                 </div>
 
                 <div>
-
                   <h3 className="text-sm font-bold text-[#1F2933] group-hover:text-[#17324A] transition-colors">
                     {emp.name}
                   </h3>
-
-                  <p className="text-xs text-[#17324A] font-medium">
-                    {emp.role}
-                  </p>
-
-                  <span className="text-[11px] text-[#667085] font-mono mt-0.5 block">
-                    {emp.employeeCode}
-                  </span>
-
+                  <p className="text-xs text-[#17324A] font-medium">{emp.role}</p>
+                  <span className="text-[11px] text-[#667085] font-mono mt-0.5 block">{emp.employeeCode}</span>
                 </div>
 
                 <div className="pt-2 border-t border-[#E1E5EA] space-y-1.5 text-xs text-[#667085]">
-
                   <div className="flex items-center gap-2">
                     <Building2 className="w-3.5 h-3.5 text-[#667085]" />
                     <span>{emp.department}</span>
                   </div>
-
                   <div className="flex items-center gap-2">
                     <MapPin className="w-3.5 h-3.5 text-[#667085]" />
                     <span>{emp.location}</span>
                   </div>
-
                 </div>
-
               </div>
 
-              <div className="mt-4 pt-3 border-t border-[#E1E5EA] flex items-center justify-between text-xs text-[#17324A] font-semibold">
-
-                <span>View full profile</span>
-
-                <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
-
+              <div className="mt-4 pt-3 border-t border-[#E1E5EA] flex items-center justify-between text-xs text-[#17324A] font-semibold group-hover:underline">
+                <span>View Full Profile</span>
+                <ChevronRight className="w-4 h-4 text-[#17324A]" />
               </div>
-
             </button>
-
           ))}
-
         </div>
-
-      ) : (
-
-        /* Employees List View */
-        <div className="p-4 rounded-lg bg-[#FFFFFF] border border-[#E1E5EA] shadow-md">
-
-          <div className="overflow-x-auto">
-
-            <table className="w-full text-left text-xs border-collapse">
-
-              <thead>
-
-                <tr className="border-b border-[#E1E5EA] text-[#667085] font-semibold bg-[#F1F3F5]">
-
-                  <th className="py-3 px-4">
-                    Employee
-                  </th>
-
-                  <th className="py-3 px-4">
-                    Department
-                  </th>
-
-                  <th className="py-3 px-4">
-                    Email
-                  </th>
-
-                  <th className="py-3 px-4">
-                    Location
-                  </th>
-
-                  <th className="py-3 px-4">
-                    Status
-                  </th>
-
-                  <th className="py-3 px-4 text-right">
-                    Action
-                  </th>
-
-                </tr>
-
-              </thead>
-
-              <tbody className="divide-y divide-[#E1E5EA] text-[#1F2933]">
-
-                {filteredEmployees.map((emp) => (
-
-                  <tr
-                    key={emp.id}
-                    onClick={() => setActiveEmployee(emp)}
-                    className="hover:bg-[#B0D0EA]/20 cursor-pointer transition-colors"
-                  >
-
-                    <td className="py-3 px-4">
-
-                      <div className="flex items-center gap-3">
-
-                        <img
-                          src={emp.avatar}
-                          alt={emp.name}
-                          className="w-8 h-8 rounded-full object-cover border border-[#E1E5EA]"
-                        />
-
-                        <div>
-
-                          <p className="font-bold text-[#1F2933]">
-                            {emp.name}
-                          </p>
-
-                          <p className="text-[11px] text-[#667085]">
-                            {emp.role}
-                          </p>
-
-                        </div>
-
-                      </div>
-
-                    </td>
-
-                    <td className="py-3 px-4 font-semibold text-[#1F2933]">
-                      {emp.department}
-                    </td>
-
-                    <td className="py-3 px-4 text-[#667085]">
-                      {emp.email}
-                    </td>
-
-                    <td className="py-3 px-4 text-[#667085]">
-                      {emp.location}
-                    </td>
-
-                    <td className="py-3 px-4">
-
-                      <span
-                        className={`px-2.5 py-0.5 rounded-md text-[10px] font-bold ${
-                          emp.status === 'Active'
-                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                            : emp.status === 'Remote'
-                            ? 'bg-[#B0D0EA] text-[#17324A] border border-[#B0D0EA]'
-                            : 'bg-amber-50 text-amber-700 border border-amber-200'
-                        }`}
-                      >
-                        {emp.status}
-                      </span>
-
-                    </td>
-
-                    <td className="py-3 px-4 text-right">
-
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setActiveEmployee(emp);
-                        }}
-                        className="text-xs font-semibold text-[#17324A] hover:text-[#17324A]/80"
-                      >
-                        Details &rarr;
-                      </button>
-
-                    </td>
-
-                  </tr>
-
-                ))}
-
-              </tbody>
-
-            </table>
-
-          </div>
-
-        </div>
-
       )}
 
-      {/* Modals */}
-      <EmployeeDetailsModal
-        employee={activeEmployee}
-        onClose={() => setActiveEmployee(null)}
-      />
+      {/* VIEW 3: LIST VIEW */}
+      {viewMode === 'list' && (
+        <div className="rounded-lg bg-[#FFFFFF] border border-[#E1E5EA] shadow-md overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="bg-[#F1F3F5] text-[#667085] uppercase tracking-wider font-semibold border-b border-[#E1E5EA]">
+                  <th className="py-3 px-4">Employee</th>
+                  <th className="py-3 px-4">Code</th>
+                  <th className="py-3 px-4">Role</th>
+                  <th className="py-3 px-4">Department</th>
+                  <th className="py-3 px-4">Location</th>
+                  <th className="py-3 px-4">Status</th>
+                  <th className="py-3 px-4 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#E1E5EA]">
+                {filteredEmployees.map((emp) => (
+                  <tr key={emp.id} className="hover:bg-[#F7F8FA] transition-colors">
+                    <td className="py-3 px-4 font-bold text-[#1F2933]">
+                      <div className="flex items-center gap-3">
+                        <img src={emp.avatar} alt={emp.name} className="w-8 h-8 rounded-full object-cover border border-[#E1E5EA]" />
+                        <div>
+                          <span className="block font-bold text-[#1F2933]">{emp.name}</span>
+                          <span className="text-[11px] text-[#667085] font-normal">{emp.email}</span>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="py-3 px-4 font-mono text-[#667085]">{emp.employeeCode}</td>
+                    <td className="py-3 px-4 font-medium text-[#17324A]">{emp.role}</td>
+                    <td className="py-3 px-4 text-[#1F2933]">{emp.department}</td>
+                    <td className="py-3 px-4 text-[#667085]">{emp.location}</td>
+                    <td className="py-3 px-4">
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${emp.status === 'Active' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}`}>
+                        {emp.status}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4 text-right">
+                      <button
+                        onClick={() => setActiveEmployee(emp)}
+                        className="px-3 py-1 rounded bg-[#B0D0EA] hover:bg-[#B0D0EA]/80 text-[#17324A] font-semibold text-xs transition-colors cursor-pointer"
+                      >
+                        View Profile
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
+      {/* Employee Details Drawer / Modal */}
+      {activeEmployee && (
+        <EmployeeDetailsModal
+          employee={activeEmployee}
+          onClose={() => setActiveEmployee(null)}
+        />
+      )}
+
+      {/* Add Employee Modal */}
       <AddEmployeeModal
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
       />
-
     </div>
+  );
+}
+
+export default function EmployeesPage() {
+  return (
+    <Suspense fallback={<div className="p-6 text-center text-xs font-bold text-[#17324A]">Loading Employee Directory...</div>}>
+      <EmployeesContent />
+    </Suspense>
   );
 }

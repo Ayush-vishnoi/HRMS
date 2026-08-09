@@ -215,7 +215,7 @@ export default function RecruitmentPage() {
      ACCESS CONTROL
   ----------------------------- */
 
-  if (currentUser.userRole !== 'admin') {
+  if (currentUser.userRole !== 'admin' && currentUser.userRole !== 'ceo') {
     return (
       <div className="min-h-[60vh] flex items-center justify-center">
         <div className="rounded-xl border border-[#9FC2DC] bg-white p-8 text-center shadow-sm">
@@ -235,38 +235,82 @@ export default function RecruitmentPage() {
   return (
     <div className="min-h-screen bg-[#B0D0EA] text-[#17324A] p-4 md:p-6 space-y-6">
 
-      {/* =========================
-          HEADER
-      ========================= */}
+      {/* CEO EXECUTIVE HIRING OVERVIEW & APPROVALS */}
+      {currentUser.userRole === 'ceo' && (
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+            <div className="p-3.5 rounded-xl bg-white border border-[#9FC2DC] shadow-sm">
+              <span className="text-[10px] font-bold text-[#315B76] uppercase">Open Positions</span>
+              <div className="text-xl font-black text-[#17324A] mt-1">4</div>
+            </div>
+            <div className="p-3.5 rounded-xl bg-white border border-[#9FC2DC] shadow-sm">
+              <span className="text-[10px] font-bold text-[#315B76] uppercase">Critical Roles</span>
+              <div className="text-xl font-black text-rose-700 mt-1">2</div>
+            </div>
+            <div className="p-3.5 rounded-xl bg-white border border-[#9FC2DC] shadow-sm">
+              <span className="text-[10px] font-bold text-[#315B76] uppercase">In Pipeline</span>
+              <div className="text-xl font-black text-purple-700 mt-1">54</div>
+            </div>
+            <div className="p-3.5 rounded-xl bg-white border border-[#9FC2DC] shadow-sm">
+              <span className="text-[10px] font-bold text-[#315B76] uppercase">Offers Out</span>
+              <div className="text-xl font-black text-blue-700 mt-1">3</div>
+            </div>
+            <div className="p-3.5 rounded-xl bg-white border border-[#9FC2DC] shadow-sm">
+              <span className="text-[10px] font-bold text-[#315B76] uppercase">Joined (Aug)</span>
+              <div className="text-xl font-black text-emerald-700 mt-1">5</div>
+            </div>
+            <div className="p-3.5 rounded-xl bg-white border border-[#9FC2DC] shadow-sm">
+              <span className="text-[10px] font-bold text-[#315B76] uppercase">Time to Hire</span>
+              <div className="text-xl font-black text-[#17324A] mt-1">18 Days</div>
+            </div>
+            <div className="p-3.5 rounded-xl bg-white border border-[#9FC2DC] shadow-sm">
+              <span className="text-[10px] font-bold text-[#315B76] uppercase">Hiring Cost</span>
+              <div className="text-xl font-black text-[#17324A] mt-1">₹1.8L / role</div>
+            </div>
+          </div>
 
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          {/* CEO Approval Required Cards */}
+          <div className="p-5 rounded-2xl bg-white border border-[#9FC2DC] shadow-md space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-[#17324A] flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-purple-700" />
+                CEO Executive Approval Required — Offer & Budget Exceptions
+              </h3>
+              <span className="text-[10px] font-bold uppercase px-2.5 py-0.5 rounded bg-purple-100 text-purple-800 border border-purple-200">
+                1 Pending Approval
+              </span>
+            </div>
 
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-[#315B76]">
-            HR Operations
-          </p>
+            <div className="p-4 rounded-xl bg-[#F5F9FC] border border-[#9FC2DC] flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-black text-[#17324A]">Senior AI/ML Lead Candidate: Sanjay Rao</span>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200">Budget Variance +₹4L</span>
+                </div>
+                <p className="text-xs text-[#315B76]">
+                  Hiring Manager: <strong>Arjun Mehta</strong> • Requested CTC: <strong>₹32.0 Lakhs</strong> • Approved Band: <strong>₹28.0 Lakhs</strong>
+                </p>
+                <p className="text-[11px] text-[#55708A]">Strong match (95% AI score). 7 years experience owning end-to-end production ML pipelines.</p>
+              </div>
 
-          <h1 className="mt-1 text-xl font-bold text-[#17324A]">
-            Recruitment
-          </h1>
-
-          <p className="mt-1 text-xs text-[#315B76]">
-            Screen resumes against job descriptions
-            and keep hiring decisions moving.
-          </p>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={() => showNotice('Sanjay Rao offer approved at ₹32L CTC')}
+                  className="px-4 py-2 rounded-xl bg-[#17324A] text-white text-xs font-bold shadow-xs hover:bg-[#315B76] cursor-pointer"
+                >
+                  Approve Offer
+                </button>
+                <button
+                  onClick={() => showNotice('Offer request sent back to Hiring Manager for review')}
+                  className="px-3 py-2 rounded-xl bg-white border border-[#9FC2DC] text-[#315B76] text-xs font-semibold hover:bg-gray-50 cursor-pointer"
+                >
+                  Review Details
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
-
-        <button
-          type="button"
-          onClick={() =>
-            setIsUploadOpen(true)
-          }
-          className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#17324A] px-4 py-2.5 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-[#315B76]"
-        >
-          <Upload className="h-4 w-4" />
-          Upload resumes
-        </button>
-      </div>
+      )}
 
       {/* =========================
           NOTICE

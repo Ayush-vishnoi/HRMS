@@ -39,8 +39,8 @@ export const AdminDashboard: React.FC = () => {
 
         {/* Total Headcount */}
         <div className="p-4 rounded-2xl bg-white border border-[#B0D0EA] shadow-sm hover:border-[#17324A]/40 transition-colors">
-          <div className="flex justify-between items-center text-[#17324A]/70 text-xs font-semibold">
-            <span>Total Headcount</span>
+          <div className="flex justify-between items-center text-xs">
+            <span className="font-bold text-[#17324A]">Total Headcount</span>
             <Users className="w-4 h-4 text-[#17324A]" />
           </div>
 
@@ -55,8 +55,8 @@ export const AdminDashboard: React.FC = () => {
 
         {/* Payroll */}
         <div className="p-4 rounded-2xl bg-white border border-[#B0D0EA] shadow-sm hover:border-[#17324A]/40 transition-colors">
-          <div className="flex justify-between items-center text-[#17324A]/70 text-xs font-semibold">
-            <span>Monthly Payroll Expense</span>
+          <div className="flex justify-between items-center text-xs">
+            <span className="font-bold text-[#17324A]">Monthly Payroll Expense</span>
             <DollarSign className="w-4 h-4 text-[#17324A]" />
           </div>
 
@@ -73,8 +73,8 @@ export const AdminDashboard: React.FC = () => {
 
         {/* Job Openings */}
         <div className="p-4 rounded-2xl bg-white border border-[#B0D0EA] shadow-sm hover:border-[#17324A]/40 transition-colors">
-          <div className="flex justify-between items-center text-[#17324A]/70 text-xs font-semibold">
-            <span>Active Job Openings</span>
+          <div className="flex justify-between items-center text-xs">
+            <span className="font-bold text-[#17324A]">Active Job Openings</span>
             <UserPlus className="w-4 h-4 text-[#17324A]" />
           </div>
 
@@ -89,8 +89,8 @@ export const AdminDashboard: React.FC = () => {
 
         {/* Attrition */}
         <div className="p-4 rounded-2xl bg-white border border-[#B0D0EA] shadow-sm hover:border-[#17324A]/40 transition-colors">
-          <div className="flex justify-between items-center text-[#17324A]/70 text-xs font-semibold">
-            <span>Attrition Rate</span>
+          <div className="flex justify-between items-center text-xs">
+            <span className="font-bold text-[#17324A]">Attrition Rate</span>
             <TrendingUp className="w-4 h-4 text-[#17324A]" />
           </div>
 

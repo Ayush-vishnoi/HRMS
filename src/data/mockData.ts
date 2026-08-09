@@ -81,19 +81,19 @@ export const CURRENT_USER = {
 
 export const MOCK_EMPLOYEES: Employee[] = [
   {
-    id: 'EMP-001',
-    name: 'Ayush Vishnoi',
-    role: 'AI/ML Intern Developer',
-    department: 'AI/ML',
-    email: 'ayush.vishnoi@company.com',
-    phone: '+91 98765 43210',
-    avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
+    id: 'EMP-000',
+    name: 'Rohan Kapoor',
+    role: 'Chief Executive Officer (CEO)',
+    department: 'Executive Board',
+    email: 'rohan.kapoor@company.com',
+    phone: '+91 98000 11111',
+    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
     status: 'Active',
-    joinDate: '15 Mar 2026',
-    location: 'Bengaluru, Karnataka',
-    salary: 550000,
-    manager: 'Arjun Mehta',
-    employeeCode: 'EMP-2026-089',
+    joinDate: '01 Jan 2015',
+    location: 'Mumbai, Maharashtra',
+    salary: 8500000,
+    manager: '',
+    employeeCode: 'EMP-2015-001',
   },
   {
     id: 'EMP-002',
@@ -113,7 +113,7 @@ export const MOCK_EMPLOYEES: Employee[] = [
   {
     id: 'EMP-003',
     name: 'Rahul Verma',
-    role: 'Staff Frontend Engineer',
+    role: 'Frontend Team Lead',
     department: 'Engineering',
     email: 'rahul.verma@company.com',
     phone: '+91 98201 34567',
@@ -124,6 +124,51 @@ export const MOCK_EMPLOYEES: Employee[] = [
     salary: 2600000,
     manager: 'Arjun Mehta',
     employeeCode: 'EMP-2020-045',
+  },
+  {
+    id: 'EMP-001',
+    name: 'Ayush Vishnoi',
+    role: 'Software Engineer',
+    department: 'Engineering',
+    email: 'ayush.vishnoi@company.com',
+    phone: '+91 98765 43210',
+    avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
+    status: 'Active',
+    joinDate: '15 Mar 2026',
+    location: 'Bengaluru, Karnataka',
+    salary: 550000,
+    manager: 'Rahul Verma',
+    employeeCode: 'EMP-2026-089',
+  },
+  {
+    id: 'EMP-005',
+    name: 'Vikram Singh',
+    role: 'Backend Developer',
+    department: 'Engineering',
+    email: 'vikram.singh@company.com',
+    phone: '+91 98710 56789',
+    avatar: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=150&auto=format&fit=crop&q=80',
+    status: 'Active',
+    joinDate: '18 Nov 2022',
+    location: 'Jaipur, Rajasthan',
+    salary: 2400000,
+    manager: 'Rahul Verma',
+    employeeCode: 'EMP-2022-156',
+  },
+  {
+    id: 'EMP-006',
+    name: 'Priya Sharma',
+    role: 'Head of Human Resources',
+    department: 'Human Resources',
+    email: 'priya.sharma@company.com',
+    phone: '+91 98330 67890',
+    avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80',
+    status: 'Active',
+    joinDate: '01 Jun 2017',
+    location: 'Mumbai, Maharashtra',
+    salary: 3600000,
+    manager: 'Rohan Kapoor',
+    employeeCode: 'EMP-2017-003',
   },
   {
     id: 'EMP-004',
@@ -141,48 +186,18 @@ export const MOCK_EMPLOYEES: Employee[] = [
     employeeCode: 'EMP-2021-112',
   },
   {
-    id: 'EMP-005',
-    name: 'Vikram Singh',
-    role: 'Senior Backend Developer',
-    department: 'Engineering',
-    email: 'vikram.singh@company.com',
-    phone: '+91 98710 56789',
-    avatar: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=150&auto=format&fit=crop&q=80',
-    status: 'Remote',
-    joinDate: '18 Nov 2022',
-    location: 'Jaipur, Rajasthan',
-    salary: 2400000,
-    manager: 'Arjun Mehta',
-    employeeCode: 'EMP-2022-156',
-  },
-  {
-    id: 'EMP-006',
-    name: 'Priya Sharma',
-    role: 'Head of Human Resources',
-    department: 'Human Resources',
-    email: 'priya.sharma@company.com',
-    phone: '+91 98330 67890',
-    avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80',
-    status: 'Active',
-    joinDate: '01 Jun 2017',
-    location: 'Mumbai, Maharashtra',
-    salary: 3600000,
-    manager: 'CEO Office',
-    employeeCode: 'EMP-2017-003',
-  },
-  {
     id: 'EMP-007',
     name: 'Ananya Rao',
-    role: 'Product Marketing Manager',
-    department: 'Marketing',
+    role: 'HR Specialist',
+    department: 'Human Resources',
     email: 'ananya.rao@company.com',
     phone: '+91 99000 78901',
     avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-    status: 'On Leave',
+    status: 'Active',
     joinDate: '04 Apr 2022',
     location: 'Hyderabad, Telangana',
     salary: 2000000,
-    manager: 'Karan Malhotra',
+    manager: 'Neha Iyer',
     employeeCode: 'EMP-2022-132',
   },
   {
@@ -197,7 +212,7 @@ export const MOCK_EMPLOYEES: Employee[] = [
     joinDate: '22 Aug 2023',
     location: 'Ahmedabad, Gujarat',
     salary: 1400000,
-    manager: 'Meera Nair',
+    manager: 'Rohan Kapoor',
     employeeCode: 'EMP-2023-201',
   },
 ];
@@ -496,3 +511,188 @@ export const MOCK_ANALYTICS = {
     { day: 'Fri', onTime: 89, late: 7, absent: 4 },
   ],
 };
+
+export const TOTAL_HEADCOUNT = 105;
+
+export interface ExecutiveActionItem {
+  id: string;
+  category: 'CRITICAL' | 'ATTENTION' | 'INFORMATION';
+  title: string;
+  description: string;
+  department: string;
+  dueDate: string;
+  responsiblePerson: string;
+  actionText: string;
+  linkHref?: string;
+  type: 'deliverable' | 'leave' | 'promotion' | 'salary' | 'hiring' | 'policy' | 'compliance';
+}
+
+export const MOCK_EXECUTIVE_ACTIONS: ExecutiveActionItem[] = [
+  {
+    id: 'ACT-001',
+    category: 'CRITICAL',
+    title: 'Engineering Architecture Approval',
+    description: 'Budget exceeds approved baseline by ₹4L for Q4 cloud migration.',
+    department: 'Engineering',
+    dueDate: '2026-08-12',
+    responsiblePerson: 'Arjun Mehta (Engineering Manager)',
+    actionText: 'Review Architecture & Budget',
+    type: 'deliverable',
+  },
+  {
+    id: 'ACT-002',
+    category: 'CRITICAL',
+    title: 'High-Priority Hiring Approval — Senior ML Lead',
+    description: 'Requested CTC ₹32L exceeds target band of ₹28L (+₹4L variance).',
+    department: 'AI/ML',
+    dueDate: '2026-08-10',
+    responsiblePerson: 'Priya Sharma (Head of HR)',
+    actionText: 'Review Offer Variance',
+    type: 'hiring',
+  },
+  {
+    id: 'ACT-003',
+    category: 'ATTENTION',
+    title: 'Pending Senior Staff Executive Leave Request',
+    description: 'Arjun Mehta requested 5 days Earned Leave during Q3 release window.',
+    department: 'Engineering',
+    dueDate: '2026-08-11',
+    responsiblePerson: 'Arjun Mehta',
+    actionText: 'Approve Leave',
+    type: 'leave',
+  },
+  {
+    id: 'ACT-004',
+    category: 'ATTENTION',
+    title: '3 Senior Promotion & Salary Revision Requests',
+    description: 'Q3 Merit Cycle promotion recommendations pending CEO sign-off.',
+    department: 'Organization-wide',
+    dueDate: '2026-08-18',
+    responsiblePerson: 'Priya Sharma & Department Heads',
+    actionText: 'Review Promotions',
+    type: 'salary',
+  },
+  {
+    id: 'ACT-005',
+    category: 'ATTENTION',
+    title: 'Pending Corporate AI & Data Policy Approval',
+    description: 'Updated Enterprise AI Governance Policy ready for final CEO publishing.',
+    department: 'Legal & Compliance',
+    dueDate: '2026-08-15',
+    responsiblePerson: 'Legal & Governance Council',
+    actionText: 'Sign Policy',
+    type: 'policy',
+  },
+  {
+    id: 'ACT-006',
+    category: 'INFORMATION',
+    title: '5 New Strategic Hires Joined Today',
+    description: 'Welcome onboarded across Engineering, Sales, and Product.',
+    department: 'Human Resources',
+    dueDate: '2026-08-09',
+    responsiblePerson: 'Neha Iyer',
+    actionText: 'View Onboarding',
+    type: 'compliance',
+  },
+];
+
+export interface CompanyHealthMetrics {
+  overallScore: number; // e.g. 87
+  workforce: number; // 91
+  attendance: number; // 96
+  performance: number; // 82
+  retention: number; // 81
+  compliance: number; // 95
+}
+
+export const MOCK_COMPANY_HEALTH: CompanyHealthMetrics = {
+  overallScore: 87,
+  workforce: 91,
+  attendance: 96,
+  performance: 82,
+  retention: 81,
+  compliance: 95,
+};
+
+export interface WorkforceBudgetItem {
+  category: string;
+  budget: number; // in Lakhs/Crores
+  actual: number;
+  unit: 'Cr' | 'L';
+  departmentBreakdown?: { department: string; budget: number; actual: number }[];
+}
+
+export const MOCK_WORKFORCE_BUDGET = {
+  payroll: { category: 'Payroll Cost', budget: 2.20, actual: 2.15, unit: 'Cr' as const },
+  hiring: { category: 'Hiring & Acquisition', budget: 35, actual: 28, unit: 'L' as const },
+  training: { category: 'Learning & Development', budget: 12, actual: 8, unit: 'L' as const },
+  benefits: { category: 'Employee Benefits & Health', budget: 15, actual: 12, unit: 'L' as const },
+  totalUtilizationPct: 94,
+  deptBreakdown: [
+    { department: 'Engineering', budget: 90, actual: 85, employees: 42 },
+    { department: 'Sales', budget: 45, actual: 42, employees: 25 },
+    { department: 'Marketing', budget: 30, actual: 28, employees: 15 },
+    { department: 'HR & Ops', budget: 16, actual: 15, employees: 10 },
+    { department: 'Finance', budget: 10, actual: 9, employees: 8 },
+    { department: 'Product & Design', budget: 29, actual: 26, employees: 5 },
+  ],
+};
+
+export interface DepartmentPerformanceItem {
+  department: string;
+  headcount: number;
+  attendanceRate: number; // percentage
+  okrCompletion: number; // percentage
+  taskCompletion: number; // percentage
+  overallScore: number;
+  managerName: string;
+  managerAvatar: string;
+  teamsCount: number;
+}
+
+export const MOCK_DEPARTMENT_PERFORMANCE: DepartmentPerformanceItem[] = [
+  { department: 'Engineering', headcount: 42, attendanceRate: 97, okrCompletion: 84, taskCompletion: 88, overallScore: 90, managerName: 'Arjun Mehta', managerAvatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80', teamsCount: 4 },
+  { department: 'Sales', headcount: 25, attendanceRate: 94, okrCompletion: 76, taskCompletion: 81, overallScore: 83, managerName: 'Kabir Verma', managerAvatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&auto=format&fit=crop&q=80', teamsCount: 3 },
+  { department: 'HR & Ops', headcount: 10, attendanceRate: 98, okrCompletion: 91, taskCompletion: 94, overallScore: 95, managerName: 'Priya Sharma', managerAvatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80', teamsCount: 2 },
+  { department: 'Marketing', headcount: 15, attendanceRate: 95, okrCompletion: 72, taskCompletion: 78, overallScore: 81, managerName: 'Sunita Menon', managerAvatar: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=150&auto=format&fit=crop&q=80', teamsCount: 2 },
+  { department: 'Finance', headcount: 8, attendanceRate: 99, okrCompletion: 88, taskCompletion: 92, overallScore: 93, managerName: 'Siddharth Joshi', managerAvatar: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=150&auto=format&fit=crop&q=80', teamsCount: 1 },
+  { department: 'Product & Design', headcount: 5, attendanceRate: 96, okrCompletion: 85, taskCompletion: 86, overallScore: 89, managerName: 'Rohan Kapoor', managerAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80', teamsCount: 1 },
+];
+
+export interface ExecutiveEvent {
+  id: string;
+  title: string;
+  date: string;
+  formattedDate: string;
+  time: string;
+  category: 'Board' | 'Strategy' | 'Approval' | 'Audit';
+  location: string;
+  attendees: string;
+}
+
+export const MOCK_EXECUTIVE_EVENTS: ExecutiveEvent[] = [
+  { id: 'EV-101', title: 'Q3 Board of Directors Strategic Meeting', date: '2026-08-12', formattedDate: 'Aug 12', time: '10:00 AM - 01:00 PM', category: 'Board', location: 'Executive Boardroom & Virtual', attendees: 'Board Members, C-Suite' },
+  { id: 'EV-102', title: 'Quarterly Executive OKR & KRA Review', date: '2026-08-18', formattedDate: 'Aug 18', time: '02:00 PM - 04:30 PM', category: 'Strategy', location: 'Conference Room A', attendees: 'Department Heads & VP' },
+  { id: 'EV-103', title: 'Cloud Microservices Architecture Sign-Off', date: '2026-08-25', formattedDate: 'Aug 25', time: '11:00 AM - 12:30 PM', category: 'Approval', location: 'Tech Boardroom', attendees: 'CEO, Engineering Manager, Lead Architect' },
+  { id: 'EV-104', title: 'Annual ISO & Data Compliance Audit', date: '2026-08-30', formattedDate: 'Aug 30', time: '09:30 AM - 05:00 PM', category: 'Audit', location: 'Main Auditorium', attendees: 'External Auditors, HR Head, CEO' },
+];
+
+export interface PolicyDocument {
+  id: string;
+  title: string;
+  category: string;
+  version: string;
+  lastUpdated: string;
+  effectiveDate: string;
+  status: 'Draft' | 'HR Review' | 'Legal Review' | 'CEO Approval' | 'Published';
+  owner: string;
+  summary: string;
+}
+
+export const MOCK_POLICIES: PolicyDocument[] = [
+  { id: 'POL-001', title: 'Enterprise Generative AI & Data Privacy Guidelines', category: 'Compliance & Governance', version: 'v2.1', lastUpdated: '04 Aug 2026', effectiveDate: '15 Aug 2026', status: 'CEO Approval', owner: 'Legal Council', summary: 'Defines acceptable usage of generative AI models, confidential data protection, and IP safeguards.' },
+  { id: 'POL-002', title: 'Hybrid & Remote Work Framework 2026', category: 'Human Resources', version: 'v3.0', lastUpdated: '01 Aug 2026', effectiveDate: '01 Sep 2026', status: 'Published', owner: 'Priya Sharma (HR Head)', summary: 'Outlines 3-day office hybrid policy, core working hours, and internet reimbursement standards.' },
+  { id: 'POL-003', title: 'Executive Travel & Expense Reimbursement Policy', category: 'Finance', version: 'v1.4', lastUpdated: '25 Jul 2026', effectiveDate: '01 Aug 2026', status: 'Published', owner: 'Siddharth Joshi', summary: 'Covers domestic and international travel class, daily allowances, and receipt submission timelines.' },
+  { id: 'POL-004', title: 'Q4 Performance Incentive & Equity Vesting Policy', category: 'Compensation', version: 'v1.0 (Draft)', lastUpdated: '07 Aug 2026', effectiveDate: '01 Oct 2026', status: 'Legal Review', owner: 'HR & Finance Committee', summary: 'Framework for variable bonus payouts, milestone metrics, and ESOP vesting schedules.' },
+];
+

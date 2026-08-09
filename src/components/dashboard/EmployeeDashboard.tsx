@@ -19,6 +19,7 @@ import {
 import { useHRMS } from '@/context/HRMSContext';
 import { ApplyLeaveModal } from '@/components/modals/ApplyLeaveModal';
 import { PayslipModal } from '@/components/modals/PayslipModal';
+import { LateClockInModal } from '@/components/modals/LateClockInModal';
 import { MOCK_PAYSLIPS, Payslip } from '@/data/mockData';
 import { UpcomingMeetingsCard } from '@/components/dashboard/UpcomingMeetingsCard';
 
@@ -30,15 +31,37 @@ export const EmployeeDashboard: React.FC = () => {
     clockInTime,
     elapsedWorkTime,
     toggleClockIn,
-    leaveRequests
+    leaveRequests,
+    tasks,
+    completeTask,
   } = useHRMS();
 
   const [isLeaveModalOpen, setIsLeaveModalOpen] = useState(false);
+  const [isLateModalOpen, setIsLateModalOpen] = useState(false);
   const [selectedPayslip, setSelectedPayslip] = useState<Payslip | null>(null);
 
   const pendingLeaves = leaveRequests.filter(
     (r) => r.employeeId === currentUser.id
   );
+
+  const myTasks = tasks.filter(
+    (t) => t.assignedTo === currentUser.id
+  );
+
+  const handleClockInClick = () => {
+    if (isClockedIn) {
+      toggleClockIn();
+      return;
+    }
+    const now = new Date();
+    const currentHour = now.getHours();
+    // Shift window is 9:00 AM to 10:00 AM (9 <= currentHour < 10)
+    if (currentHour < 9 || currentHour >= 10) {
+      setIsLateModalOpen(true);
+      return;
+    }
+    toggleClockIn();
+  };
 
   return (
     <div className="space-y-6">
@@ -98,7 +121,7 @@ export const EmployeeDashboard: React.FC = () => {
 
           <div className="flex justify-between items-start">
 
-            <span className="text-xs font-semibold text-[#5F7180]">
+            <span className="text-xs font-bold text-[#17324A]">
               Casual Leave
             </span>
 
@@ -134,7 +157,7 @@ export const EmployeeDashboard: React.FC = () => {
 
           <div className="flex justify-between items-start">
 
-            <span className="text-xs font-semibold text-[#5F7180]">
+            <span className="text-xs font-bold text-[#17324A]">
               Sick Leave
             </span>
 
@@ -170,7 +193,7 @@ export const EmployeeDashboard: React.FC = () => {
 
           <div className="flex justify-between items-start">
 
-            <span className="text-xs font-semibold text-[#5F7180]">
+            <span className="text-xs font-bold text-[#17324A]">
               Earned / Annual
             </span>
 
@@ -206,7 +229,7 @@ export const EmployeeDashboard: React.FC = () => {
 
           <div className="flex justify-between items-start">
 
-            <span className="text-xs font-semibold text-[#5F7180]">
+            <span className="text-xs font-bold text-[#17324A]">
               WFH Balance
             </span>
 
@@ -277,12 +300,11 @@ export const EmployeeDashboard: React.FC = () => {
           </div>
 
           <button
-            onClick={toggleClockIn}
-            className={`w-full py-3 rounded-xl text-xs font-bold transition-all shadow-sm ${
-              isClockedIn
+            onClick={handleClockInClick}
+            className={`w-full py-3 rounded-xl text-xs font-bold transition-all shadow-sm ${isClockedIn
                 ? 'bg-[#da3633]/10 text-[#da3633] border border-[#da3633]/20 hover:bg-[#da3633]/15'
                 : 'bg-[#2d577b] hover:bg-[#316286] text-white'
-            }`}
+              }`}
           >
             {isClockedIn
               ? 'Clock Out (End Shift)'
@@ -372,6 +394,80 @@ export const EmployeeDashboard: React.FC = () => {
 
       </div>
 
+      {/* My Assigned Tasks & KRA Deliverables */}
+      <div className="p-6 rounded-2xl bg-[#FFFFFF] border border-[#D9E5EE] shadow-sm space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-bold text-[#17324A] flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-[#17324A]" />
+              My Assigned Tasks & KRA Deliverables
+            </h3>
+            <p className="text-xs text-[#5F7180] mt-0.5">
+              Review tasks assigned by your manager and submit completion updates
+            </p>
+          </div>
+          <span className="text-xs font-semibold px-3 py-1 rounded-full bg-[#B0D0EA] text-[#17324A] border border-[#9FC5E2] w-fit">
+            {myTasks.filter((t) => t.status === 'In Progress').length} Active • {myTasks.filter((t) => t.status === 'Completed').length} Completed
+          </span>
+        </div>
+
+        {myTasks.length === 0 ? (
+          <div className="p-6 text-center border border-dashed border-[#D9E5EE] rounded-xl bg-[#F5F9FC]">
+            <CheckCircle2 className="w-8 h-8 text-[#5F7180] mx-auto mb-2" />
+            <p className="text-xs font-semibold text-[#17324A]">No tasks currently assigned</p>
+            <p className="text-[11px] text-[#5F7180]">All your KRA deliverables are up to date!</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {myTasks.map((task) => (
+              <div key={task.id} className="p-4 rounded-xl bg-[#F5F9FC] border border-[#D9E5EE] flex flex-col justify-between space-y-3">
+                <div className="space-y-1.5">
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-[#B0D0EA] text-[#17324A] border border-[#9FC5E2]">
+                      {task.kraCategory || 'KRA Deliverable'}
+                    </span>
+                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${task.priority === 'High' ? 'bg-rose-50 text-rose-600 border border-rose-200' :
+                        task.priority === 'Medium' ? 'bg-amber-50 text-amber-600 border border-amber-200' :
+                          'bg-emerald-50 text-emerald-600 border border-emerald-200'
+                      }`}>
+                      {task.priority} Priority
+                    </span>
+                  </div>
+                  <h4 className="text-xs font-bold text-[#17324A]">{task.title}</h4>
+                  <p className="text-[11px] text-[#5F7180] leading-relaxed">{task.description}</p>
+                </div>
+
+                <div className="pt-2 border-t border-[#D9E5EE] space-y-2">
+                  <div className="flex items-center justify-between text-[10px] text-[#5F7180]">
+                    <span>Assigned by: <strong className="text-[#17324A]">{task.assignedBy}</strong></span>
+                    <span>Due: <strong className="text-[#17324A]">{task.dueDate}</strong></span>
+                  </div>
+
+                  {task.status === 'Completed' ? (
+                    <div className="p-2.5 rounded-lg bg-emerald-50 border border-emerald-200 flex items-center justify-between text-xs text-emerald-700 font-semibold">
+                      <span className="flex items-center gap-1.5">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                        Completed • Manager Notified
+                      </span>
+                      <span className="text-[10px] text-emerald-600">{task.completedAt}</span>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => completeTask(task.id, 'Task verified and completed successfully.')}
+                      className="w-full py-2 rounded-lg bg-[#17324A] hover:bg-[#234B68] text-white text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      Mark as Completed & Update Manager
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* Applied Leave History Table */}
       <div className="p-6 rounded-2xl bg-[#FFFFFF] border border-[#D9E5EE] shadow-sm space-y-4">
 
@@ -427,13 +523,12 @@ export const EmployeeDashboard: React.FC = () => {
                   <td className="py-3 px-4 text-right">
 
                     <span
-                      className={`px-2.5 py-1 rounded-full text-[11px] font-bold ${
-                        req.status === 'Approved'
+                      className={`px-2.5 py-1 rounded-full text-[11px] font-bold ${req.status === 'Approved'
                           ? 'bg-[#238636]/10 text-[#238636] border border-[#238636]/20'
                           : req.status === 'Pending'
-                          ? 'bg-[#9e6a03]/10 text-[#9e6a03] border border-[#9e6a03]/20'
-                          : 'bg-[#da3633]/10 text-[#da3633] border border-[#da3633]/20'
-                      }`}
+                            ? 'bg-[#9e6a03]/10 text-[#9e6a03] border border-[#9e6a03]/20'
+                            : 'bg-[#da3633]/10 text-[#da3633] border border-[#da3633]/20'
+                        }`}
                     >
                       {req.status}
                     </span>
@@ -460,6 +555,11 @@ export const EmployeeDashboard: React.FC = () => {
       <PayslipModal
         payslip={selectedPayslip}
         onClose={() => setSelectedPayslip(null)}
+      />
+
+      <LateClockInModal
+        isOpen={isLateModalOpen}
+        onClose={() => setIsLateModalOpen(false)}
       />
 
     </div>

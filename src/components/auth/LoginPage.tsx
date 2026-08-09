@@ -5,6 +5,8 @@ import {
   ShieldCheck,
   UserCheck,
   Briefcase,
+  Users,
+  Crown,
   Lock,
   Mail,
   ArrowRight,
@@ -28,16 +30,28 @@ const ROLE_OPTIONS: Array<{
     icon: UserCheck,
   },
   {
+    role: 'team_lead',
+    label: 'Team Lead',
+    access: 'Team Tasks',
+    icon: Users,
+  },
+  {
     role: 'manager',
     label: 'Manager',
-    access: 'Team View',
+    access: 'Dept Portal',
     icon: Briefcase,
   },
   {
     role: 'admin',
     label: 'HR Admin',
-    access: 'Full Access',
+    access: 'Operations',
     icon: ShieldCheck,
+  },
+  {
+    role: 'ceo',
+    label: 'CEO',
+    access: 'Executive',
+    icon: Crown,
   },
 ];
 
@@ -66,7 +80,7 @@ export const LoginPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#F7FAFC] flex items-center justify-center px-4 py-8">
-      <div className="w-full max-w-md">
+      <div className="w-full max-w-xl">
 
         {/* Brand Header */}
         <div className="text-center mb-6">
@@ -92,7 +106,7 @@ export const LoginPage: React.FC = () => {
               Authorization Role
             </label>
 
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
               {ROLE_OPTIONS.map(
                 ({ role, label, access, icon: Icon }) => {
                   const account = DEMO_ACCOUNTS[role];

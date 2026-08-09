@@ -69,7 +69,9 @@ export function CalendarView({ onSelect, onSchedule }: { onSelect: (meeting: Mee
           </div>
           <button onClick={() => setShowFilters((value) => !value)} className="toolbar-button"><Filter className="h-3.5 w-3.5" /> Filters</button>
           <Link href="/meetings/list" className="toolbar-button"><List className="h-3.5 w-3.5" /> List</Link>
-          <button onClick={() => onSchedule(selectedDate)} className="primary-button"><Plus className="h-4 w-4" /> Schedule</button>
+          {currentUser.userRole !== 'employee' && (
+            <button onClick={() => onSchedule(selectedDate)} className="primary-button"><Plus className="h-4 w-4" /> Schedule</button>
+          )}
         </div>
       </div>
       {showFilters && <div className="flex flex-wrap items-center gap-3 border-y border-[#30363d] py-3 text-xs text-[#8b949e]">
@@ -83,7 +85,7 @@ export function CalendarView({ onSelect, onSchedule }: { onSelect: (meeting: Mee
         {view !== 'day' && ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((label) => <div key={label} className="calendar-weekday">{label}</div>)}
         {daysToRender.map((day) => {
           const key = dateKey(day); const dayMeetings = visibleMeetings.filter((meeting) => dateKey(new Date(meeting.startsAt)) === key); const isToday = key === '2026-08-07'; const isCurrentMonth = day.getMonth() === cursor.getMonth();
-          return <button key={key} onClick={() => setSelectedDate(key)} onDoubleClick={() => onSchedule(key)} aria-label={`${new Intl.DateTimeFormat('en-IN', { dateStyle: 'full' }).format(day)}, ${dayMeetings.length} meetings`} className={`calendar-cell ${isToday ? 'ring-1 ring-inset ring-[#e8a0ad]' : ''} ${!isCurrentMonth && view === 'month' ? 'opacity-40' : ''} ${selectedDate === key ? 'bg-[#21262d]' : ''}`}><span className={`date-number ${isToday ? 'bg-[#8B3A4A] text-white' : ''}`}>{day.getDate()}</span><div className="space-y-1 text-left">{dayMeetings.slice(0, 3).map((meeting) => <span key={meeting.id} onClick={(event) => { event.stopPropagation(); onSelect(meeting); }} className={`meeting-chip ${meetingTone(meeting)}`}><b>{meeting.allDay ? 'All day' : formatTime(meeting.startsAt)}</b> {meeting.title}</span>)}{dayMeetings.length > 3 && <span className="text-[10px] text-[#8b949e]">+{dayMeetings.length - 3} more</span>}</div></button>;
+          return <button key={key} onClick={() => setSelectedDate(key)} onDoubleClick={() => currentUser.userRole !== 'employee' && onSchedule(key)} aria-label={`${new Intl.DateTimeFormat('en-IN', { dateStyle: 'full' }).format(day)}, ${dayMeetings.length} meetings`} className={`calendar-cell ${isToday ? 'ring-1 ring-inset ring-[#e8a0ad]' : ''} ${!isCurrentMonth && view === 'month' ? 'opacity-40' : ''} ${selectedDate === key ? 'bg-[#21262d]' : ''}`}><span className={`date-number ${isToday ? 'bg-[#8B3A4A] text-white' : ''}`}>{day.getDate()}</span><div className="space-y-1 text-left">{dayMeetings.slice(0, 3).map((meeting) => <span key={meeting.id} onClick={(event) => { event.stopPropagation(); onSelect(meeting); }} className={`meeting-chip ${meetingTone(meeting)}`}><b>{meeting.allDay ? 'All day' : formatTime(meeting.startsAt)}</b> {meeting.title}</span>)}{dayMeetings.length > 3 && <span className="text-[10px] text-[#8b949e]">+{dayMeetings.length - 3} more</span>}</div></button>;
         })}
       </div>}
     </section>
@@ -95,7 +97,8 @@ export function MeetingFiltersBar({ onSearch }: { onSearch: (value: string) => v
 }
 
 export function MeetingHeader({ title, onSchedule }: { title: string; onSchedule: () => void }) {
-  return <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><p className="eyebrow"><CalendarDays className="h-3.5 w-3.5" /> Collaboration</p><h1 className="page-title">{title}</h1><p className="page-subtitle">Coordinate team conversations and company-wide events.</p></div><button onClick={onSchedule} className="primary-button"><Plus className="h-4 w-4" /> Schedule</button></div>;
+  const { currentUser } = useHRMS();
+  return <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><p className="eyebrow"><CalendarDays className="h-3.5 w-3.5" /> Collaboration</p><h1 className="page-title">{title}</h1><p className="page-subtitle">Coordinate team conversations and company-wide events.</p></div>{currentUser.userRole !== 'employee' && <button onClick={onSchedule} className="primary-button"><Plus className="h-4 w-4" /> Schedule</button>}</div>;
 }
 
 export function MeetingSummary({ meetings }: { meetings: Meeting[] }) {
