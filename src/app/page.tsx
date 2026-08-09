@@ -1,0 +1,19 @@
+'use client';
+
+import React from 'react';
+import { useHRMS } from '@/context/HRMSContext';
+import { EmployeeDashboard } from '@/components/dashboard/EmployeeDashboard';
+import { ManagerDashboard } from '@/components/dashboard/ManagerDashboard';
+import { AdminDashboard } from '@/components/dashboard/AdminDashboard';
+
+export default function DashboardPage() {
+  const { currentUser } = useHRMS();
+
+  return (
+    <div className="max-w-7xl mx-auto space-y-6">
+      {currentUser.userRole === 'employee' && <EmployeeDashboard />}
+      {currentUser.userRole === 'manager' && <ManagerDashboard />}
+      {currentUser.userRole === 'admin' && <AdminDashboard />}
+    </div>
+  );
+}
