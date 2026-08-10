@@ -46,7 +46,7 @@ export const Sidebar: React.FC = () => {
     { name: 'Attendance & Time', href: '/attendance', icon: Clock, roles: ['employee', 'manager', 'admin'] },
     { name: 'Leave Management', href: '/leaves', icon: CalendarDays, roles: ['employee', 'manager', 'admin'] },
     { name: 'Meetings & Calendar', href: '/meetings/calendar', icon: CalendarRange, roles: ['employee', 'manager', 'admin'] },
-    { name: 'Payroll & Payslips', href: '/payroll', icon: CreditCard, roles: ['employee', 'admin'] },
+    { name: 'Payroll & Payslips', href: '/payroll', icon: CreditCard, roles: ['employee', 'manager', 'admin'] },
     { name: 'KRA', href: '/performance', icon: Target, roles: ['employee', 'manager', 'admin'] },
     { name: 'Documents', href: '/documents', icon: FileText, roles: ['employee', 'manager', 'admin'] },
     { name: 'Policy Center', href: '/policies', icon: BookOpenCheck, roles: ['employee', 'manager', 'admin'] },
@@ -76,12 +76,18 @@ export const Sidebar: React.FC = () => {
     <aside className="w-64 bg-surface border-r border-border text-secondary flex flex-col h-screen sticky top-0 z-40 select-none">
       {/* Brand Header */}
       <div className="p-4 border-b border-border flex items-center gap-3 bg-surface">
-        <div className="w-8 h-8 rounded-lg bg-[#B0D0EA]/30 border border-[#B0D0EA] flex items-center justify-center text-[#17324A]">
-          <Building2 className="w-4 h-4" />
+        <div className="h-10 w-12 flex items-center justify-center shrink-0">
+          <img
+            src="/logo.png"
+            alt="MYLOTIC GROUP Logo"
+            className="h-full w-full object-contain"
+          />
         </div>
-        <div>
-          <h1 className="font-semibold text-foreground text-sm tracking-tight leading-none">Apex HRMS</h1>
-          <span className="text-[10px] text-muted font-medium tracking-wide uppercase">Enterprise Suite</span>
+        <div className="min-w-0 flex-1">
+          <h1 className="font-bold text-foreground text-xs tracking-tight truncate leading-tight" title="MYLOTIC GROUP PVT.LTD">
+            MYLOTIC GROUP PVT.LTD
+          </h1>
+          <span className="text-[9px] text-muted font-bold tracking-wide uppercase block truncate mt-0.5">HRMS Portal</span>
         </div>
       </div>
 

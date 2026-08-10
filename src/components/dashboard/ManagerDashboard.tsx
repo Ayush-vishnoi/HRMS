@@ -280,3 +280,4 @@ export const ManagerDashboard: React.FC = () => {
     </div>
   );
 };
+

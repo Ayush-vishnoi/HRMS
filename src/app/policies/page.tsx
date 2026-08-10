@@ -56,7 +56,7 @@ const INITIAL_POLICIES: Policy[] = [
   {
     id: 'POL-001',
     title: 'Code of Conduct and Ethics',
-    summary: 'Standards for professional conduct, conflicts of interest, and responsible decision-making at Apex HRMS.',
+    summary: 'Standards for professional conduct, conflicts of interest, and responsible decision-making at MYLOTIC GROUP PVT.LTD.',
     category: 'Code of Conduct',
     version: 'v3.2',
     effectiveDate: '01 Aug 2026',

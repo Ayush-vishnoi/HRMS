@@ -49,10 +49,17 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({ payslip, onClose }) 
         <div className="p-8 bg-surface text-foreground space-y-6 select-text">
           {/* Company Branding & Statement */}
           <div className="flex items-start justify-between border-b border-border pb-6">
-            <div>
-              <h2 className="text-xl font-extrabold text-foreground tracking-tight">Apex Digital Technologies Private Limited</h2>
-              <p className="text-xs text-secondary">100 Innovation Park, Whitefield, Bengaluru, Karnataka 560066</p>
-              <p className="text-xs text-secondary">PAN / TAN: AABCA1234M / BLRA12345E</p>
+            <div className="flex items-center gap-3">
+              <img
+                src="/logo.png"
+                alt="MYLOTIC GROUP Logo"
+                className="h-10 w-auto object-contain shrink-0"
+              />
+              <div>
+                <h2 className="text-xl font-extrabold text-foreground tracking-tight">MYLOTIC GROUP PVT.LTD</h2>
+                <p className="text-xs text-secondary">100 Innovation Park, Whitefield, Bengaluru, Karnataka 560066</p>
+                <p className="text-xs text-secondary">PAN / TAN: AABCA1234M / BLRA12345E</p>
+              </div>
             </div>
             <div className="text-right">
               <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 mb-1">

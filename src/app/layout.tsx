@@ -8,9 +8,9 @@ import { MeetingsQueryProvider } from '@/components/providers/MeetingsQueryProvi
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'Apex HRMS - Enterprise Human Resource Portal',
+  title: 'MYLOTIC GROUP PVT.LTD - HRMS Portal',
   description:
-    'Streamlined HR management, employee self-service, leave tracking, payroll processing, and performance appraisals.',
+    'Streamlined HR management, employee self-service, leave tracking, payroll processing, and performance appraisals for MYLOTIC GROUP PVT.LTD.',
 };
 
 export default function RootLayout({

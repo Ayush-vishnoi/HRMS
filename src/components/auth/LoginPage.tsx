@@ -73,12 +73,16 @@ export const LoginPage: React.FC = () => {
 
         {/* Brand Header */}
         <div className="text-center mb-6">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-[#B0D0EA] border border-[#9FC5E2] mb-4 shadow-sm">
-            <ShieldCheck className="w-7 h-7 text-[#17324A]" />
+          <div className="inline-flex items-center justify-center h-20 w-36 mb-2">
+            <img
+              src="/logo.png"
+              alt="MYLOTIC GROUP Logo"
+              className="h-full w-full object-contain filter drop-shadow-sm"
+            />
           </div>
 
-          <h1 className="text-xl font-bold text-[#17324A]">
-            Apex HRMS Enterprise
+          <h1 className="text-xl font-extrabold text-[#17324A] tracking-tight">
+            MYLOTIC GROUP PVT.LTD
           </h1>
 
           <p className="text-xs text-[#5F7180] mt-1">
@@ -226,7 +230,7 @@ export const LoginPage: React.FC = () => {
 
         {/* Footer */}
         <p className="text-center text-[11px] text-[#667085] mt-5">
-          Apex HRMS Enterprise Edition • Version 4.2.0 •
+          MYLOTIC GROUP PVT.LTD HRMS • Version 4.2.0 •
           Secured with OAuth2/SSO
         </p>
       </div>

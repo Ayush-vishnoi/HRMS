@@ -294,7 +294,7 @@ export const MOCK_RECRUITMENT_JOBS: RecruitmentJob[] = [
     applicants: 24,
     status: 'Open',
     postedOn: '01 Aug 2026',
-    description: 'Build accessible, high-performance experiences for the Apex HR platform.',
+    description: 'Build accessible, high-performance experiences for the MYLOTIC GROUP HR platform.',
     requirements: ['React', 'TypeScript', 'Next.js', 'Testing', 'System design'],
   },
   {
