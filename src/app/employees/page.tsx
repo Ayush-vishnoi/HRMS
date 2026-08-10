@@ -145,7 +145,7 @@ export default function EmployeesPage() {
             .
 
             {canAddEmployee
-              ? ' You can onboard and edit employee records.'
+              ? ' You have complete employee directory access, including compensation details and onboarding.'
               : ' You have view-only access to the employee directory.'}
           </span>
 
@@ -418,6 +418,7 @@ export default function EmployeesPage() {
       {/* Modals */}
       <EmployeeDetailsModal
         employee={activeEmployee}
+        canViewCompensation={currentUser.userRole === 'admin'}
         onClose={() => setActiveEmployee(null)}
       />
 

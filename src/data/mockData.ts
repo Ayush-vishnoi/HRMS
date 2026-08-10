@@ -200,6 +200,106 @@ export const MOCK_EMPLOYEES: Employee[] = [
     manager: 'Meera Nair',
     employeeCode: 'EMP-2023-201',
   },
+  {
+    id: 'EMP-009',
+    name: 'Kavya Nair',
+    role: 'AI Platform Lead',
+    department: 'AI/ML',
+    email: 'kavya.nair@company.com',
+    phone: '+91 98860 11223',
+    avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80',
+    status: 'Active',
+    joinDate: '08 Jul 2021',
+    location: 'Bengaluru, Karnataka',
+    salary: 2800000,
+    manager: 'Arjun Mehta',
+    employeeCode: 'EMP-2021-126',
+  },
+  {
+    id: 'EMP-010',
+    name: 'Rohit Bansal',
+    role: 'Frontend Engineer',
+    department: 'Engineering',
+    email: 'rohit.bansal@company.com',
+    phone: '+91 98711 22334',
+    avatar: 'https://images.unsplash.com/photo-1507591064344-4c6ce005b128?w=150&auto=format&fit=crop&q=80',
+    status: 'Remote',
+    joinDate: '16 Jan 2024',
+    location: 'Noida, Uttar Pradesh',
+    salary: 1650000,
+    manager: 'Rahul Verma',
+    employeeCode: 'EMP-2024-214',
+  },
+  {
+    id: 'EMP-011',
+    name: 'Ishita Sen',
+    role: 'Backend Engineer',
+    department: 'Engineering',
+    email: 'ishita.sen@company.com',
+    phone: '+91 98300 33445',
+    avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&auto=format&fit=crop&q=80',
+    status: 'Active',
+    joinDate: '03 Oct 2023',
+    location: 'Kolkata, West Bengal',
+    salary: 1700000,
+    manager: 'Vikram Singh',
+    employeeCode: 'EMP-2023-228',
+  },
+  {
+    id: 'EMP-012',
+    name: 'Dev Malhotra',
+    role: 'Machine Learning Engineer',
+    department: 'AI/ML',
+    email: 'dev.malhotra@company.com',
+    phone: '+91 98180 44556',
+    avatar: 'https://images.unsplash.com/photo-1501196354995-cbb51c65aaea?w=150&auto=format&fit=crop&q=80',
+    status: 'On Leave',
+    joinDate: '21 May 2024',
+    location: 'Delhi, India',
+    salary: 1850000,
+    manager: 'Kavya Nair',
+    employeeCode: 'EMP-2024-245',
+  },
+];
+
+export interface ManagedTeam {
+  id: string;
+  name: string;
+  department: string;
+  manager: string;
+  leaderId: string;
+  memberIds: string[];
+  focus: string;
+}
+
+export const MOCK_MANAGED_TEAMS: ManagedTeam[] = [
+  {
+    id: 'TEAM-PLATFORM',
+    name: 'Experience Platform',
+    department: 'Engineering',
+    manager: 'Arjun Mehta',
+    leaderId: 'EMP-003',
+    memberIds: ['EMP-001', 'EMP-010'],
+    focus: 'Design system adoption, accessibility, and employee experience delivery',
+  },
+  {
+    id: 'TEAM-SERVICES',
+    name: 'Core Services',
+    department: 'Engineering',
+    manager: 'Arjun Mehta',
+    leaderId: 'EMP-005',
+    memberIds: ['EMP-011'],
+    focus: 'Reliable payroll, attendance, and people-platform services',
+  },
+  {
+    id: 'TEAM-AI',
+    name: 'AI Enablement',
+    department: 'AI/ML',
+    manager: 'Arjun Mehta',
+    leaderId: 'EMP-009',
+    memberIds: ['EMP-012'],
+    focus: 'Production ML capabilities and responsible workforce insights',
+  },
 ];
 
 export interface TeamMemberMetadata {
@@ -247,6 +347,17 @@ export const MOCK_TEAM_METADATA: TeamMemberMetadata[] = [
     nextOneToOne: '14 Aug 2026',
     risk: 'On track',
     notes: 'Share the incident follow-up with the platform team.',
+  },
+  {
+    employeeId: 'EMP-009',
+    manager: 'Arjun Mehta',
+    focus: 'AI platform roadmap and responsible model delivery',
+    workload: 79,
+    goalProgress: 71,
+    goalLabel: 'Launch model governance controls',
+    nextOneToOne: '13 Aug 2026',
+    risk: 'On track',
+    notes: 'Align the next model review with Security and People Operations.',
   },
 ];
 

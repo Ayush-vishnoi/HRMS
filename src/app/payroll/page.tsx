@@ -6,7 +6,6 @@ import {
   Download,
   Eye,
   EyeOff,
-  ShieldCheck,
 } from 'lucide-react';
 import {
   CURRENT_USER,
@@ -19,7 +18,7 @@ import { useHRMS } from '@/context/HRMSContext';
 
 export default function PayrollPage() {
   const [selectedPayslip, setSelectedPayslip] = useState<Payslip | null>(null);
-  const [hideFigures, setHideFigures] = useState(false);
+  const [hideFigures, setHideFigures] = useState(true);
 
   const { currentUser } = useHRMS();
 

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import {
   MOCK_EMPLOYEES,
   INITIAL_LEAVE_REQUESTS,
@@ -32,16 +32,28 @@ export interface HelpDeskTicket {
 }
 
 export interface LateClockInRequest {
+  id: string;
+  requesterId: string;
+  requesterName: string;
+  requesterCode: string;
+  requesterRole: Exclude<UserRole, 'admin'>;
+  requestDate: string;
   status: LateClockInRequestStatus;
   reason: string;
   requestedAt: string;
+  reviewedAt?: string;
 }
 
+export type LoginResult =
+  | { success: true }
+  | { success: false; message: string };
+
 export type ClockActionResult =
-  | { status: 'clocked-in' }
+  | { status: 'clocked-in'; attendanceStatus: 'On Time' | 'Late' }
   | { status: 'clocked-out' }
   | { status: 'permission-required' }
   | { status: 'permission-pending' }
+  | { status: 'permission-rejected' }
   | { status: 'error'; message: string };
 
 export interface UserAccount {
@@ -72,6 +84,13 @@ export const DEMO_ACCOUNTS: Record<UserRole, UserAccount> = {
 
 const AUTH_STORAGE_KEY = 'hrms-auth-role';
 const HELP_DESK_STORAGE_KEY = 'hrms-help-desk-tickets';
+const HELP_DESK_RESET_STORAGE_KEY = 'hrms-help-desk-reset-v1';
+const LATE_REQUEST_STORAGE_KEY = 'hrms-late-clock-in-requests';
+const LEAVE_REQUEST_STORAGE_KEY = 'hrms-leave-requests';
+const PORTAL_START_MINUTES = 8 * 60;
+const LATE_CLOCK_IN_MINUTES = 10 * 60;
+const PORTAL_END_MINUTES = 18 * 60;
+const ACCESS_DENIED_MESSAGE = 'Clock-in access denied. Attendance clock-in is available from 8:00 AM to 6:00 PM.';
 
 const isUserRole = (value: string | null): value is UserRole =>
   value === 'employee' || value === 'manager' || value === 'admin';
@@ -80,7 +99,7 @@ interface HRMSContextType {
   isAuthenticated: boolean;
   isAuthReady: boolean;
   currentUser: UserAccount;
-  login: (role: UserRole) => void;
+  login: (role: UserRole) => LoginResult;
   logout: () => void;
   employees: Employee[];
   addEmployee: (emp: Omit<Employee, 'id' | 'employeeCode'>) => void;
@@ -90,9 +109,11 @@ interface HRMSContextType {
   isClockedIn: boolean;
   clockInTime: string | null;
   elapsedWorkTime: string;
+  lateClockInRequests: LateClockInRequest[];
   lateClockInRequest: LateClockInRequest | null;
   toggleClockIn: () => ClockActionResult;
   submitLateClockInRequest: (reason: string) => { success: boolean; message: string };
+  reviewLateClockInRequest: (id: string, status: 'approved' | 'rejected') => void;
   addLeaveRequest: (newLeave: Omit<LeaveRequest, 'id' | 'employeeId' | 'employeeName' | 'employeeAvatar' | 'status' | 'appliedOn'>) => void;
   updateLeaveStatus: (id: string, status: 'Approved' | 'Rejected') => void;
   helpDeskTickets: HelpDeskTicket[];
@@ -121,6 +142,13 @@ const formatLocalDate = (date: Date) => {
   return `${year}-${month}-${day}`;
 };
 
+const getMinutesSinceMidnight = (date: Date) => date.getHours() * 60 + date.getMinutes();
+
+const isPortalOpen = (date: Date) => {
+  const minutes = getMinutesSinceMidnight(date);
+  return minutes >= PORTAL_START_MINUTES && minutes < PORTAL_END_MINUTES;
+};
+
 export const HRMSProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isAuthReady, setIsAuthReady] = useState(false);
@@ -133,37 +161,58 @@ export const HRMSProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [clockInAt, setClockInAt] = useState<number | null>(null);
   const [activeAttendanceId, setActiveAttendanceId] = useState<string | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
-  const [lateClockInRequest, setLateClockInRequest] = useState<LateClockInRequest | null>(null);
+  const [lateClockInRequests, setLateClockInRequests] = useState<LateClockInRequest[]>([]);
   const [helpDeskTickets, setHelpDeskTickets] = useState<HelpDeskTicket[]>([]);
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
+
+  const lateClockInRequest = lateClockInRequests.find((request) => request.requesterId === currentUser.id) ?? null;
 
   useEffect(() => {
     try {
       const storedRole = window.localStorage.getItem(AUTH_STORAGE_KEY);
-      const storedTickets = window.localStorage.getItem(HELP_DESK_STORAGE_KEY);
+      const shouldResetHelpDesk = !window.localStorage.getItem(HELP_DESK_RESET_STORAGE_KEY);
+      const storedTickets = shouldResetHelpDesk
+        ? null
+        : window.localStorage.getItem(HELP_DESK_STORAGE_KEY);
+      const storedLateRequests = window.localStorage.getItem(LATE_REQUEST_STORAGE_KEY);
+      const storedLeaveRequests = window.localStorage.getItem(LEAVE_REQUEST_STORAGE_KEY);
       if (isUserRole(storedRole)) {
         setCurrentUser(DEMO_ACCOUNTS[storedRole]);
         setIsAuthenticated(true);
       }
-      if (storedTickets) {
+      if (shouldResetHelpDesk) {
+        window.localStorage.removeItem(HELP_DESK_STORAGE_KEY);
+        window.localStorage.setItem(HELP_DESK_RESET_STORAGE_KEY, 'completed');
+      } else if (storedTickets) {
         setHelpDeskTickets(JSON.parse(storedTickets) as HelpDeskTicket[]);
+      }
+      if (storedLateRequests) {
+        setLateClockInRequests(JSON.parse(storedLateRequests) as LateClockInRequest[]);
+      }
+      if (storedLeaveRequests) {
+        setLeaveRequests(JSON.parse(storedLeaveRequests) as LeaveRequest[]);
       }
     } finally {
       setIsAuthReady(true);
     }
   }, []);
 
-  const finishClockOut = (date: Date, automatic = false) => {
+  const persistLateClockInRequests = (requests: LateClockInRequest[]) => {
+    setLateClockInRequests(requests);
+    window.localStorage.setItem(LATE_REQUEST_STORAGE_KEY, JSON.stringify(requests));
+  };
+
+  const finishClockOut = useCallback((date: Date) => {
     if (!clockInAt || !activeAttendanceId) return;
     const workedSeconds = Math.max(0, Math.floor((date.getTime() - clockInAt) / 1000));
     const time = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    setAttendanceLogs((prev) => prev.map((log) => log.id === activeAttendanceId ? { ...log, checkOut: time, hoursWorked: formatWorkedHours(workedSeconds), ...(automatic ? { status: 'On Time' as const } : {}) } : log));
+    setAttendanceLogs((prev) => prev.map((log) => log.id === activeAttendanceId ? { ...log, checkOut: time, hoursWorked: formatWorkedHours(workedSeconds) } : log));
     setIsClockedIn(false);
     setClockInTime(null);
     setClockInAt(null);
     setActiveAttendanceId(null);
     setElapsedSeconds(0);
-  };
+  }, [activeAttendanceId, clockInAt]);
 
   useEffect(() => {
     if (!isClockedIn || clockInAt === null) return;
@@ -172,7 +221,7 @@ export const HRMSProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const shiftEnd = new Date(now);
       shiftEnd.setHours(18, 0, 0, 0);
       if (now.getTime() >= shiftEnd.getTime()) {
-        finishClockOut(shiftEnd, true);
+        finishClockOut(shiftEnd);
         return;
       }
       setElapsedSeconds(Math.max(0, Math.floor((now.getTime() - clockInAt) / 1000)));
@@ -180,17 +229,19 @@ export const HRMSProvider: React.FC<{ children: React.ReactNode }> = ({ children
     updateElapsedTime();
     const intervalId = window.setInterval(updateElapsedTime, 1000);
     return () => window.clearInterval(intervalId);
-  }, [clockInAt, isClockedIn]);
+  }, [clockInAt, finishClockOut, isClockedIn]);
+
+  const logout = useCallback(() => {
+    window.localStorage.removeItem(AUTH_STORAGE_KEY);
+    setIsAuthenticated(false);
+  }, []);
 
   const elapsedWorkTime = formatElapsedWorkTime(elapsedSeconds);
-  const login = (role: UserRole) => {
+  const login = (role: UserRole): LoginResult => {
     window.localStorage.setItem(AUTH_STORAGE_KEY, role);
     setCurrentUser(DEMO_ACCOUNTS[role]);
     setIsAuthenticated(true);
-  };
-  const logout = () => {
-    window.localStorage.removeItem(AUTH_STORAGE_KEY);
-    setIsAuthenticated(false);
+    return { success: true };
   };
 
   const addEmployee = (empData: Omit<Employee, 'id' | 'employeeCode'>) => {
@@ -209,28 +260,75 @@ export const HRMSProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const toggleClockIn = (): ClockActionResult => {
     const now = new Date();
     if (isClockedIn) { finishClockOut(now); return { status: 'clocked-out' }; }
-    const minutes = now.getHours() * 60 + now.getMinutes();
-    if (minutes < 9 * 60 || minutes >= 10 * 60) {
-      if (lateClockInRequest?.status === 'pending') return { status: 'permission-pending' };
-      return { status: 'permission-required' };
+    if (!isPortalOpen(now)) return { status: 'error', message: ACCESS_DENIED_MESSAGE };
+
+    const minutes = getMinutesSinceMidnight(now);
+    if (minutes < LATE_CLOCK_IN_MINUTES) {
+      startClockIn(now);
+      return { status: 'clocked-in', attendanceStatus: 'On Time' };
     }
-    startClockIn(now);
-    return { status: 'clocked-in' };
+    if (currentUser.userRole === 'admin') {
+      startClockIn(now, 'Late');
+      return { status: 'clocked-in', attendanceStatus: 'Late' };
+    }
+
+    const todayRequest = lateClockInRequests.find((request) => request.requesterId === currentUser.id && request.requestDate === formatLocalDate(now));
+    if (todayRequest?.status === 'approved') {
+      startClockIn(now, 'Late');
+      return { status: 'clocked-in', attendanceStatus: 'Late' };
+    }
+    if (todayRequest?.status === 'pending') return { status: 'permission-pending' };
+    if (todayRequest?.status === 'rejected') return { status: 'permission-rejected' };
+    return { status: 'permission-required' };
   };
 
   const submitLateClockInRequest = (reason: string) => {
+    const now = new Date();
     const trimmedReason = reason.trim();
+    if (!isPortalOpen(now)) return { success: false, message: ACCESS_DENIED_MESSAGE };
+    if (getMinutesSinceMidnight(now) < LATE_CLOCK_IN_MINUTES) return { success: false, message: 'HR permission is only required for clock-in after 10:00 AM.' };
+    if (currentUser.userRole === 'admin') return { success: false, message: 'HR Admin clock-in does not require approval.' };
     if (!trimmedReason) return { success: false, message: 'A reason is required before sending the HR permission request.' };
-    if (lateClockInRequest?.status === 'pending') return { success: false, message: 'Your late clock-in request is already pending with HR.' };
-    setLateClockInRequest({ status: 'pending', reason: trimmedReason, requestedAt: new Date().toLocaleString() });
+
+    const requestDate = formatLocalDate(now);
+    const existingRequest = lateClockInRequests.find((request) => request.requesterId === currentUser.id && request.requestDate === requestDate);
+    if (existingRequest?.status === 'pending') return { success: false, message: 'Your late clock-in request is already pending with HR.' };
+    if (existingRequest?.status === 'approved') return { success: false, message: 'HR has already approved your late clock-in request for today.' };
+    if (existingRequest?.status === 'rejected') return { success: false, message: 'HR rejected your late clock-in request for today.' };
+
+    const created: LateClockInRequest = {
+      id: `LATE-${now.getTime()}`,
+      requesterId: currentUser.id,
+      requesterName: currentUser.name,
+      requesterCode: currentUser.employeeCode,
+      requesterRole: currentUser.userRole,
+      requestDate,
+      status: 'pending',
+      reason: trimmedReason,
+      requestedAt: now.toLocaleString('en-IN'),
+    };
+    persistLateClockInRequests([created, ...lateClockInRequests]);
     return { success: true, message: 'Permission request sent to HR. Clock-in will be available after approval.' };
+  };
+
+  const reviewLateClockInRequest = (id: string, status: 'approved' | 'rejected') => {
+    const reviewed = lateClockInRequests.map((request) => request.id === id ? { ...request, status, reviewedAt: new Date().toLocaleString('en-IN') } : request);
+    persistLateClockInRequests(reviewed);
+  };
+
+  const persistLeaveRequests = (requests: LeaveRequest[]) => {
+    setLeaveRequests(requests);
+    window.localStorage.setItem(LEAVE_REQUEST_STORAGE_KEY, JSON.stringify(requests));
   };
 
   const addLeaveRequest = (newLeave: Omit<LeaveRequest, 'id' | 'employeeId' | 'employeeName' | 'employeeAvatar' | 'status' | 'appliedOn'>) => {
     const created: LeaveRequest = { ...newLeave, id: `LR-${Date.now()}`, employeeId: currentUser.id, employeeName: currentUser.name, employeeAvatar: currentUser.avatar, status: 'Pending', appliedOn: formatLocalDate(new Date()) };
-    setLeaveRequests((prev) => [created, ...prev]);
+    persistLeaveRequests([created, ...leaveRequests]);
   };
-  const updateLeaveStatus = (id: string, status: 'Approved' | 'Rejected') => setLeaveRequests((prev) => prev.map((req) => req.id === id ? { ...req, status } : req));
+
+  const updateLeaveStatus = (id: string, status: 'Approved' | 'Rejected') => {
+    persistLeaveRequests(leaveRequests.map((request) => request.id === id ? { ...request, status } : request));
+  };
 
   const persistHelpDeskTickets = (tickets: HelpDeskTicket[]) => {
     setHelpDeskTickets(tickets);
@@ -262,7 +360,7 @@ export const HRMSProvider: React.FC<{ children: React.ReactNode }> = ({ children
     persistHelpDeskTickets(updated);
   };
 
-  return <HRMSContext.Provider value={{ isAuthenticated, isAuthReady, currentUser, login, logout, employees, addEmployee, leaveRequests, leaveBalances: MOCK_LEAVE_BALANCES, attendanceLogs, isClockedIn, clockInTime, elapsedWorkTime, lateClockInRequest, toggleClockIn, submitLateClockInRequest, addLeaveRequest, updateLeaveStatus, helpDeskTickets, submitHelpDeskTicket, updateHelpDeskTicket, selectedEmployee, setSelectedEmployee }}>{children}</HRMSContext.Provider>;
+  return <HRMSContext.Provider value={{ isAuthenticated, isAuthReady, currentUser, login, logout, employees, addEmployee, leaveRequests, leaveBalances: MOCK_LEAVE_BALANCES, attendanceLogs, isClockedIn, clockInTime, elapsedWorkTime, lateClockInRequests, lateClockInRequest, toggleClockIn, submitLateClockInRequest, reviewLateClockInRequest, addLeaveRequest, updateLeaveStatus, helpDeskTickets, submitHelpDeskTicket, updateHelpDeskTicket, selectedEmployee, setSelectedEmployee }}>{children}</HRMSContext.Provider>;
 };
 
 export const useHRMS = () => {

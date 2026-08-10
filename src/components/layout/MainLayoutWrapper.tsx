@@ -21,6 +21,12 @@ export const MainLayoutWrapper: React.FC<{ children: React.ReactNode }> = ({ chi
       setIsPermissionModalOpen(true);
     } else if (result.status === 'permission-pending') {
       setNotice('Your late clock-in request is pending HR approval.');
+    } else if (result.status === 'permission-rejected') {
+      setNotice('HR rejected your late clock-in request for today.');
+    } else if (result.status === 'error') {
+      setNotice(result.message);
+    } else if (result.status === 'clocked-in' && result.attendanceStatus === 'Late') {
+      setNotice('You are clocked in. Today’s attendance is marked Late.');
     }
   };
 
@@ -55,7 +61,7 @@ export const MainLayoutWrapper: React.FC<{ children: React.ReactNode }> = ({ chi
         <Header onClockAction={handleClockAction} />
         <main className="flex-1 overflow-y-auto bg-app p-6 md:p-8">{children}</main>
       </div>
-      {currentUser.userRole === 'employee' && !isClockedIn && lateClockInRequest?.status === 'pending' && (
+      {(currentUser.userRole === 'employee' || currentUser.userRole === 'manager') && !isClockedIn && lateClockInRequest?.status === 'pending' && (
         <div className="fixed bottom-5 right-5 z-50 max-w-sm rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-semibold text-amber-800 shadow-lg">
           Late clock-in permission is pending HR approval.
         </div>

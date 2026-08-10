@@ -6,14 +6,9 @@ import { ClockInPermissionModal } from '@/components/modals/ClockInPermissionMod
 import {
   CalendarDays,
   Clock,
-  CreditCard,
-  Target,
   PlusCircle,
   FileText,
-  CheckCircle2,
   Megaphone,
-  ArrowUpRight,
-  TrendingUp,
   ShieldAlert,
   Sparkles
 } from 'lucide-react';
@@ -44,7 +39,10 @@ export const EmployeeDashboard: React.FC = () => {
     const result = toggleClockIn();
     if (result.status === 'permission-required') setIsPermissionModalOpen(true);
     if (result.status === 'permission-pending') setClockNotice('Your late clock-in request is pending HR approval.');
+    if (result.status === 'permission-rejected') setClockNotice('HR rejected your late clock-in request for today.');
+    if (result.status === 'error') setClockNotice(result.message);
     if (result.status === 'clocked-out') setClockNotice('You have been clocked out.');
+    if (result.status === 'clocked-in' && result.attendanceStatus === 'Late') setClockNotice('You are clocked in. Today’s attendance is marked Late.');
   };
 
   const pendingLeaves = leaveRequests.filter(
@@ -66,7 +64,7 @@ export const EmployeeDashboard: React.FC = () => {
             </div>
 
             <h2 className="text-2xl font-bold text-[#17324A] tracking-tight">
-              Good Morning, {currentUser.name}! 👋
+              Welcome to your workspace, {currentUser.name}
             </h2>
 
             <p className="text-xs text-[#5F7180] max-w-xl">
@@ -79,9 +77,10 @@ export const EmployeeDashboard: React.FC = () => {
 
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
 
             <button
+              type="button"
               onClick={() => setIsLeaveModalOpen(true)}
               className="px-4 py-2.5 rounded-xl bg-[#386a97] hover:bg-[#2c5e81] text-white text-xs font-semibold shadow-sm flex items-center gap-2 transition-all cursor-pointer"
             >
@@ -90,6 +89,7 @@ export const EmployeeDashboard: React.FC = () => {
             </button>
 
             <button
+              type="button"
               onClick={() => setSelectedPayslip(MOCK_PAYSLIPS[0])}
               className="px-4 py-2.5 rounded-xl bg-[#B0D0EA] hover:bg-[#9FC5E2] text-[#3e678b] border border-[#9FC5E2] text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer"
             >
@@ -264,7 +264,7 @@ export const EmployeeDashboard: React.FC = () => {
             </h3>
 
             <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-[#B0D0EA] text-[#17324A] border border-[#9FC5E2]">
-              Shift: 09:00 AM - 06:00 PM
+              Shift: 08:00 AM - 06:00 PM
             </span>
 
           </div>

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { X, Calendar, FileText, CheckCircle } from 'lucide-react';
+import { X, Calendar, CheckCircle } from 'lucide-react';
 import { useHRMS } from '@/context/HRMSContext';
 
 interface ApplyLeaveModalProps {
@@ -52,7 +52,7 @@ export const ApplyLeaveModal: React.FC<ApplyLeaveModalProps> = ({ isOpen, onClos
             </div>
             <div>
               <h3 className="text-sm font-bold text-foreground">Apply for Leave</h3>
-              <p className="text-[11px] text-secondary">Submit a leave request for manager approval</p>
+              <p className="text-[11px] text-secondary">Submit a leave request for HR approval</p>
             </div>
           </div>
           <button
@@ -67,7 +67,7 @@ export const ApplyLeaveModal: React.FC<ApplyLeaveModalProps> = ({ isOpen, onClos
           <div className="p-8 text-center space-y-3 bg-surface">
             <CheckCircle className="w-12 h-12 text-emerald-500 mx-auto animate-bounce" />
             <h4 className="text-base font-bold text-foreground">Leave Request Submitted!</h4>
-            <p className="text-xs text-secondary">Your request has been routed to your manager for review.</p>
+            <p className="text-xs text-secondary">Your request has been sent to HR for approval.</p>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="p-6 space-y-4 bg-surface">

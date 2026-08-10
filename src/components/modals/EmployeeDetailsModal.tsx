@@ -1,15 +1,20 @@
 'use client';
 
 import React from 'react';
-import { X, Mail, Phone, MapPin, Calendar, Briefcase, Building2, LockKeyhole } from 'lucide-react';
+import { X, Mail, Phone, MapPin, Calendar, Briefcase, Building2, WalletCards } from 'lucide-react';
 import { Employee } from '@/data/mockData';
 
 interface EmployeeDetailsModalProps {
   employee: Employee | null;
+  canViewCompensation: boolean;
   onClose: () => void;
 }
 
-export const EmployeeDetailsModal: React.FC<EmployeeDetailsModalProps> = ({ employee, onClose }) => {
+export const EmployeeDetailsModal: React.FC<EmployeeDetailsModalProps> = ({
+  employee,
+  canViewCompensation,
+  onClose,
+}) => {
   if (!employee) return null;
 
   return (
@@ -107,14 +112,29 @@ export const EmployeeDetailsModal: React.FC<EmployeeDetailsModalProps> = ({ empl
             </div>
           </div>
 
-          {/* Compensation privacy notice */}
-          <div className="mt-4 flex items-center gap-2.5 rounded-xl border border-[#B0D0EA] bg-[#EAF2F8] p-4">
-            <LockKeyhole className="h-5 w-5 text-[#2E6288]" />
-            <div>
-              <span className="text-[10px] font-bold uppercase text-[#6B879B]">Compensation details</span>
-              <p className="text-sm font-bold text-[#17324A]">Restricted to authorised payroll workflows</p>
+          {/* Compensation details are available to HR Admin and remain private for managers. */}
+          {canViewCompensation ? (
+            <div className="mt-4 flex items-center gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+              <WalletCards className="h-5 w-5 text-emerald-700" />
+              <div>
+                <span className="text-[10px] font-bold uppercase text-emerald-700">Annual compensation</span>
+                <p className="text-sm font-bold text-[#17324A]">
+                  {new Intl.NumberFormat('en-IN', {
+                    style: 'currency',
+                    currency: 'INR',
+                    maximumFractionDigits: 0,
+                  }).format(employee.salary)}
+                </p>
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="mt-4 flex items-center gap-2.5 rounded-xl border border-[#B0D0EA] bg-[#EAF2F8] p-4">
+              <div>
+                <span className="text-[10px] font-bold uppercase text-[#6B879B]">Compensation details</span>
+                <p className="text-sm font-bold text-[#17324A]">Restricted to authorised payroll workflows</p>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

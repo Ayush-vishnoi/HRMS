@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard,
   Users,
@@ -18,45 +18,42 @@ import {
   BookOpenCheck,
   BarChart3,
   ScanSearch,
-  Building2,
   ChevronRight,
   ShieldCheck,
+  ShieldAlert,
   UserCheck,
   Briefcase,
-  LogOut
+  Building2,
+  LockKeyhole
 } from 'lucide-react';
 import { useHRMS } from '@/context/HRMSContext';
 
 export const Sidebar: React.FC = () => {
   const pathname = usePathname();
-  const router = useRouter();
-  const { currentUser, logout } = useHRMS();
-
-  const handleLogout = () => {
-    logout();
-    router.replace('/');
-  };
+  const { currentUser } = useHRMS();
 
   const role = currentUser.userRole;
 
   const NAV_ITEMS = [
-    { name: 'Dashboard', href: '/', icon: LayoutDashboard, roles: ['employee', 'manager', 'admin'] },
-    { name: 'My Team', href: '/my-team', icon: UsersRound, roles: ['manager'] },
-    { name: 'Employee Directory', href: '/employees', icon: Users, roles: ['manager', 'admin'] },
-    { name: 'Attendance & Time', href: '/attendance', icon: Clock, roles: ['employee', 'manager', 'admin'] },
-    { name: 'Leave Management', href: '/leaves', icon: CalendarDays, roles: ['employee', 'manager', 'admin'] },
-    { name: 'Meetings & Calendar', href: '/meetings/calendar', icon: CalendarRange, roles: ['employee', 'manager', 'admin'] },
-    { name: 'Payroll & Payslips', href: '/payroll', icon: CreditCard, roles: ['employee', 'manager', 'admin'] },
-    { name: 'KRA', href: '/performance', icon: Target, roles: ['employee', 'manager', 'admin'] },
-    { name: 'Documents', href: '/documents', icon: FileText, roles: ['employee', 'manager', 'admin'] },
-    { name: 'Policy Center', href: '/policies', icon: BookOpenCheck, roles: ['employee', 'manager', 'admin'] },
-    { name: 'Reports & Analytics', href: '/analytics', icon: BarChart3, roles: ['admin'] },
-    { name: 'HR Help Desk', href: '/help-desk', icon: Headset, roles: ['admin'] },
-    { name: 'Asset & Inventory', href: '/assets', icon: Archive, roles: ['admin'] },
-    { name: 'Recruitment', href: '/recruitment', icon: ScanSearch, roles: ['admin'] },
+    { name: 'Dashboard', href: '/', icon: LayoutDashboard, section: 'Workspace', roles: ['employee', 'manager', 'admin'] },
+    { name: 'My Team', href: '/my-team', icon: UsersRound, section: 'Workspace', roles: ['manager'] },
+    { name: 'Employee Directory', href: '/employees', icon: Users, section: 'Workspace', roles: ['manager', 'admin'] },
+    { name: 'Attendance & Time', href: '/attendance', icon: Clock, section: 'My Work', roles: ['employee', 'manager', 'admin'] },
+    { name: 'Leave Management', href: '/leaves', icon: CalendarDays, section: 'My Work', roles: ['employee', 'manager', 'admin'] },
+    { name: 'Meetings & Calendar', href: '/meetings/calendar', icon: CalendarRange, section: 'My Work', roles: ['employee', 'manager', 'admin'] },
+    { name: 'Payroll & Payslips', href: '/payroll', icon: CreditCard, section: 'My Work', roles: ['employee', 'manager', 'admin'] },
+    { name: 'KRA', href: '/performance', icon: Target, section: 'Resources', roles: ['employee', 'manager', 'admin'] },
+    { name: 'Documents', href: '/documents', icon: FileText, section: 'Resources', roles: ['employee', 'manager', 'admin'] },
+    { name: 'Policy Center', href: '/policies', icon: BookOpenCheck, section: 'Resources', roles: ['employee', 'manager', 'admin'] },
+    { name: 'Grievance / Complaint', href: '/grievances', icon: ShieldAlert, section: 'Resources', roles: ['employee'] },
+    { name: 'Reports & Analytics', href: '/analytics', icon: BarChart3, section: 'HR Operations', roles: ['admin'] },
+    { name: 'HR Help Desk', href: '/help-desk', icon: Headset, section: 'HR Operations', roles: ['admin'] },
+    { name: 'Asset & Inventory', href: '/assets', icon: Archive, section: 'HR Operations', roles: ['admin'] },
+    { name: 'Recruitment', href: '/recruitment', icon: ScanSearch, section: 'HR Operations', roles: ['admin'] },
   ];
 
   const allowedNav = NAV_ITEMS.filter((item) => item.roles.includes(role));
+  const navSections = Array.from(new Set(allowedNav.map((item) => item.section)));
 
   const getRoleBadge = () => {
     switch (role) {
@@ -65,7 +62,7 @@ export const Sidebar: React.FC = () => {
       case 'manager':
         return { label: 'Manager Portal', icon: Briefcase, color: 'bg-[#B0D0EA]/30 text-[#17324A] border-[#B0D0EA]' };
       default:
-        return { label: 'Employee ESS Portal', icon: UserCheck, color: 'bg-[#C96F58]/15 text-[#A95745] border-[#C96F58]/30' };
+        return { label: 'Employee ESS Portal', icon: UserCheck, color: 'bg-[#EAF2F8] text-[#315B76] border-[#9FC2DC]' };
     }
   };
 
@@ -73,79 +70,104 @@ export const Sidebar: React.FC = () => {
   const BadgeIcon = badge.icon;
 
   return (
-    <aside className="w-64 bg-surface border-r border-border text-secondary flex flex-col h-screen sticky top-0 z-40 select-none">
+    <aside className="sticky top-0 z-40 flex h-screen w-60 shrink-0 select-none flex-col overflow-hidden border-r border-[#C8D9E6] bg-white text-secondary shadow-[5px_0_24px_rgba(23,50,74,0.05)] lg:w-64">
       {/* Brand Header */}
-      <div className="p-4 border-b border-border flex items-center gap-3 bg-surface">
-        <div className="h-10 w-12 flex items-center justify-center shrink-0">
-          <img
-            src="/logo.png"
-            alt="MYLOTIC GROUP Logo"
-            className="h-full w-full object-contain"
-          />
-        </div>
-        <div className="min-w-0 flex-1">
-          <h1 className="font-bold text-foreground text-xs tracking-tight truncate leading-tight" title="MYLOTIC GROUP PVT.LTD">
-            MYLOTIC GROUP PVT.LTD
-          </h1>
-          <span className="text-[9px] text-muted font-bold tracking-wide uppercase block truncate mt-0.5">HRMS Portal</span>
+      <div className="relative overflow-hidden border-b border-[#315B76] bg-gradient-to-br from-[#17324A] via-[#234B68] to-[#315B76] px-4 py-4 text-white">
+        <div className="absolute -right-7 -top-9 h-24 w-24 rounded-full bg-[#B0D0EA]/15" />
+        <div className="absolute -bottom-8 right-12 h-16 w-16 rounded-full bg-white/5" />
+        <div className="relative flex items-center gap-3">
+          <div className="flex h-11 w-12 shrink-0 items-center justify-center rounded-xl border border-white/20 bg-white p-1.5 shadow-sm">
+            <img
+              src="/logo.png"
+              alt="MYLOTIC GROUP Logo"
+              className="h-full w-full object-contain"
+            />
+          </div>
+          <div className="min-w-0 flex-1">
+            <h1 className="truncate text-xs font-bold tracking-tight" title="MYLOTIC GROUP PVT.LTD">
+              MYLOTIC GROUP
+            </h1>
+            <span className="mt-1 flex items-center gap-1.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-[#DCEAF4]">
+              <Building2 className="h-3 w-3" />
+              People Workspace
+            </span>
+          </div>
         </div>
       </div>
 
       {/* Role Indicator Banner */}
-      <div className="px-3 pt-3 pb-1">
-        <div className={`px-2.5 py-1.5 rounded-md border text-[11px] font-medium flex items-center gap-2 ${badge.color}`}>
-          <BadgeIcon className="w-3.5 h-3.5 shrink-0" />
-          <span className="truncate">{badge.label}</span>
+      <div className="px-3.5 pb-2 pt-3.5">
+        <div className={`flex items-center gap-2.5 rounded-xl border px-3 py-2.5 text-[11px] font-semibold shadow-sm ${badge.color}`}>
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white/70 shadow-sm">
+            <BadgeIcon className="h-3.5 w-3.5" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block truncate">{badge.label}</span>
+            <span className="mt-0.5 block text-[9px] font-medium opacity-70">Active workspace</span>
+          </span>
+          <span className="h-2 w-2 shrink-0 rounded-full bg-emerald-500 ring-2 ring-white" />
         </div>
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 px-3 py-3 space-y-0.5 overflow-y-auto">
-        <div className="px-2 pb-1.5 text-[10px] font-semibold tracking-wider text-muted uppercase">Navigation</div>
-        {allowedNav.map((item) => {
-          const Icon = item.icon;
-          const isActive = pathname === item.href || (item.href === '/meetings/calendar' && pathname.startsWith('/meetings'));
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`flex items-center justify-between px-2.5 py-2 rounded-md text-xs font-medium transition-colors group ${
-                isActive
-                  ? 'bg-[#B0D0EA] text-[#17324A] font-semibold'
-                  : 'text-secondary hover:bg-surface-elevated hover:text-foreground'
-              }`}
-            >
-              <div className="flex items-center gap-2.5">
-                <Icon className={`w-4 h-4 ${isActive ? 'text-[#17324A]' : 'text-secondary group-hover:text-foreground'}`} />
-                <span>{item.name}</span>
-              </div>
-              {isActive && <ChevronRight className="w-3.5 h-3.5 text-[#17324A]/70" />}
-            </Link>
-          );
-        })}
+      <nav className="flex-1 overflow-y-auto px-3 pb-3 pt-1" aria-label="Primary navigation">
+        {navSections.map((section, sectionIndex) => (
+          <div key={section} className={sectionIndex === 0 ? '' : 'mt-4'}>
+            <div className="mb-1.5 px-2.5 text-[9px] font-bold uppercase tracking-[0.16em] text-[#8A9AAA]">
+              {section}
+            </div>
+            <div className="space-y-1">
+              {allowedNav
+                .filter((item) => item.section === section)
+                .map((item) => {
+                  const Icon = item.icon;
+                  const isActive = pathname === item.href || (item.href === '/meetings/calendar' && pathname.startsWith('/meetings'));
+
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      aria-current={isActive ? 'page' : undefined}
+                      className={`group relative flex min-h-10 items-center justify-between overflow-hidden rounded-xl border px-2.5 py-2 text-xs font-medium transition-all duration-200 ${
+                        isActive
+                          ? 'border-[#9FC2DC] bg-gradient-to-r from-[#DCECF7] to-[#EEF6FB] font-bold text-[#17324A] shadow-sm'
+                          : 'border-transparent text-[#5F7180] hover:border-[#D9E5EE] hover:bg-[#F5F9FC] hover:text-[#17324A]'
+                      }`}
+                    >
+                      {isActive && <span className="absolute inset-y-2 left-0 w-0.5 rounded-r-full bg-[#315B76]" />}
+                      <span className="flex min-w-0 items-center gap-2.5">
+                        <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors ${
+                          isActive
+                            ? 'bg-white text-[#234B68] shadow-sm ring-1 ring-[#B0D0EA]/60'
+                            : 'bg-[#F1F5F8] text-[#6F7F90] group-hover:bg-[#E5F0F7] group-hover:text-[#315B76]'
+                        }`}>
+                          <Icon className="h-3.5 w-3.5" />
+                        </span>
+                        <span className="truncate">{item.name}</span>
+                      </span>
+                      <ChevronRight className={`h-3.5 w-3.5 shrink-0 transition-all ${
+                        isActive
+                          ? 'translate-x-0 text-[#315B76] opacity-100'
+                          : '-translate-x-1 text-[#8A9AAA] opacity-0 group-hover:translate-x-0 group-hover:opacity-100'
+                      }`} />
+                    </Link>
+                  );
+                })}
+            </div>
+          </div>
+        ))}
       </nav>
 
-      {/* Profile Footer */}
-      <div className="p-3 border-t border-border bg-surface-elevated/50 space-y-2.5">
-        <div className="flex items-center gap-2.5">
-          <img
-            src={currentUser.avatar}
-            alt={currentUser.name}
-            className="w-8 h-8 rounded-full object-cover border border-border"
-          />
-          <div className="flex-1 min-w-0">
-            <p className="text-xs font-semibold text-foreground truncate">{currentUser.name}</p>
-            <p className="text-[10px] text-muted truncate">{currentUser.role}</p>
-          </div>
+      <div className="border-t border-[#D9E5EE] bg-[#F8FBFD] p-3">
+        <div className="flex items-center gap-2.5 rounded-xl border border-[#D9E5EE] bg-white px-3 py-2.5 shadow-sm">
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
+            <LockKeyhole className="h-3.5 w-3.5" />
+          </span>
+          <span className="min-w-0">
+            <span className="block text-[10px] font-bold text-[#17324A]">Secure HR workspace</span>
+            <span className="mt-0.5 block truncate text-[9px] text-[#7B8B99]">Protected employee data</span>
+          </span>
         </div>
-
-        <button
-          onClick={handleLogout}
-          className="w-full py-1.5 px-2.5 rounded-md bg-error-bg hover:bg-error/20 text-error border border-error/30 text-[11px] font-medium flex items-center justify-center gap-1.5 transition-colors"
-        >
-          <LogOut className="w-3.5 h-3.5" />
-          Logout
-        </button>
       </div>
     </aside>
   );

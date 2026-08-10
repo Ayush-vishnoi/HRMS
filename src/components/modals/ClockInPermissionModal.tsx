@@ -43,7 +43,7 @@ export const ClockInPermissionModal: React.FC<ClockInPermissionModalProps> = ({ 
             <div className="rounded-xl bg-amber-50 p-2 text-amber-600"><Clock3 className="h-5 w-5" /></div>
             <div>
               <h2 id="late-clock-in-title" className="text-base font-bold text-[#17324A]">HR permission required</h2>
-              <p className="mt-1 text-xs leading-5 text-[#667085]">The normal clock-in window is 09:00 AM–10:00 AM. Tell HR why you need to clock in late.</p>
+              <p className="mt-1 text-xs leading-5 text-[#667085]">Attendance clock-in is available from 8:00 AM–6:00 PM. Clock in from 8:00 AM–10:00 AM without approval; Employee and Manager late clock-ins after 10:00 AM require HR approval.</p>
             </div>
           </div>
           <button type="button" onClick={handleClose} className="rounded-lg p-1 text-[#667085] hover:bg-[#F5F9FC]" aria-label="Close permission dialog"><X className="h-4 w-4" /></button>

@@ -48,7 +48,7 @@ export const HRHelpDeskModal: React.FC<HRHelpDeskModalProps> = ({ isOpen, onClos
             </span>
             <div>
               <h2 id="hr-help-desk-title" className="text-sm font-bold text-[#17324A]">Ask HR Help Desk</h2>
-              <p className="text-[11px] text-[#667085]">Raise a ticket for an HR-related problem</p>
+              <p className="text-[11px] text-[#667085]">Raise a support ticket for an HR-related problem</p>
             </div>
           </div>
           <button type="button" onClick={resetAndClose} aria-label="Close HR help desk" className="rounded-lg p-1.5 text-[#667085] transition-colors hover:bg-[#F1F5F9] hover:text-[#17324A]">
@@ -61,7 +61,7 @@ export const HRHelpDeskModal: React.FC<HRHelpDeskModalProps> = ({ isOpen, onClos
             <CheckCircle2 className="mx-auto h-12 w-12 text-emerald-600" />
             <div>
               <h3 className="text-base font-bold text-[#17324A]">Ticket raised successfully</h3>
-              <p className="mt-1 text-xs text-[#667085]">HR will review your issue and contact you through your work email.</p>
+              <p className="mt-1 text-xs text-[#667085]">HR will review your issue and share updates through Ask HR.</p>
             </div>
             <div className="mx-auto max-w-xs rounded-xl border border-[#9FC2DC] bg-[#F4F9FC] px-4 py-3">
               <p className="text-[10px] font-semibold uppercase tracking-wider text-[#667085]">Ticket number</p>
@@ -109,14 +109,14 @@ export const HRHelpDeskModal: React.FC<HRHelpDeskModalProps> = ({ isOpen, onClos
               <span className="block text-right text-[10px] font-normal text-[#98A2B3]">{description.length}/1000</span>
             </label>
 
-            {helpDeskTickets.filter((ticket) => ticket.employeeId === currentUser.id).length > 0 && (
+            {helpDeskTickets.filter((ticket) => ticket.employeeId === currentUser.id && ticket.category !== 'Grievance / Complaint').length > 0 && (
               <div className="border-t border-[#E4EBF1] pt-4">
                 <div className="mb-2 flex items-center justify-between">
                   <p className="text-[11px] font-bold uppercase tracking-wide text-[#315B76]">Your recent tickets</p>
                   <span className="text-[10px] text-[#98A2B3]">HR updates</span>
                 </div>
                 <div className="max-h-32 space-y-2 overflow-y-auto">
-                  {helpDeskTickets.filter((ticket) => ticket.employeeId === currentUser.id).map((ticket) => (
+                  {helpDeskTickets.filter((ticket) => ticket.employeeId === currentUser.id && ticket.category !== 'Grievance / Complaint').map((ticket) => (
                     <div key={ticket.id} className="rounded-lg border border-[#D9E5EE] bg-[#F9FBFD] px-3 py-2">
                       <div className="flex items-center justify-between gap-2">
                         <p className="min-w-0 truncate text-[11px] font-semibold text-[#17324A]">{ticket.subject}</p>

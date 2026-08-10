@@ -59,6 +59,31 @@ body {
   transition: background-color 0.2s ease, color 0.2s ease;
 }
 
+/* Keep interactive affordances consistent across every HRMS workflow. */
+a[href],
+button:not(:disabled),
+select:not(:disabled),
+input[type="button"]:not(:disabled),
+input[type="submit"]:not(:disabled),
+input[type="reset"]:not(:disabled),
+input[type="checkbox"]:not(:disabled),
+input[type="radio"]:not(:disabled),
+input[type="range"]:not(:disabled),
+input[type="file"]:not(:disabled),
+summary,
+[role="button"]:not([aria-disabled="true"]),
+[role="link"]:not([aria-disabled="true"]) {
+  cursor: pointer;
+}
+
+button:disabled,
+select:disabled,
+input:disabled,
+textarea:disabled,
+[aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
 /* Theme utility classes */
 .bg-app { background-color: var(--background); }
 .bg-surface { background-color: var(--surface); }

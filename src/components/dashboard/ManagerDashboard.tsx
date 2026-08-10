@@ -12,25 +12,32 @@ import {
   CheckCircle2,
   Calendar,
   Briefcase,
+  Mail,
+  MessageSquare,
+  Phone,
 } from 'lucide-react';
 import { useHRMS } from '@/context/HRMSContext';
+import { MOCK_MANAGED_TEAMS } from '@/data/mockData';
 
 export const ManagerDashboard: React.FC = () => {
   const {
     leaveRequests,
     updateLeaveStatus,
     employees,
+    currentUser,
   } = useHRMS();
 
   const pendingApprovals = leaveRequests.filter(
     (r) => r.status === 'Pending'
   );
 
-  const teamMembers = employees.filter(
-    (e) =>
-      e.department === 'Engineering' ||
-      e.department === 'Design'
+  const managedTeams = MOCK_MANAGED_TEAMS.filter(
+    (team) => team.manager === currentUser.name
   );
+
+  const teamLeaders = managedTeams
+    .map((team) => employees.find((employee) => employee.id === team.leaderId))
+    .filter((employee): employee is NonNullable<typeof employee> => Boolean(employee));
 
   return (
     <div className="space-y-6">
@@ -46,8 +53,8 @@ export const ManagerDashboard: React.FC = () => {
         </p>
 
         <p className="mt-1 text-sm text-[#17324A]/70">
-          Review approvals, attendance, and delivery progress for your
-          direct reports.
+          Review approvals, attendance, and delivery progress through your
+          Team Leaders across each managed team.
         </p>
       </div>
 
@@ -57,17 +64,17 @@ export const ManagerDashboard: React.FC = () => {
         {/* Direct Reports */}
         <div className="p-4 rounded-lg bg-white border border-[#B0D0EA] shadow-md hover:border-[#17324A]/40 transition-colors">
           <div className="flex justify-between items-center text-[#17324A]/70 text-xs font-semibold">
-            <span>Direct Reports</span>
+            <span>Managed Teams</span>
 
             <Users className="w-4 h-4 text-[#17324A]" />
           </div>
 
           <div className="text-2xl font-black text-[#17324A] mt-2">
-            {teamMembers.length}
+            {managedTeams.length}
           </div>
 
           <span className="text-[11px] text-[#17324A]/70 font-medium">
-            100% active roster
+            {teamLeaders.length} Team Leaders as direct contacts
           </span>
         </div>
 
@@ -227,52 +234,47 @@ export const ManagerDashboard: React.FC = () => {
 
         <h3 className="text-sm font-bold text-[#17324A] flex items-center gap-2">
           <Briefcase className="w-4 h-4 text-[#17324A]" />
-          Direct Team Attendance Today
+          Team Leader Coverage Today
         </h3>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 
-          {teamMembers.map((emp) => (
-            <div
-              key={emp.id}
-              className="p-3.5 rounded-lg bg-[#B0D0EA]/20 border border-[#B0D0EA] flex items-center justify-between gap-3"
-            >
+          {managedTeams.map((team) => {
+            const leader = teamLeaders.find((employee) => employee.id === team.leaderId);
+            if (!leader) return null;
 
-              <div className="flex items-center gap-3 min-w-0">
-
-                <img
-                  src={emp.avatar}
-                  alt={emp.name}
-                  className="w-9 h-9 rounded-full object-cover border border-[#B0D0EA]"
-                />
-
-                <div className="min-w-0">
-
-                  <h5 className="text-xs font-bold text-[#17324A] truncate">
-                    {emp.name}
-                  </h5>
-
-                  <p className="text-[11px] text-[#17324A]/70 truncate">
-                    {emp.role}
-                  </p>
-
+            return (
+              <div
+                key={team.id}
+                className="rounded-lg bg-[#B0D0EA]/20 border border-[#B0D0EA] p-3.5"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <img
+                      src={leader.avatar}
+                      alt={leader.name}
+                      className="h-9 w-9 rounded-full border border-[#B0D0EA] object-cover"
+                    />
+                    <div className="min-w-0">
+                      <h5 className="truncate text-xs font-bold text-[#17324A]">{team.name}</h5>
+                      <p className="truncate text-[11px] text-[#17324A]/70">Lead: {leader.name}</p>
+                    </div>
+                  </div>
+                  <span className="shrink-0 rounded-md border border-[#B0D0EA] bg-[#B0D0EA]/50 px-2.5 py-1 text-[10px] font-bold text-[#17324A]">
+                    {leader.status}
+                  </span>
+                </div>
+                <div className="mt-3 flex items-center justify-between gap-2 text-[10px] text-[#17324A]/70">
+                  <span>{team.memberIds.length} members</span>
+                  <div className="flex items-center gap-1.5">
+                    <a href={`mailto:${leader.email}`} aria-label={`Email ${leader.name}`} title={`Email ${leader.name}`} className="rounded-md border border-[#B0D0EA] bg-white p-1.5 text-[#17324A] hover:bg-[#EAF2F8]"><Mail className="h-3 w-3" /></a>
+                    <a href={`tel:${leader.phone.replace(/\s/g, '')}`} aria-label={`Call ${leader.name}`} title={`Call ${leader.name}`} className="rounded-md border border-[#B0D0EA] bg-white p-1.5 text-[#17324A] hover:bg-[#EAF2F8]"><Phone className="h-3 w-3" /></a>
+                    <button type="button" onClick={() => window.alert(`Message ${leader.name}`)} aria-label={`Message ${leader.name}`} title={`Message ${leader.name}`} className="rounded-md border border-[#B0D0EA] bg-white p-1.5 text-[#17324A] hover:bg-[#EAF2F8]"><MessageSquare className="h-3 w-3" /></button>
+                  </div>
                 </div>
               </div>
-
-              <span
-                className={`shrink-0 px-2.5 py-1 rounded-md text-[10px] font-bold ${
-                  emp.status === 'Active'
-                    ? 'bg-[#B0D0EA]/50 text-[#17324A] border border-[#B0D0EA]'
-                    : emp.status === 'Remote'
-                    ? 'bg-[#B0D0EA]/30 text-[#17324A] border border-[#B0D0EA]'
-                    : 'bg-[#B0D0EA]/30 text-[#17324A] border border-[#B0D0EA]'
-                }`}
-              >
-                {emp.status}
-              </span>
-
-            </div>
-          ))}
+            );
+          })}
 
         </div>
       </div>
