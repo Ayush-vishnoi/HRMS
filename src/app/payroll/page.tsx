@@ -3,94 +3,38 @@
 
 import React, { useState } from 'react';
 import {
-  CreditCard,
-  DollarSign,
-  FileText,
   Download,
-  Printer,
   Eye,
-  Building2,
-  ShieldCheck,
+  EyeOff,
 } from 'lucide-react';
-import {
-  MOCK_PAYSLIPS,
-  Payslip,
-  CURRENT_USER,
-} from '@/data/mockData';
-import { PayslipModal } from '@/components/modals/PayslipModal';
-import { formatINR } from '@/utils/formatters';
-import { exportToExcel } from '@/utils/exportUtils';
-import { useHRMS } from '@/context/HRMSContext';
+import { CURRENT_USER } from '@/features/employees/data/employees';
+import { MOCK_PAYSLIPS } from '@/features/payroll/data/payroll';
+import type { Payslip } from '@/features/payroll/data/payroll';
+import { PayslipModal } from '@/features/payroll/components/PayslipModal';
+import { exportToExcel } from '@/shared/lib/exportUtils';
+import { useHRMS } from '@/shared/providers/HRMSContext';
 
 export default function PayrollPage() {
-  const [selectedPayslip, setSelectedPayslip] =
-    useState<Payslip | null>(null);
+  const [selectedPayslip, setSelectedPayslip] = useState<Payslip | null>(null);
+  const [hideFigures, setHideFigures] = useState(true);
 
   const { currentUser } = useHRMS();
 
   const latest = MOCK_PAYSLIPS[0];
 
   const handleExportExcel = () => {
-    const todayStr = new Date()
-      .toISOString()
-      .split('T')[0];
-
+    const todayStr = new Date().toISOString().split('T')[0];
     const filename = `payroll-report-${todayStr}.xlsx`;
 
     const columns = [
-      {
-        header: 'Payslip ID',
-        key: 'id' as const,
-      },
-      {
-        header: 'Employee',
-        key: () => currentUser.name,
-      },
-      {
-        header: 'Pay Period',
-        key: 'monthYear' as const,
-      },
-      {
-        header: 'Basic Salary',
-        key: 'basicSalary' as const,
-      },
-      {
-        header: 'HRA',
-        key: 'hra' as const,
-      },
-      {
-        header: 'Allowances',
-        key: (s: Payslip) =>
-          s.conveyance + s.specialAllowance,
-      },
-      {
-        header: 'PF',
-        key: 'pfDeduction' as const,
-      },
-      {
-        header: 'TDS / Tax',
-        key: 'taxDeduction' as const,
-      },
-      {
-        header: 'Gross Earnings',
-        key: 'grossEarnings' as const,
-      },
-      {
-        header: 'Deductions',
-        key: 'totalDeductions' as const,
-      },
-      {
-        header: 'Net Salary',
-        key: 'netPayable' as const,
-      },
-      {
-        header: 'Payment Date',
-        key: 'paymentDate' as const,
-      },
-      {
-        header: 'Payment Status',
-        key: 'status' as const,
-      },
+      { header: 'Payslip ID', key: 'id' as const },
+      { header: 'Employee', key: () => currentUser.name },
+      { header: 'Pay Period', key: 'monthYear' as const },
+      { header: 'Gross Earnings', key: 'grossEarnings' as const },
+      { header: 'Total Deductions', key: 'totalDeductions' as const },
+      { header: 'Net Payable', key: 'netPayable' as const },
+      { header: 'Payment Date', key: 'paymentDate' as const },
+      { header: 'Payment Status', key: 'status' as const },
     ];
 
     exportToExcel(
@@ -101,237 +45,188 @@ export default function PayrollPage() {
     );
   };
 
+
+
+  const formatAmount = (amount: number) => {
+    if (hideFigures) return '••••••';
+    return `₹${amount.toLocaleString('en-IN')}`;
+  };
+
   return (
     <div className="space-y-6">
 
       {/* Header Banner */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-
         <div>
-          <h1 className="text-2xl font-black tracking-tight text-[#17324A]">
-            Payroll & Compensation Portal
+          <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-[#17324A]">
+            Payroll and Payslips
           </h1>
-
-          <p className="mt-1 text-sm text-[#667085]">
-            View salary breakdown, tax withholdings, and download official monthly payslips
+          <p className="mt-1 text-xs md:text-sm text-[#667085]">
+            View personal salary breakdown, tax withholdings, and official monthly payslips
           </p>
         </div>
 
         <div className="flex items-center gap-3">
+          <button
+            onClick={() => setHideFigures(!hideFigures)}
+            className="px-4 py-2.5 rounded-xl bg-white border border-[#D9E5EE] hover:bg-[#F5F9FC] text-[#17324A] text-xs font-semibold shadow-sm flex items-center gap-2 transition-all cursor-pointer"
+          >
+            {hideFigures ? (
+              <>
+                <Eye className="w-4 h-4 text-[#17324A]" />
+                Show Figures
+              </>
+            ) : (
+              <>
+                <EyeOff className="w-4 h-4 text-[#17324A]" />
+                Hide Figures
+              </>
+            )}
+          </button>
 
-          {/* Export Excel */}
           <button
             onClick={handleExportExcel}
-            className="px-4 py-2.5 rounded-xl bg-white border border-[#D9E5EE] hover:bg-[#F5F9FC] text-[#17324A] text-xs font-semibold shadow-md flex items-center gap-2 transition-all cursor-pointer"
-            title="Download Payroll Report as Excel"
+            className="px-4 py-2.5 rounded-xl bg-white border border-[#D9E5EE] hover:bg-[#F5F9FC] text-[#17324A] text-xs font-semibold shadow-sm flex items-center gap-2 transition-all cursor-pointer"
+            title="Export Excel"
           >
             <Download className="w-4 h-4 text-[#17324A]" />
             Export Excel
           </button>
-
-          {/* Latest Payslip */}
-          <button
-            onClick={() => setSelectedPayslip(latest)}
-            className="px-4 py-2.5 rounded-xl bg-[#B0D0EA] hover:bg-[#9FC5E2] text-[#17324A] border border-[#9FC5E2] text-xs font-semibold shadow-md flex items-center gap-2 transition-all cursor-pointer"
-          >
-            <FileText className="w-4 h-4" />
-            View Latest Payslip ({latest.monthYear})
-          </button>
-
         </div>
       </div>
 
-      {/* Salary Overview Highlight */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      {/* Top 3 Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 
-        {/* Monthly Salary */}
-        <div className="p-5 rounded-2xl bg-white border border-[#D9E5EE] shadow-xl col-span-1 md:col-span-2 flex flex-col justify-between">
-
-          <div className="flex justify-between items-start">
-
-            <div>
-              <span className="text-xs uppercase font-bold text-[#17324A]">
-                Monthly Take-Home Salary
-              </span>
-
-              <div className="text-3xl font-black text-[#17324A] mt-1">
-                {formatINR(latest.netPayable)}
-              </div>
-            </div>
-
-            <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+        {/* Card 1: Monthly Take-Home Salary */}
+        <div className="rounded-2xl border border-[#D9E5EE] bg-white p-6 shadow-sm flex flex-col justify-between space-y-4">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold tracking-wider text-[#667085] uppercase">
+              MONTHLY TAKE-HOME SALARY
+            </span>
+            <span className="px-3 py-1 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
               Direct Deposited
             </span>
-
           </div>
 
-          <div className="pt-4 border-t border-[#D9E5EE] grid grid-cols-2 gap-4 text-xs">
+          <div className="text-3xl font-black text-[#17324A] tracking-tight">
+            {formatAmount(latest?.netPayable ?? 75833)}
+          </div>
 
-            <div>
-              <span className="text-[#667085]">
-                Gross Earnings:
-              </span>
-
-              <span className="font-bold text-emerald-500 block">
-                {formatINR(latest.grossEarnings)}
-              </span>
-            </div>
-
-            <div>
-              <span className="text-[#667085]">
-                Total Deductions:
-              </span>
-
-              <span className="font-bold text-rose-500 block">
-                {formatINR(latest.totalDeductions)}
-              </span>
-            </div>
-
+          <div className="pt-3 border-t border-[#F0F4F8] flex items-center justify-between text-xs">
+            <span className="text-[#667085]">
+              Gross Earnings:{' '}
+              <strong className="text-emerald-600 font-semibold ml-1">
+                {formatAmount(latest?.grossEarnings ?? 95833)}
+              </strong>
+            </span>
+            <span className="text-[#667085]">
+              Total Deductions:{' '}
+              <strong className="text-pink-600 font-semibold ml-1">
+                {formatAmount(latest?.totalDeductions ?? 20000)}
+              </strong>
+            </span>
           </div>
         </div>
 
-        {/* Annual CTC */}
-        <div className="p-4 rounded-2xl bg-white border border-[#D9E5EE] shadow-md">
-
-          <span className="text-xs font-bold text-[#667085] uppercase tracking-wider">
-            Annual CTC Tier
+        {/* Card 2: Annual CTC */}
+        <div className="rounded-2xl border border-[#D9E5EE] bg-white p-6 shadow-sm flex flex-col justify-between space-y-4">
+          <span className="text-[11px] font-bold tracking-wider text-[#667085] uppercase">
+            ANNUAL CTC
           </span>
 
-          <div className="text-2xl font-black text-[#17324A] mt-2">
-            {formatINR(CURRENT_USER.salary)}
+          <div className="text-3xl font-black text-[#17324A] tracking-tight">
+            {formatAmount(CURRENT_USER.salary || 550000)}
           </div>
 
-          <p className="text-[11px] text-[#667085] mt-1">
-            Band: Senior Level II
-          </p>
-
+          <div className="pt-3 border-t border-[#F0F4F8] text-xs text-[#667085]">
+            Executive CTC Structure
+          </div>
         </div>
 
-        {/* Tax & Deductions */}
-        <div className="p-4 rounded-2xl bg-white border border-[#D9E5EE] shadow-md">
-
-          <span className="text-xs font-bold text-[#667085] uppercase tracking-wider">
-            Tax & Deductions
+        {/* Card 3: Current Cycle */}
+        <div className="rounded-2xl border border-[#D9E5EE] bg-white p-6 shadow-sm flex flex-col justify-between space-y-4">
+          <span className="text-[11px] font-bold tracking-wider text-[#667085] uppercase">
+            CURRENT CYCLE
           </span>
 
-          <div className="text-2xl font-black text-rose-500 mt-2">
-            {formatINR(latest.taxDeduction)}
+          <div className="text-3xl font-black text-[#17324A] tracking-tight">
+            {latest?.monthYear ?? 'July 2026'}
           </div>
 
-          <p className="text-[11px] text-[#667085] mt-1">
-            PF Contribution: {formatINR(latest.pfDeduction)}
-          </p>
-
+          <div className="pt-3 border-t border-[#F0F4F8] text-xs text-emerald-600 font-semibold">
+            Disbursed on {latest?.paymentDate ?? '31 July 2026'}
+          </div>
         </div>
 
       </div>
 
-      {/* Payslip Archive Table */}
-      <div className="p-6 rounded-2xl bg-white border border-[#D9E5EE] shadow-md space-y-4">
-
-        <h3 className="text-sm font-bold text-[#17324A] flex items-center gap-2">
-
-          <FileText className="w-4 h-4 text-[#17324A]" />
-
-          Monthly Payslip Archive
-
-        </h3>
+      {/* Payslip Records Table */}
+      <div className="p-6 rounded-2xl bg-white border border-[#D9E5EE] shadow-sm space-y-4">
+        <h2 className="text-base font-bold text-[#17324A]">
+          My Monthly Payslip Records
+        </h2>
 
         <div className="overflow-x-auto">
-
           <table className="w-full text-left text-xs border-collapse">
-
             <thead>
-              <tr className="border-b border-[#D9E5EE] text-[#667085] font-semibold bg-[#EAF2F8]">
-
-                <th className="py-3 px-4">
-                  Pay Period
+              <tr className="border-b border-[#D9E5EE] text-[#667085] font-semibold bg-[#F8FAFC]">
+                <th className="py-3.5 px-4 font-bold uppercase tracking-wider">
+                  PAY PERIOD
                 </th>
-
-                <th className="py-3 px-4">
-                  Payment Date
+                <th className="py-3.5 px-4 font-bold uppercase tracking-wider">
+                  GROSS EARNINGS
                 </th>
-
-                <th className="py-3 px-4">
-                  Gross Earnings
+                <th className="py-3.5 px-4 font-bold uppercase tracking-wider">
+                  TOTAL DEDUCTIONS
                 </th>
-
-                <th className="py-3 px-4">
-                  Deductions
+                <th className="py-3.5 px-4 font-bold uppercase tracking-wider">
+                  NET PAYABLE
                 </th>
-
-                <th className="py-3 px-4">
-                  Net Salary
+                <th className="py-3.5 px-4 font-bold uppercase tracking-wider">
+                  STATUS
                 </th>
-
-                <th className="py-3 px-4">
-                  Status
+                <th className="py-3.5 px-4 font-bold uppercase tracking-wider text-right">
+                  ACTION
                 </th>
-
-                <th className="py-3 px-4 text-right">
-                  Actions
-                </th>
-
               </tr>
             </thead>
 
-            <tbody className="divide-y divide-[#D9E5EE] text-[#17324A]">
-
+            <tbody className="divide-y divide-[#EAF2F8] text-[#17324A]">
               {MOCK_PAYSLIPS.map((slip) => (
-
                 <tr
                   key={slip.id}
-                  className="hover:bg-[#F5F9FC] transition-colors"
+                  className="hover:bg-[#F8FAFC] transition-colors"
                 >
-
-                  <td className="py-3 px-4 font-bold text-[#17324A]">
+                  <td className="py-4 px-4 font-bold text-[#17324A] text-sm">
                     {slip.monthYear}
                   </td>
-
-                  <td className="py-3 px-4 text-[#667085]">
-                    {slip.paymentDate}
+                  <td className="py-4 px-4 font-semibold text-[#17324A]">
+                    {formatAmount(slip.grossEarnings)}
                   </td>
-
-                  <td className="py-3 px-4 font-semibold text-emerald-500">
-                    {formatINR(slip.grossEarnings)}
+                  <td className="py-4 px-4 font-semibold text-pink-600">
+                    {formatAmount(slip.totalDeductions)}
                   </td>
-
-                  <td className="py-3 px-4 text-rose-500">
-                    {formatINR(slip.totalDeductions)}
+                  <td className="py-4 px-4 font-bold text-emerald-600">
+                    {formatAmount(slip.netPayable)}
                   </td>
-
-                  <td className="py-3 px-4 font-bold text-[#17324A]">
-                    {formatINR(slip.netPayable)}
-                  </td>
-
-                  <td className="py-3 px-4">
-
-                    <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+                  <td className="py-4 px-4">
+                    <span className="px-3 py-1 rounded-full text-[11px] font-bold bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
                       {slip.status}
                     </span>
-
                   </td>
-
-                  <td className="py-3 px-4 text-right">
-
+                  <td className="py-4 px-4 text-right">
                     <button
                       onClick={() => setSelectedPayslip(slip)}
-                      className="px-3 py-1.5 rounded-lg bg-[#B0D0EA] hover:bg-[#9FC5E2] text-[#17324A] border border-[#9FC5E2] text-xs font-semibold flex items-center gap-1.5 transition-all ml-auto"
+                      className="px-4 py-2 rounded-xl bg-[#17324A] hover:bg-[#0f2334] text-white text-xs font-semibold shadow-sm transition-all cursor-pointer"
                     >
-                      <Eye className="w-3.5 h-3.5" />
-                      View Payslip
+                      View Details
                     </button>
-
                   </td>
-
                 </tr>
-
               ))}
-
             </tbody>
-
           </table>
-
         </div>
       </div>
 
@@ -344,6 +239,7 @@ export default function PayrollPage() {
     </div>
   );
 }
+
 
 
 

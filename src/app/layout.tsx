@@ -1,16 +1,16 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
-import { HRMSProvider } from '@/context/HRMSContext';
-import { MainLayoutWrapper } from '@/components/layout/MainLayoutWrapper';
-import { MeetingsQueryProvider } from '@/components/providers/MeetingsQueryProvider';
+import { HRMSProvider } from '@/shared/providers/HRMSContext';
+import { MainLayoutWrapper } from '@/shared/components/layout/MainLayoutWrapper';
+import { MeetingsQueryProvider } from '@/shared/providers/MeetingsQueryProvider';
 
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'Apex HRMS - Enterprise Human Resource Portal',
+  title: 'MYLOTIC GROUP PVT.LTD - HRMS Portal',
   description:
-    'Streamlined HR management, employee self-service, leave tracking, payroll processing, and performance appraisals.',
+    'Streamlined HR management, employee self-service, leave tracking, payroll processing, and performance appraisals for MYLOTIC GROUP PVT.LTD.',
 };
 
 export default function RootLayout({

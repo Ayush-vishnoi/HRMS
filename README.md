@@ -1,36 +1,70 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# MYLOTIC GROUP HRMS
 
-## Getting Started
+Client-facing human resources management application built with Next.js App Router, React, and TypeScript. It provides role-aware employee, manager, and HR administration workflows for attendance, leave, payroll, recruitment, analytics, meetings, documents, policies, assets, grievances, and Help Desk requests.
 
-First, run the development server:
+## Requirements
+
+- Node.js 20 or newer
+- npm 10 or newer
+
+## Local Development
 
 ```bash
+npm ci
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+The development server is available at `http://localhost:3000` by default.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Validation
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run typecheck
+npm run lint
+npm run build
+```
 
-## Learn More
+Run the complete production validation pipeline with:
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+npm run validate
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Project Structure
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```text
+src/
+  app/        Next.js routes, layouts, and global styles
+  features/   Domain-owned components, data, APIs, hooks, and types
+  shared/     Cross-domain layout, providers, and utilities
+public/       Referenced static assets
+```
 
-## Deploy on Vercel
+Route modules remain in `src/app` so URL behavior follows App Router conventions. Business UI and domain fixtures live under `src/features`, while reusable infrastructure with multiple domain consumers lives under `src/shared`.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Application State
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+The current implementation uses in-memory mock fixtures and browser `localStorage` for demo persistence. `HRMSContext` owns the role-aware client state for authentication, employees, attendance, late clock-in requests, leave requests, and Help Desk tickets.
+
+This is not a production persistence or security boundary. Before deployment with real employee data, replace mock services with authenticated server APIs, PostgreSQL-backed storage, authorization checks on the server, audit logging, and protected handling of payroll and personally identifiable information.
+
+## Core Stack
+
+- Next.js 16 App Router
+- React 19
+- TypeScript 5
+- Tailwind CSS 4
+- TanStack React Query
+- React Hook Form and Zod
+- Recharts
+- XLSX
+- Lucide React
+
+## Production Build
+
+```bash
+npm run build
+npm run start
+```
+
+Configuration is environment-independent at present because the application does not yet connect to external services. Document required environment variables here when authentication, database, email, storage, or observability integrations are introduced.

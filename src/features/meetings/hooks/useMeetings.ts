@@ -1,8 +1,8 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { cancelMeeting, createMeeting, getMeeting, getMeetings, searchEmployees, updateMeeting, updateRsvp } from '@/api/meetings';
-import type { CreateMeetingInput, MeetingFilters, RSVP, UpdateMeetingInput } from '@/types/meeting';
+import { cancelMeeting, createMeeting, getMeeting, getMeetings, searchEmployees, updateMeeting, updateRsvp } from '@/features/meetings/api/meetings';
+import type { CreateMeetingInput, MeetingFilters, RSVP, UpdateMeetingInput } from '@/features/meetings/types/meeting';
 
 export const meetingKeys = {
   all: ['meetings'] as const,

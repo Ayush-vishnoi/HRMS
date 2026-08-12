@@ -1,16 +1,19 @@
 
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import {
+  AlertCircle,
   Calendar,
+  CheckCircle2,
+  Download,
   MapPin,
   Play,
   Square,
-  Download,
 } from 'lucide-react';
-import { useHRMS } from '@/context/HRMSContext';
-import { exportToExcel } from '@/utils/exportUtils';
+import { useHRMS } from '@/shared/providers/HRMSContext';
+import { exportToExcel } from '@/shared/lib/exportUtils';
+import { ClockInPermissionModal } from '@/features/attendance/components/ClockInPermissionModal';
 
 export default function AttendancePage() {
   const {
@@ -18,9 +21,41 @@ export default function AttendancePage() {
     clockInTime,
     elapsedWorkTime,
     toggleClockIn,
+    lateClockInRequest,
     attendanceLogs,
     currentUser,
   } = useHRMS();
+
+  const [isPermissionModalOpen, setIsPermissionModalOpen] = useState(false);
+  const [clockNotice, setClockNotice] = useState('');
+
+  const handleClockAction = () => {
+    const result = toggleClockIn();
+
+    if (result.status === 'permission-required') {
+      setClockNotice('Clock-in after 10:00 AM requires HR approval. Submit your reason to continue.');
+      setIsPermissionModalOpen(true);
+    } else if (result.status === 'permission-pending') {
+      setClockNotice('Your late clock-in request is pending HR approval.');
+    } else if (result.status === 'permission-rejected') {
+      setClockNotice('HR rejected your late clock-in request for today.');
+    } else if (result.status === 'error') {
+      setClockNotice(result.message);
+    } else if (result.status === 'clocked-out') {
+      setClockNotice('You have been clocked out successfully.');
+    } else if (result.attendanceStatus === 'Late') {
+      setClockNotice('You are clocked in. Today’s attendance is marked Late.');
+    } else {
+      setClockNotice('You are clocked in successfully. Today’s attendance is marked On Time.');
+    }
+  };
+
+  const noticeIsError =
+    clockNotice.includes('denied') ||
+    clockNotice.includes('rejected');
+  const noticeIsSuccess =
+    clockNotice.includes('successfully') ||
+    clockNotice.includes('clocked in');
 
   return (
     <div className="space-y-6">
@@ -110,7 +145,8 @@ export default function AttendancePage() {
 
           {/* Clock In / Clock Out */}
           <button
-            onClick={toggleClockIn}
+            type="button"
+            onClick={handleClockAction}
             className="w-full py-3 rounded-xl text-xs font-bold transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer bg-[#B0D0EA] hover:bg-[#9FC5E2] text-[#17324A] border border-[#9FC5E2]"
           >
             {isClockedIn ? (
@@ -125,6 +161,34 @@ export default function AttendancePage() {
               </>
             )}
           </button>
+
+          {clockNotice && (
+            <div
+              role="status"
+              aria-live="polite"
+              className={`flex items-start gap-2 rounded-xl border px-3 py-2.5 text-xs font-semibold leading-5 ${
+                noticeIsError
+                  ? 'border-rose-200 bg-rose-50 text-rose-700'
+                  : noticeIsSuccess
+                    ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                    : 'border-amber-200 bg-amber-50 text-amber-800'
+              }`}
+            >
+              {noticeIsSuccess ? (
+                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+              ) : (
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+              )}
+              <span>{clockNotice}</span>
+            </div>
+          )}
+
+          {lateClockInRequest?.status === 'pending' && !isClockedIn && (
+            <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs font-semibold leading-5 text-amber-800">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>Late clock-in permission is pending HR approval.</span>
+            </div>
+          )}
         </div>
 
         {/* Shift Policy */}
@@ -142,17 +206,17 @@ export default function AttendancePage() {
               </span>
 
               <span className="font-bold text-[#17324A]">
-                09:00 AM - 06:00 PM
+                08:00 AM - 06:00 PM
               </span>
             </div>
 
             <div className="p-3 rounded-xl bg-[#F5F9FC] border border-[#D9E5EE] flex justify-between gap-4">
               <span className="text-[#667085]">
-                Grace Period Allowance
+                Normal Clock-in Window
               </span>
 
               <span className="font-bold text-amber-600">
-                15 Minutes
+                08:00 AM - 10:00 AM
               </span>
             </div>
 
@@ -321,6 +385,7 @@ export default function AttendancePage() {
         </div>
       </div>
 
+      <ClockInPermissionModal isOpen={isPermissionModalOpen} onClose={() => setIsPermissionModalOpen(false)} />
     </div>
   );
 }
