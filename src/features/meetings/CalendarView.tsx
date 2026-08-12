@@ -3,9 +3,9 @@
 import { useMemo, useState } from 'react';
 import { CalendarDays, ChevronLeft, ChevronRight, Clock3, Filter, List, Plus, RefreshCw, Search, Users, X } from 'lucide-react';
 import Link from 'next/link';
-import { useHRMS } from '@/context/HRMSContext';
+import { useHRMS } from '@/shared/providers/HRMSContext';
 import { useMeetings } from '@/features/meetings/hooks/useMeetings';
-import type { Meeting, MeetingFilters, MeetingType } from '@/types/meeting';
+import type { Meeting, MeetingFilters, MeetingType } from '@/features/meetings/types/meeting';
 
 const pad = (value: number) => String(value).padStart(2, '0');
 const dateKey = (date: Date) => `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;

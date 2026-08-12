@@ -16,7 +16,7 @@ import {
   X,
   Plus,
 } from 'lucide-react';
-import { useHRMS } from '@/context/HRMSContext';
+import { useHRMS } from '@/shared/providers/HRMSContext';
 
 type KraPriority = 'Critical' | 'High' | 'Medium' | 'Low';
 type KraStatus = 'Not Started' | 'In Progress' | 'Under Review' | 'Completed';

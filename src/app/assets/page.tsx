@@ -11,7 +11,7 @@ import {
   ShieldCheck,
   UserRound,
 } from 'lucide-react';
-import { useHRMS } from '@/context/HRMSContext';
+import { useHRMS } from '@/shared/providers/HRMSContext';
 
 type AssetStatus = 'Assigned' | 'Available' | 'Repair' | 'Retired';
 type AssetCategory = 'Laptop' | 'Monitor' | 'Mobile' | 'Access Card' | 'Other';

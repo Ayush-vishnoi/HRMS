@@ -3,19 +3,15 @@
 
 import React, { useState } from 'react';
 import {
-  CalendarDays,
   Plus,
-  Filter,
   Check,
   X,
-  Clock,
   FileText,
-  CheckCircle2,
   Download,
 } from 'lucide-react';
-import { useHRMS } from '@/context/HRMSContext';
-import { ApplyLeaveModal } from '@/components/modals/ApplyLeaveModal';
-import { exportToExcel } from '@/utils/exportUtils';
+import { useHRMS } from '@/shared/providers/HRMSContext';
+import { ApplyLeaveModal } from '@/features/leaves/components/ApplyLeaveModal';
+import { exportToExcel } from '@/shared/lib/exportUtils';
 
 export default function LeavesPage() {
   const {

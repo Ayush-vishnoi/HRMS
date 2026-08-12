@@ -13,7 +13,7 @@ import {
   HelpDeskTicket,
   HelpDeskTicketStatus,
   useHRMS,
-} from '@/context/HRMSContext';
+} from '@/shared/providers/HRMSContext';
 
 const statusStyles: Record<HelpDeskTicketStatus, string> = {
   Open: 'border-amber-200 bg-amber-50 text-amber-700',

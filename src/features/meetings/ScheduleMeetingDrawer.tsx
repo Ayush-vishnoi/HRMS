@@ -5,9 +5,9 @@ import { CalendarDays, Check, Clock, MapPin, Search, Users, Video, X } from 'luc
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
-import { useHRMS } from '@/context/HRMSContext';
+import { useHRMS } from '@/shared/providers/HRMSContext';
 import { useCreateMeeting, useEmployeeSearch, useUpdateMeeting } from '@/features/meetings/hooks/useMeetings';
-import type { CreateMeetingInput, Meeting } from '@/types/meeting';
+import type { CreateMeetingInput, Meeting } from '@/features/meetings/types/meeting';
 
 const schema = z.object({
   title: z.string().min(3, 'Enter at least 3 characters'),

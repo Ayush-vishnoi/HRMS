@@ -11,9 +11,9 @@ import {
   Play,
   Square,
 } from 'lucide-react';
-import { useHRMS } from '@/context/HRMSContext';
-import { exportToExcel } from '@/utils/exportUtils';
-import { ClockInPermissionModal } from '@/components/modals/ClockInPermissionModal';
+import { useHRMS } from '@/shared/providers/HRMSContext';
+import { exportToExcel } from '@/shared/lib/exportUtils';
+import { ClockInPermissionModal } from '@/features/attendance/components/ClockInPermissionModal';
 
 export default function AttendancePage() {
   const {

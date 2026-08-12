@@ -11,7 +11,7 @@ import {
 import {
   HelpDeskTicketPriority,
   useHRMS,
-} from '@/context/HRMSContext';
+} from '@/shared/providers/HRMSContext';
 
 const statusStyles = {
   Open: 'border-amber-200 bg-amber-50 text-amber-700',

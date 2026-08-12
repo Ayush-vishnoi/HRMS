@@ -1,10 +1,10 @@
 'use client';
 
 import React from 'react';
-import { useHRMS } from '@/context/HRMSContext';
-import { EmployeeDashboard } from '@/components/dashboard/EmployeeDashboard';
-import { ManagerDashboard } from '@/components/dashboard/ManagerDashboard';
-import { AdminDashboard } from '@/components/dashboard/AdminDashboard';
+import { useHRMS } from '@/shared/providers/HRMSContext';
+import { EmployeeDashboard } from '@/features/dashboard/components/EmployeeDashboard';
+import { ManagerDashboard } from '@/features/dashboard/components/ManagerDashboard';
+import { AdminDashboard } from '@/features/dashboard/components/AdminDashboard';
 
 export default function DashboardPage() {
   const { currentUser } = useHRMS();

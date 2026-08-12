@@ -15,7 +15,7 @@ import {
   UploadCloud,
   X,
 } from 'lucide-react';
-import { useHRMS } from '@/context/HRMSContext';
+import { useHRMS } from '@/shared/providers/HRMSContext';
 
 type DocumentStatus = 'Verified' | 'Under Review' | 'Action Required';
 type RequestStatus = 'Pending' | 'In Review' | 'Completed';

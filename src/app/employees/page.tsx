@@ -12,10 +12,10 @@ import {
   UserPlus,
   ShieldCheck
 } from 'lucide-react';
-import { useHRMS } from '@/context/HRMSContext';
-import { Employee } from '@/data/mockData';
-import { EmployeeDetailsModal } from '@/components/modals/EmployeeDetailsModal';
-import { AddEmployeeModal } from '@/components/modals/AddEmployeeModal';
+import { useHRMS } from '@/shared/providers/HRMSContext';
+import type { Employee } from '@/features/employees/data/employees';
+import { EmployeeDetailsModal } from '@/features/employees/components/EmployeeDetailsModal';
+import { AddEmployeeModal } from '@/features/employees/components/AddEmployeeModal';
 
 export default function EmployeesPage() {
   const { employees, currentUser } = useHRMS();

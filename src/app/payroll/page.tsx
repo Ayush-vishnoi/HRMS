@@ -7,14 +7,12 @@ import {
   Eye,
   EyeOff,
 } from 'lucide-react';
-import {
-  CURRENT_USER,
-  MOCK_PAYSLIPS,
-  Payslip,
-} from '@/data/mockData';
-import { PayslipModal } from '@/components/modals/PayslipModal';
-import { exportToExcel } from '@/utils/exportUtils';
-import { useHRMS } from '@/context/HRMSContext';
+import { CURRENT_USER } from '@/features/employees/data/employees';
+import { MOCK_PAYSLIPS } from '@/features/payroll/data/payroll';
+import type { Payslip } from '@/features/payroll/data/payroll';
+import { PayslipModal } from '@/features/payroll/components/PayslipModal';
+import { exportToExcel } from '@/shared/lib/exportUtils';
+import { useHRMS } from '@/shared/providers/HRMSContext';
 
 export default function PayrollPage() {
   const [selectedPayslip, setSelectedPayslip] = useState<Payslip | null>(null);

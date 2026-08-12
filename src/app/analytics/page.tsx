@@ -15,8 +15,8 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
-import { MOCK_ANALYTICS } from '@/data/mockData';
-import { useHRMS } from '@/context/HRMSContext';
+import { MOCK_ANALYTICS } from '@/features/analytics/data/analytics';
+import { useHRMS } from '@/shared/providers/HRMSContext';
 
 export default function AnalyticsPage() {
   const { currentUser } = useHRMS();

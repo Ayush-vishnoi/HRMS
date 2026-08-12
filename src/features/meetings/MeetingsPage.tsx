@@ -2,13 +2,13 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useHRMS } from '@/context/HRMSContext';
+import { useHRMS } from '@/shared/providers/HRMSContext';
 import { CalendarView, MeetingHeader, MeetingSummary } from '@/features/meetings/CalendarView';
 import { MeetingDetailDrawer } from '@/features/meetings/MeetingDetailDrawer';
 import { MeetingList } from '@/features/meetings/MeetingList';
 import { ScheduleMeetingDrawer } from '@/features/meetings/ScheduleMeetingDrawer';
 import { useMeeting, useMeetings } from '@/features/meetings/hooks/useMeetings';
-import type { Meeting } from '@/types/meeting';
+import type { Meeting } from '@/features/meetings/types/meeting';
 
 export function MeetingsPage({ mode = 'calendar', meetingId }: { mode?: 'calendar' | 'list'; meetingId?: string }) {
   const router = useRouter();

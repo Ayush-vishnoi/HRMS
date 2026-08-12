@@ -1,9 +1,9 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
-import { HRMSProvider } from '@/context/HRMSContext';
-import { MainLayoutWrapper } from '@/components/layout/MainLayoutWrapper';
-import { MeetingsQueryProvider } from '@/components/providers/MeetingsQueryProvider';
+import { HRMSProvider } from '@/shared/providers/HRMSContext';
+import { MainLayoutWrapper } from '@/shared/components/layout/MainLayoutWrapper';
+import { MeetingsQueryProvider } from '@/shared/providers/MeetingsQueryProvider';
 
 const inter = Inter({ subsets: ['latin'] });
 

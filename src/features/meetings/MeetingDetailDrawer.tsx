@@ -1,9 +1,9 @@
 'use client';
 
 import { CalendarDays, Check, Clock, Edit3, ExternalLink, MapPin, Repeat, Trash2, Video, X, XCircle } from 'lucide-react';
-import { useHRMS } from '@/context/HRMSContext';
+import { useHRMS } from '@/shared/providers/HRMSContext';
 import { useCancelMeeting, useRsvpMeeting } from '@/features/meetings/hooks/useMeetings';
-import type { Meeting, RSVP } from '@/types/meeting';
+import type { Meeting, RSVP } from '@/features/meetings/types/meeting';
 
 const dateTime = (value: string) => new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
 

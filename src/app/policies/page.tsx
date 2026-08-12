@@ -16,7 +16,7 @@ import {
   UploadCloud,
   X,
 } from 'lucide-react';
-import { useHRMS } from '@/context/HRMSContext';
+import { useHRMS } from '@/shared/providers/HRMSContext';
 
 type PolicyCategory =
   | 'Code of Conduct'

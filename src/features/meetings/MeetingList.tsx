@@ -4,7 +4,7 @@ import { ArrowDownUp, CalendarDays, ChevronLeft, ChevronRight, List, Plus, Searc
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { useMeetings } from '@/features/meetings/hooks/useMeetings';
-import type { Meeting } from '@/types/meeting';
+import type { Meeting } from '@/features/meetings/types/meeting';
 
 const PAGE_SIZE = 6;
 const when = (value: string) => new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));

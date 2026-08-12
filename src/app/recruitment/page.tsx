@@ -15,14 +15,16 @@ import {
   X,
 } from 'lucide-react';
 
-import { useHRMS } from '@/context/HRMSContext';
+import { useHRMS } from '@/shared/providers/HRMSContext';
 
 import {
   MOCK_RECRUITMENT_CANDIDATES,
   MOCK_RECRUITMENT_JOBS,
+} from '@/features/recruitment/data/recruitment';
+import type {
   RecruitmentCandidate,
   RecruitmentJob,
-} from '@/data/mockData';
+} from '@/features/recruitment/data/recruitment';
 
 const stages = [
   'All',
