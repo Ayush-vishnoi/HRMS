@@ -13,6 +13,7 @@ import {
   FileText,
   Headset,
   IdCard,
+  Laptop,
   LogOut,
   Mail,
   MapPin,
@@ -98,6 +99,21 @@ export const Header: React.FC<HeaderProps> = ({ onClockAction }) => {
     return () => window.clearTimeout(hydrateDismissedNotifications);
   }, [notificationStorageKey]);
 
+  const [userAssignedAssets, setUserAssignedAssets] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (currentUser?.id) {
+      fetch(`/api/assets?employeeId=${encodeURIComponent(currentUser.id)}`)
+        .then((res) => (res.ok ? res.json() : null))
+        .then((json) => {
+          if (json?.success && Array.isArray(json.data)) {
+            setUserAssignedAssets(json.data);
+          }
+        })
+        .catch((err) => console.error('Failed to fetch assigned assets for notifications:', err));
+    }
+  }, [currentUser.id]);
+
   useEffect(() => {
     if (!showProfile) return;
 
@@ -136,10 +152,13 @@ export const Header: React.FC<HeaderProps> = ({ onClockAction }) => {
   const visibleHelpDeskNotifications = activeHelpDeskTickets.filter(
     (ticket) => !dismissedNotificationIds.includes(`help-desk-${ticket.id}`)
   );
+  const visibleAssetNotifications = userAssignedAssets.filter(
+    (asset) => !dismissedNotificationIds.includes(`asset-${asset.id}`)
+  );
   const hasStaticNotification = !dismissedNotificationIds.includes(staticNotificationId);
   const notificationCount = currentUser.userRole === 'admin'
     ? visibleLeaveNotifications.length + visibleHelpDeskNotifications.length
-    : hasStaticNotification ? 1 : 0;
+    : (hasStaticNotification ? 1 : 0) + visibleAssetNotifications.length;
 
   const dismissNotification = (notificationId: string) => {
     const nextIds = dismissedNotificationIds.includes(notificationId)
@@ -155,7 +174,10 @@ export const Header: React.FC<HeaderProps> = ({ onClockAction }) => {
           ...visibleLeaveNotifications.map((request) => `leave-${request.id}`),
           ...visibleHelpDeskNotifications.map((ticket) => `help-desk-${ticket.id}`),
         ]
-      : hasStaticNotification ? [staticNotificationId] : [];
+      : [
+          ...(hasStaticNotification ? [staticNotificationId] : []),
+          ...visibleAssetNotifications.map((asset) => `asset-${asset.id}`),
+        ];
     const nextIds = Array.from(new Set([...dismissedNotificationIds, ...idsToDismiss]));
     setDismissedNotificationIds(nextIds);
     window.localStorage.setItem(notificationStorageKey, JSON.stringify(nextIds));
@@ -296,20 +318,49 @@ export const Header: React.FC<HeaderProps> = ({ onClockAction }) => {
                   ) : (
                     <p className="px-2 py-4 text-center text-[11px] text-secondary">No notifications.</p>
                   )
-                ) : hasStaticNotification ? (
-                  <div className="flex gap-2 rounded bg-surface-elevated p-2">
-                    <button type="button" onClick={() => dismissNotification(staticNotificationId)} className="flex min-w-0 flex-1 gap-2 text-left">
-                      <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success" />
-                      <span>
-                        <span className="block text-xs font-medium text-foreground">Leave Request Approved</span>
-                        <span className="mt-0.5 block text-[11px] text-secondary">Casual Leave for July 20-21 was approved by Arjun Mehta.</span>
-                        <span className="mt-0.5 block text-[10px] text-muted">2 hours ago</span>
-                      </span>
-                    </button>
-                    <button type="button" onClick={() => dismissNotification(staticNotificationId)} className="h-fit shrink-0 rounded p-1 text-[#8B3A4A] hover:bg-white" aria-label="Remove notification">
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
+                ) : (visibleAssetNotifications.length > 0 || hasStaticNotification) ? (
+                  <>
+                    {visibleAssetNotifications.map((asset) => {
+                      const notificationId = `asset-${asset.id}`;
+                      return (
+                        <div key={notificationId} className="flex gap-2 rounded bg-[#EAF2F8] p-2 transition-colors hover:bg-[#D9E5EE]">
+                          <div className="flex min-w-0 flex-1 gap-2 text-left">
+                            <Laptop className="mt-0.5 h-4 w-4 shrink-0 text-[#17324A]" />
+                            <span>
+                              <span className="block text-xs font-semibold text-[#17324A]">Asset Assigned</span>
+                              <span className="mt-0.5 block text-[11px] text-[#52677A]">
+                                A {asset.brand} {asset.name} ({asset.assetTag}) has been assigned to you by HR.
+                              </span>
+                              <span className="mt-0.5 block text-[10px] text-[#667085]">Assigned on {asset.lastChecked || 'today'} · Serial: {asset.serialNumber || '—'}</span>
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => dismissNotification(notificationId)}
+                            className="h-fit shrink-0 rounded p-1 text-[#8B3A4A] hover:bg-white"
+                            aria-label={`Remove notification for asset ${asset.assetTag}`}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      );
+                    })}
+                    {hasStaticNotification && (
+                      <div className="flex gap-2 rounded bg-surface-elevated p-2">
+                        <button type="button" onClick={() => dismissNotification(staticNotificationId)} className="flex min-w-0 flex-1 gap-2 text-left">
+                          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success" />
+                          <span>
+                            <span className="block text-xs font-medium text-foreground">Leave Request Approved</span>
+                            <span className="mt-0.5 block text-[11px] text-secondary">Casual Leave for July 20-21 was approved by Arjun Mehta.</span>
+                            <span className="mt-0.5 block text-[10px] text-muted">2 hours ago</span>
+                          </span>
+                        </button>
+                        <button type="button" onClick={() => dismissNotification(staticNotificationId)} className="h-fit shrink-0 rounded p-1 text-[#8B3A4A] hover:bg-white" aria-label="Remove notification">
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    )}
+                  </>
                 ) : (
                   <p className="px-2 py-4 text-center text-[11px] text-secondary">No notifications.</p>
                 )}

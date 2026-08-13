@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
   CalendarDays,
@@ -41,85 +41,6 @@ type KraItem = {
   deliverables: string[];
 };
 
-const INITIAL_KRAS: KraItem[] = [
-  {
-    id: 'KRA-1042',
-    title: 'Improve employee attrition prediction model',
-    description: 'Enhance the existing attrition-risk model and prepare it for controlled HR analytics testing.',
-    keyResult: 'Achieve at least 88% validation accuracy while keeping false positives below 12%.',
-    category: 'AI/ML Delivery',
-    assignedToId: 'EMP-001',
-    assignedTo: 'Ayush Vishnoi',
-    assignedBy: 'Rohan Mehta',
-    assignerRole: 'AI/ML Engineering Manager',
-    assignedOn: '01 Aug 2026',
-    dueDate: '20 Aug 2026',
-    priority: 'Critical',
-    status: 'In Progress',
-    progress: 72,
-    weightage: 30,
-    lastUpdate: 'Feature engineering completed; validating class-balanced model variants.',
-    deliverables: ['Cleaned training dataset', 'Model evaluation report', 'Inference notebook and handover notes'],
-  },
-  {
-    id: 'KRA-1038',
-    title: 'Build resume-to-JD matching prototype',
-    description: 'Create a frontend-ready scoring service prototype for the recruitment screening workflow.',
-    keyResult: 'Return an explainable match score, matched skills, missing skills, and candidate summary.',
-    category: 'Product Innovation',
-    assignedToId: 'EMP-001',
-    assignedTo: 'Ayush Vishnoi',
-    assignedBy: 'Priya Nair',
-    assignerRole: 'HR Technology Lead',
-    assignedOn: '28 Jul 2026',
-    dueDate: '28 Aug 2026',
-    priority: 'High',
-    status: 'In Progress',
-    progress: 48,
-    weightage: 25,
-    lastUpdate: 'Completed skill extraction; working on weighted JD criteria.',
-    deliverables: ['Matching logic prototype', 'Sample API response schema', 'Accuracy test with 25 sample resumes'],
-  },
-  {
-    id: 'KRA-1029',
-    title: 'Document the ML experiment workflow',
-    description: 'Standardise how datasets, experiments, model metrics, and review outcomes are documented.',
-    keyResult: 'Publish one reusable workflow adopted by every member of the AI/ML team.',
-    category: 'Process Improvement',
-    assignedToId: 'EMP-003',
-    assignedTo: 'Rahul Verma',
-    assignedBy: 'Arjun Mehta',
-    assignerRole: 'AI/ML Engineering Manager',
-    assignedOn: '15 Jul 2026',
-    dueDate: '12 Aug 2026',
-    priority: 'Medium',
-    status: 'Under Review',
-    progress: 90,
-    weightage: 20,
-    lastUpdate: 'Draft shared with the team; manager review comments are pending.',
-    deliverables: ['Experiment template', 'Naming and versioning guide', 'Team walkthrough'],
-  },
-  {
-    id: 'KRA-1016',
-    title: 'Complete responsible AI learning plan',
-    description: 'Finish the assigned learning modules and demonstrate bias evaluation on an internal dataset.',
-    keyResult: 'Complete all modules and submit a bias and fairness assessment with recommendations.',
-    category: 'Learning & Development',
-    assignedToId: 'EMP-005',
-    assignedTo: 'Vikram Singh',
-    assignedBy: 'Arjun Mehta',
-    assignerRole: 'Learning & Development Partner',
-    assignedOn: '01 Jul 2026',
-    dueDate: '31 Jul 2026',
-    priority: 'Low',
-    status: 'Completed',
-    progress: 100,
-    weightage: 15,
-    lastUpdate: 'Learning plan and final assessment were approved on 30 Jul 2026.',
-    deliverables: ['Course certificates', 'Fairness assessment', 'Knowledge-sharing session'],
-  },
-];
-
 const priorityOrder: Record<KraPriority, number> = {
   Critical: 0,
   High: 1,
@@ -145,19 +66,13 @@ export default function PerformancePage() {
   const { currentUser, employees } = useHRMS();
   const isManager = currentUser.userRole === 'manager';
   const isEmployee = currentUser.userRole === 'employee';
+
   const directReports = useMemo(
-    () => employees.filter((employee) => employee.manager === currentUser.name),
-    [currentUser.name, employees]
+    () => employees.filter((employee) => employee.manager === currentUser.name || (employee as any).managerId === currentUser.id),
+    [currentUser.name, currentUser.id, employees]
   );
-  const visibleEmployeeIds = useMemo(
-    () => isManager
-      ? new Set(directReports.map((employee) => employee.id))
-      : isEmployee
-        ? new Set([currentUser.id])
-        : null,
-    [currentUser.id, directReports, isEmployee, isManager]
-  );
-  const [kras, setKras] = useState(INITIAL_KRAS);
+
+  const [kras, setKras] = useState<KraItem[]>([]);
   const [priorityFilter, setPriorityFilter] = useState<'ALL' | KraPriority>('ALL');
   const [statusFilter, setStatusFilter] = useState<'ALL' | KraStatus>('ALL');
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -174,25 +89,38 @@ export default function PerformancePage() {
     priority: 'Medium' as KraPriority,
   });
 
-  const scopedKras = useMemo(
-    () => kras.filter((kra) => !visibleEmployeeIds || visibleEmployeeIds.has(kra.assignedToId)),
-    [kras, visibleEmployeeIds]
-  );
+  const fetchKras = async () => {
+    try {
+      const res = await fetch(`/api/performance?employeeId=${encodeURIComponent(currentUser.id)}&role=${encodeURIComponent(currentUser.userRole)}`);
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && Array.isArray(json.data)) {
+          setKras(json.data);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to fetch KRAs from database:', err);
+    }
+  };
+
+  useEffect(() => {
+    fetchKras();
+  }, [currentUser.id, currentUser.userRole]);
 
   const filteredKras = useMemo(
-    () => scopedKras
+    () => kras
       .filter((kra) => priorityFilter === 'ALL' || kra.priority === priorityFilter)
       .filter((kra) => statusFilter === 'ALL' || kra.status === statusFilter)
       .sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority]),
-    [scopedKras, priorityFilter, statusFilter]
+    [kras, priorityFilter, statusFilter]
   );
 
-  const selectedKra = scopedKras.find((kra) => kra.id === selectedId) ?? null;
-  const completedCount = scopedKras.filter((kra) => kra.status === 'Completed').length;
-  const activeCount = scopedKras.filter((kra) => kra.status === 'In Progress').length;
+  const selectedKra = kras.find((kra) => kra.id === selectedId) ?? null;
+  const completedCount = kras.filter((kra) => kra.status === 'Completed').length;
+  const activeCount = kras.filter((kra) => kra.status === 'In Progress').length;
   const weightedProgress = Math.round(
-    scopedKras.reduce((total, kra) => total + kra.progress * kra.weightage, 0) /
-      Math.max(1, scopedKras.reduce((total, kra) => total + kra.weightage, 0))
+    kras.reduce((total, kra) => total + kra.progress * kra.weightage, 0) /
+      Math.max(1, kras.reduce((total, kra) => total + kra.weightage, 0))
   );
 
   const openDetails = (kra: KraItem) => {
@@ -202,33 +130,48 @@ export default function PerformancePage() {
     setSavedMessage('');
   };
 
-  const assignTask = () => {
+  const assignTask = async () => {
     const assignee = directReports.find((employee) => employee.id === assignment.assigneeId);
     if (!isManager || !assignee || !assignment.title.trim() || !assignment.keyResult.trim()) return;
-    setKras((current) => [...current, {
-      id: `KRA-${1043 + current.length}`,
-      title: assignment.title.trim(),
-      description: assignment.description.trim() || 'Complete the assigned team deliverable.',
-      keyResult: assignment.keyResult.trim(),
-      category: 'Team Delivery',
-      assignedToId: assignee.id,
-      assignedTo: assignee.name,
-      assignedBy: currentUser.name,
-      assignerRole: currentUser.role,
-      assignedOn: new Intl.DateTimeFormat('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date()),
-      dueDate: new Intl.DateTimeFormat('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(`${assignment.dueDate}T00:00:00`)),
-      priority: assignment.priority,
-      status: 'Not Started',
-      progress: 0,
-      weightage: 20,
-      lastUpdate: 'Task assigned by manager; waiting for team member update.',
-      deliverables: ['Progress update', 'Completed work handover'],
-    }]);
+
+    const formattedAssignedOn = new Intl.DateTimeFormat('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date());
+    const formattedDueDate = new Intl.DateTimeFormat('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(`${assignment.dueDate}T00:00:00`));
+
+    try {
+      const res = await fetch('/api/performance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: assignment.title.trim(),
+          description: assignment.description.trim() || 'Complete the assigned team deliverable.',
+          keyResult: assignment.keyResult.trim(),
+          category: 'Team Delivery',
+          assignedToId: assignee.id,
+          assignedById: currentUser.id,
+          assignedOn: formattedAssignedOn,
+          dueDate: formattedDueDate,
+          priority: assignment.priority,
+          status: 'Not Started',
+          progress: 0,
+          weightage: 20,
+          lastUpdate: 'Task assigned by manager; waiting for team member update.',
+          deliverables: ['Progress update', 'Completed work handover'],
+        }),
+      });
+
+      const json = await res.json();
+      if (json.success && json.data) {
+        setKras((current) => [json.data, ...current]);
+      }
+    } catch (err) {
+      console.error('Failed to assign KRA in database:', err);
+    }
+
     setAssignment({ title: '', description: '', keyResult: '', assigneeId: '', dueDate: '2026-08-31', priority: 'Medium' });
     setIsAssigning(false);
   };
 
-  const saveProgress = () => {
+  const saveProgress = async () => {
     if (!selectedKra) return;
 
     const nextStatus: KraStatus = draftProgress === 100
@@ -237,17 +180,35 @@ export default function PerformancePage() {
         ? 'In Progress'
         : 'Not Started';
 
+    const statusToSave = selectedKra.status === 'Under Review' && draftProgress < 100 ? 'Under Review' : nextStatus;
+    const updateNote = draftUpdate.trim() || selectedKra.lastUpdate;
+
     setKras((current) => current.map((kra) => (
       kra.id === selectedKra.id
         ? {
             ...kra,
             progress: draftProgress,
-            status: kra.status === 'Under Review' && draftProgress < 100 ? 'Under Review' : nextStatus,
-            lastUpdate: draftUpdate.trim() || kra.lastUpdate,
+            status: statusToSave,
+            lastUpdate: updateNote,
           }
         : kra
     )));
-    setSavedMessage('Progress updated successfully.');
+    setSavedMessage('Progress updated in database successfully.');
+
+    try {
+      await fetch('/api/performance', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: selectedKra.id,
+          progress: draftProgress,
+          status: statusToSave,
+          lastUpdate: updateNote,
+        }),
+      });
+    } catch (err) {
+      console.error('Failed to update KRA in database:', err);
+    }
   };
 
   return (
@@ -263,7 +224,7 @@ export default function PerformancePage() {
           </h1>
           <p className="mt-1 text-sm text-[#667085]">
             {isManager
-              ? 'Assign measurable work to direct reports and review team delivery progress.'
+              ? 'Assign measurable work to direct reports and review team delivery progress from PostgreSQL.'
               : isEmployee
                 ? 'Track assigned work, update progress, and review priorities, ownership, and expected results.'
                 : 'Review assigned work and delivery progress across the organisation.'}
@@ -288,8 +249,8 @@ export default function PerformancePage() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Overall KRA Progress" value={`${weightedProgress}%`} detail="Weighted by assigned contribution" icon={Target} />
         <StatCard label="Active Work Items" value={String(activeCount)} detail="Currently in progress" icon={Clock3} />
-        <StatCard label="Completed" value={`${completedCount} / ${scopedKras.length}`} detail="Approved or delivered" icon={CheckCircle2} />
-        <StatCard label="Critical Priority" value={String(scopedKras.filter((kra) => kra.priority === 'Critical' && kra.status !== 'Completed').length)} detail="Requires immediate focus" icon={AlertTriangle} />
+        <StatCard label="Completed" value={`${completedCount} / ${kras.length}`} detail="Approved or delivered" icon={CheckCircle2} />
+        <StatCard label="Critical Priority" value={String(kras.filter((kra) => kra.priority === 'Critical' && kra.status !== 'Completed').length)} detail="Requires immediate focus" icon={AlertTriangle} />
       </div>
 
       <section className="rounded-2xl border border-[#D9E5EE] bg-white p-5 shadow-md">
@@ -479,7 +440,7 @@ export default function PerformancePage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#17324A]/35 p-4" role="dialog" aria-modal="true" aria-label="Assign KRA task">
           <form onSubmit={(event) => { event.preventDefault(); assignTask(); }} className="w-full max-w-xl space-y-4 rounded-2xl border border-[#D9E5EE] bg-white p-6 shadow-2xl">
             <div className="flex items-start justify-between">
-              <div><p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#5B91B5]">Manager workspace</p><h2 className="mt-1 text-xl font-black text-[#17324A]">Assign KRA task</h2><p className="mt-1 text-xs text-[#667085]">Create a measurable task for one of your direct reports.</p></div>
+              <div><p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#5B91B5]">Manager workspace</p><h2 className="mt-1 text-xl font-black text-[#17324A]">Assign KRA task</h2><p className="mt-1 text-xs text-[#667085]">Create a measurable task for one of your direct reports in PostgreSQL.</p></div>
               <button type="button" onClick={() => setIsAssigning(false)} aria-label="Close assignment form" className="rounded-lg p-2 text-[#667085] hover:bg-[#EAF2F8]"><X className="h-5 w-5" /></button>
             </div>
             <label className="block text-xs font-bold text-[#17324A]">Task title<input required value={assignment.title} onChange={(event) => setAssignment({ ...assignment, title: event.target.value })} className="mt-1 w-full rounded-lg border border-[#9FC2DC] px-3 py-2 text-sm" placeholder="e.g. Deliver attendance dashboard" /></label>

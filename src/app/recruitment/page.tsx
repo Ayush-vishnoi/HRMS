@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Check,
   CheckCircle2,
@@ -94,37 +94,18 @@ const stageTone = (
 export default function RecruitmentPage() {
   const { currentUser } = useHRMS();
 
-  const [jobs, setJobs] = useState<RecruitmentJob[]>(
-    MOCK_RECRUITMENT_JOBS
-  );
-
-  const [selectedJobId, setSelectedJobId] = useState(
-    MOCK_RECRUITMENT_JOBS[0].id
-  );
-
-  const [selectedCandidateId, setSelectedCandidateId] = useState(
-    MOCK_RECRUITMENT_CANDIDATES[0].id
-  );
-
+  const [jobs, setJobs] = useState<RecruitmentJob[]>([]);
+  const [allCandidates, setAllCandidates] = useState<RecruitmentCandidate[]>([]);
+  const [selectedJobId, setSelectedJobId] = useState('');
+  const [selectedCandidateId, setSelectedCandidateId] = useState('');
   const [query, setQuery] = useState('');
-
-  const [stage, setStage] =
-    useState<CandidateStage>('All');
-
-  const [candidateStages, setCandidateStages] =
-    useState<
-      Record<string, RecruitmentCandidate['stage']>
-    >({});
-
-  const [notice, setNotice] =
-    useState<string | null>(null);
-
-  const [isUploadOpen, setIsUploadOpen] =
-    useState(false);
-
-  const [isAddJdOpen, setIsAddJdOpen] =
-    useState(false);
-
+  const [stage, setStage] = useState<CandidateStage>('All');
+  const [candidateStages, setCandidateStages] = useState<
+    Record<string, RecruitmentCandidate['stage']>
+  >({});
+  const [notice, setNotice] = useState<string | null>(null);
+  const [isUploadOpen, setIsUploadOpen] = useState(false);
+  const [isAddJdOpen, setIsAddJdOpen] = useState(false);
   const [jdForm, setJdForm] = useState({
     title: '',
     department: '',
@@ -135,16 +116,86 @@ export default function RecruitmentPage() {
     requirements: '',
   });
 
+  const fetchRecruitmentData = async () => {
+    try {
+      const res = await fetch('/api/recruitment');
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && json.data) {
+          const fetchedJobs: RecruitmentJob[] = (json.data.jobs || []).map((j: any) => ({
+            id: j.id,
+            title: j.title,
+            department: j.department,
+            location: j.location,
+            employmentType: j.employmentType === 'Contract' ? 'Contract' : 'Full-time',
+            openings: Number(j.openings) || 1,
+            applicants: Number(j.applicants) || 0,
+            status: j.status || 'Open',
+            postedOn: j.postedOn || '01 Aug 2026',
+            description: j.description || '',
+            requirements: Array.isArray(j.requirements) ? j.requirements : [],
+          }));
+
+          const fetchedCandidates: RecruitmentCandidate[] = (json.data.candidates || []).map((c: any) => ({
+            id: c.id,
+            jobId: c.jobId || c.job_id,
+            name: c.name,
+            email: c.email,
+            phone: c.phone || '',
+            avatar: c.avatarUrl || 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80',
+            appliedOn: c.appliedOn || '06 Aug 2026',
+            stage: (c.stage as any) || 'New',
+            score: Number(c.score) || 80,
+            experience: c.experience || '',
+            currentRole: c.currentRole || '',
+            location: c.location || '',
+            matchedSkills: Array.isArray(c.matchedSkills) ? c.matchedSkills : [],
+            missingSkills: Array.isArray(c.missingSkills) ? c.missingSkills : [],
+            summary: c.summary || '',
+            recommendation: c.recommendation === 'StrongMatch' ? 'Strong match' : c.recommendation === 'LowMatch' ? 'Low match' : 'Review',
+          }));
+
+          setJobs(fetchedJobs);
+          setAllCandidates(fetchedCandidates);
+          if (fetchedJobs.length > 0 && !selectedJobId) {
+            setSelectedJobId(fetchedJobs[0].id);
+          }
+          if (fetchedCandidates.length > 0 && !selectedCandidateId) {
+            setSelectedCandidateId(fetchedCandidates[0].id);
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load recruitment data from database:', err);
+    }
+  };
+
+  useEffect(() => {
+    fetchRecruitmentData();
+  }, []);
+
   const selectedJob =
-    jobs.find((job) => job.id === selectedJobId) ?? jobs[0];
+    jobs.find((job) => job.id === selectedJobId) ?? jobs[0] ?? {
+      id: 'JOB-001',
+      title: 'Senior Frontend Engineer',
+      department: 'Engineering',
+      location: 'Bengaluru / Hybrid',
+      employmentType: 'Full-time' as const,
+      openings: 2,
+      applicants: 0,
+      status: 'Open' as const,
+      postedOn: '01 Aug 2026',
+      description: '',
+      requirements: [],
+    };
 
   const jobCandidates = useMemo(
     () =>
-      MOCK_RECRUITMENT_CANDIDATES.filter(
+      allCandidates.filter(
         (candidate) =>
           candidate.jobId === selectedJob.id
       ),
-    [selectedJob.id]
+    [allCandidates, selectedJob.id]
   );
 
   const filteredCandidates = useMemo(
@@ -186,19 +237,19 @@ export default function RecruitmentPage() {
   ).length;
 
   const screenedCount =
-    MOCK_RECRUITMENT_CANDIDATES.filter(
+    allCandidates.filter(
       (candidate) => candidate.score >= 70
     ).length;
 
   const averageScore =
-    MOCK_RECRUITMENT_CANDIDATES.length
+    allCandidates.length
       ? Math.round(
-          MOCK_RECRUITMENT_CANDIDATES.reduce(
+          allCandidates.reduce(
             (sum, candidate) =>
               sum + candidate.score,
             0
           ) /
-            MOCK_RECRUITMENT_CANDIDATES.length
+            allCandidates.length
         )
       : 0;
 
@@ -211,7 +262,7 @@ export default function RecruitmentPage() {
     );
   };
 
-  const updateStage = (
+  const updateStage = async (
     nextStage: RecruitmentCandidate['stage']
   ) => {
     if (!selectedCandidate) return;
@@ -221,33 +272,75 @@ export default function RecruitmentPage() {
       [selectedCandidate.id]: nextStage,
     }));
 
+    setAllCandidates((prev) =>
+      prev.map((c) =>
+        c.id === selectedCandidate.id ? { ...c, stage: nextStage } : c
+      )
+    );
+
     showNotice(
       `${selectedCandidate.name} moved to ${nextStage}`
     );
+
+    try {
+      await fetch('/api/recruitment', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          candidateId: selectedCandidate.id,
+          stage: nextStage,
+        }),
+      });
+    } catch (err) {
+      console.error('Failed to update candidate stage in database:', err);
+    }
   };
 
-  const addJobDescription = (event: React.FormEvent<HTMLFormElement>) => {
+  const addJobDescription = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    const newJob: RecruitmentJob = {
-      id: `JOB-${String(jobs.length + 1).padStart(3, '0')}`,
-      title: jdForm.title.trim(),
-      department: jdForm.department.trim(),
-      location: jdForm.location.trim(),
-      employmentType: jdForm.employmentType,
-      openings: Math.max(1, Number(jdForm.openings) || 1),
-      applicants: 0,
-      status: 'Open',
-      postedOn: '09 Aug 2026',
-      description: jdForm.description.trim(),
-      requirements: jdForm.requirements
-        .split(',')
-        .map((requirement) => requirement.trim())
-        .filter(Boolean),
-    };
+    const requirementsArr = jdForm.requirements
+      .split(',')
+      .map((requirement) => requirement.trim())
+      .filter(Boolean);
 
-    setJobs((current) => [...current, newJob]);
-    setSelectedJobId(newJob.id);
+    try {
+      const res = await fetch('/api/recruitment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: jdForm.title.trim(),
+          department: jdForm.department.trim(),
+          location: jdForm.location.trim(),
+          employmentType: jdForm.employmentType,
+          openings: Math.max(1, Number(jdForm.openings) || 1),
+          description: jdForm.description.trim(),
+          requirements: requirementsArr,
+        }),
+      });
+
+      const json = await res.json();
+      if (json.success && json.data) {
+        const createdJob: RecruitmentJob = {
+          id: json.data.id,
+          title: json.data.title,
+          department: json.data.department,
+          location: json.data.location,
+          employmentType: json.data.employmentType === 'Contract' ? 'Contract' : 'Full-time',
+          openings: Number(json.data.openings) || 1,
+          applicants: 0,
+          status: json.data.status || 'Open',
+          postedOn: json.data.postedOn || '13 Aug 2026',
+          description: json.data.description,
+          requirements: json.data.requirements || [],
+        };
+        setJobs((current) => [createdJob, ...current]);
+        setSelectedJobId(createdJob.id);
+      }
+    } catch (err) {
+      console.error('Failed to create job in database:', err);
+    }
+
     setSelectedCandidateId('');
     setStage('All');
     setJdForm({
@@ -260,8 +353,9 @@ export default function RecruitmentPage() {
       requirements: '',
     });
     setIsAddJdOpen(false);
-    showNotice(`${newJob.title} job description added`);
+    showNotice(`${jdForm.title} saved to database`);
   };
+
 
   /* -----------------------------
      ACCESS CONTROL

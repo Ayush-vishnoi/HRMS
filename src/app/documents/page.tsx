@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   CheckCircle2,
   Clock3,
@@ -42,83 +42,6 @@ type DocumentRequest = {
   status: RequestStatus;
 };
 
-const INITIAL_DOCUMENTS: EmployeeDocument[] = [
-  {
-    id: 'DOC-204',
-    employeeId: 'EMP-001',
-    employeeName: 'Ayush Vishnoi',
-    name: 'Aadhaar Card.pdf',
-    type: 'Identity Proof',
-    uploadedOn: '02 Aug 2026',
-    size: '1.8 MB',
-    status: 'Verified',
-    note: 'Identity proof verified by HR Operations.',
-  },
-  {
-    id: 'DOC-201',
-    employeeId: 'EMP-001',
-    employeeName: 'Ayush Vishnoi',
-    name: 'Internship Agreement.pdf',
-    type: 'Employment Document',
-    uploadedOn: '15 Jul 2026',
-    size: '920 KB',
-    status: 'Under Review',
-    note: 'HR is checking the signed agreement.',
-  },
-  {
-    id: 'DOC-199',
-    employeeId: 'EMP-002',
-    employeeName: 'Arjun Mehta',
-    name: 'PAN Card.pdf',
-    type: 'Identity Proof',
-    uploadedOn: '18 Jul 2026',
-    size: '1.2 MB',
-    status: 'Verified',
-    note: 'Identity proof verified by HR Operations.',
-  },
-  {
-    id: 'DOC-198',
-    employeeId: 'EMP-002',
-    employeeName: 'Arjun Mehta',
-    name: 'Leadership Certification.pdf',
-    type: 'Education Certificate',
-    uploadedOn: '01 Jul 2026',
-    size: '640 KB',
-    status: 'Action Required',
-    note: 'Please upload a clearer scan of the certification page.',
-  },
-];
-
-const INITIAL_REQUESTS: DocumentRequest[] = [
-  {
-    id: 'REQ-087',
-    employeeId: 'EMP-001',
-    documentType: 'Employment Verification Letter',
-    reason: 'Required for opening a student bank account.',
-    requestedOn: '05 Aug 2026',
-    status: 'In Review',
-    requestedBy: 'Ayush Vishnoi',
-  },
-  {
-    id: 'REQ-081',
-    employeeId: 'EMP-001',
-    documentType: 'Internship Completion Certificate',
-    reason: 'Needed for university records after the internship period.',
-    requestedOn: '24 Jul 2026',
-    status: 'Pending',
-    requestedBy: 'Ayush Vishnoi',
-  },
-  {
-    id: 'REQ-079',
-    employeeId: 'EMP-002',
-    documentType: 'Experience Letter',
-    reason: 'Required for professional membership verification.',
-    requestedOn: '18 Jul 2026',
-    status: 'Completed',
-    requestedBy: 'Arjun Mehta',
-  },
-];
-
 const statusStyle: Record<DocumentStatus | RequestStatus, string> = {
   Verified: 'border-emerald-200 bg-emerald-50 text-emerald-700',
   'Under Review': 'border-blue-200 bg-blue-50 text-blue-700',
@@ -128,17 +51,16 @@ const statusStyle: Record<DocumentStatus | RequestStatus, string> = {
   Completed: 'border-emerald-200 bg-emerald-50 text-emerald-700',
 };
 
+const inputClass = 'w-full rounded-lg border border-[#9FC2DC] bg-white px-3 py-2 text-sm text-[#17324A] outline-none focus:ring-2 focus:ring-[#B0D0EA]';
+
 export default function DocumentsPage() {
   const { currentUser } = useHRMS();
   const isEmployee = currentUser.userRole === 'employee';
   const isManager = currentUser.userRole === 'manager';
   const canManageOwnDocuments = isEmployee || isManager;
-  const visibleEmployeeIds = useMemo(
-    () => canManageOwnDocuments ? new Set([currentUser.id]) : null,
-    [canManageOwnDocuments, currentUser.id]
-  );
-  const [documents, setDocuments] = useState(INITIAL_DOCUMENTS);
-  const [requests, setRequests] = useState(INITIAL_REQUESTS);
+
+  const [documents, setDocuments] = useState<EmployeeDocument[]>([]);
+  const [requests, setRequests] = useState<DocumentRequest[]>([]);
   const [showUpload, setShowUpload] = useState(false);
   const [showRequest, setShowRequest] = useState(false);
   const [search, setSearch] = useState('');
@@ -148,56 +70,99 @@ export default function DocumentsPage() {
   const [requestReason, setRequestReason] = useState('');
   const [notice, setNotice] = useState('');
 
-  const visibleDocuments = useMemo(
-    () => documents.filter((document) => !visibleEmployeeIds || visibleEmployeeIds.has(document.employeeId)),
-    [documents, visibleEmployeeIds]
-  );
-  const visibleRequests = useMemo(
-    () => requests.filter((request) => !visibleEmployeeIds || visibleEmployeeIds.has(request.employeeId)),
-    [requests, visibleEmployeeIds]
-  );
-  const filteredDocuments = useMemo(() => visibleDocuments.filter((document) =>
-    `${document.employeeName} ${document.name} ${document.type} ${document.status}`.toLowerCase().includes(search.toLowerCase())
-  ), [search, visibleDocuments]);
+  const fetchDocuments = async () => {
+    try {
+      const res = await fetch(`/api/documents?employeeId=${encodeURIComponent(currentUser.id)}&role=${encodeURIComponent(currentUser.userRole)}`);
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && json.data) {
+          setDocuments(json.data.documents || []);
+          setRequests(json.data.requests || []);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to fetch documents from database:', err);
+    }
+  };
 
-  const handleUpload = (event: React.FormEvent<HTMLFormElement>) => {
+  useEffect(() => {
+    fetchDocuments();
+  }, [currentUser.id, currentUser.userRole]);
+
+  const filteredDocuments = useMemo(() => documents.filter((document) =>
+    `${document.employeeName} ${document.name} ${document.type} ${document.status}`.toLowerCase().includes(search.toLowerCase())
+  ), [search, documents]);
+
+  const handleUpload = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const fileInput = event.currentTarget.elements.namedItem('document-file') as HTMLInputElement | null;
     const file = fileInput?.files?.[0];
     if (!file) return;
 
-    setDocuments((current) => [{
-      id: `DOC-${204 + current.length + 1}`,
-      employeeId: currentUser.id,
-      employeeName: currentUser.name,
-      name: uploadName.trim() || file.name,
-      type: uploadType,
-      uploadedOn: '09 Aug 2026',
-      size: `${(file.size / 1024 / 1024).toFixed(1)} MB`,
-      status: 'Under Review',
-      note: 'Uploaded by employee and queued for HR verification.',
-    }, ...current]);
+    const docName = uploadName.trim() || file.name;
+    const docSize = `${(file.size / 1024 / 1024).toFixed(1)} MB`;
+    const docUploadedOn = new Intl.DateTimeFormat('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date());
+
+    try {
+      const res = await fetch('/api/documents', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'upload',
+          employeeId: currentUser.id,
+          name: docName,
+          type: uploadType,
+          size: docSize,
+          status: 'Under Review',
+          uploadedOn: docUploadedOn,
+          note: 'Uploaded by employee and queued for HR verification.',
+        }),
+      });
+
+      const json = await res.json();
+      if (json.success && json.data) {
+        setDocuments((current) => [json.data, ...current]);
+      }
+    } catch (err) {
+      console.error('Failed to save uploaded document in database:', err);
+    }
+
     setUploadName('');
     setShowUpload(false);
-    setNotice('Document uploaded and sent to HR for verification.');
+    setNotice('Document uploaded and saved to database for HR verification.');
   };
 
-  const handleRequest = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleRequest = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!requestReason.trim()) return;
 
-    setRequests((current) => [{
-      id: `REQ-${87 + current.length + 1}`,
-      employeeId: currentUser.id,
-      documentType: requestType,
-      reason: requestReason.trim(),
-      requestedOn: '09 Aug 2026',
-      status: 'Pending',
-      requestedBy: currentUser.name,
-    }, ...current]);
+    const reqDate = new Intl.DateTimeFormat('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date());
+
+    try {
+      const res = await fetch('/api/documents', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'request',
+          employeeId: currentUser.id,
+          documentType: requestType,
+          reason: requestReason.trim(),
+          requestedOn: reqDate,
+          status: 'Pending',
+        }),
+      });
+
+      const json = await res.json();
+      if (json.success && json.data) {
+        setRequests((current) => [json.data, ...current]);
+      }
+    } catch (err) {
+      console.error('Failed to save document request in database:', err);
+    }
+
     setRequestReason('');
     setShowRequest(false);
-    setNotice('Document request sent to HR.');
+    setNotice('Document request saved in database and queued for HR.');
   };
 
   return (
@@ -206,7 +171,7 @@ export default function DocumentsPage() {
         <div>
           <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-[#5B91B5]"><ShieldCheck className="h-4 w-4" /> Secure document center</div>
           <h1 className="text-2xl font-black tracking-tight text-[#17324A]">Documents & Requests</h1>
-          <p className="mt-1 text-sm text-[#667085]">Upload your documents securely or request an official document from HR.</p>
+          <p className="mt-1 text-sm text-[#667085]">Upload your documents securely or request an official document from HR via PostgreSQL.</p>
         </div>
         {canManageOwnDocuments && <div className="flex flex-wrap gap-2">
           <button onClick={() => setShowUpload(true)} className="flex items-center gap-2 rounded-xl bg-[#17324A] px-4 py-2.5 text-xs font-bold text-white hover:bg-[#244A68]"><UploadCloud className="h-4 w-4" /> Upload Document</button>
@@ -217,9 +182,9 @@ export default function DocumentsPage() {
       {notice && <div className="flex items-center justify-between rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs font-semibold text-emerald-700"><span className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4" /> {notice}</span><button onClick={() => setNotice('')} aria-label="Dismiss notification"><X className="h-4 w-4" /></button></div>}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <Stat label={canManageOwnDocuments ? 'My Documents' : 'Employee Documents'} value={String(visibleDocuments.length)} detail="Uploaded records" icon={FileText} />
-        <Stat label="Under Review" value={String(visibleDocuments.filter((document) => document.status === 'Under Review').length)} detail="Awaiting HR verification" icon={Clock3} />
-        <Stat label="Open Requests" value={String(visibleRequests.filter((request) => request.status !== 'Completed').length)} detail="HR actions in progress" icon={History} />
+        <Stat label={canManageOwnDocuments ? 'My Documents' : 'Employee Documents'} value={String(documents.length)} detail="Uploaded records" icon={FileText} />
+        <Stat label="Under Review" value={String(documents.filter((document) => document.status === 'Under Review').length)} detail="Awaiting HR verification" icon={Clock3} />
+        <Stat label="Open Requests" value={String(requests.filter((request) => request.status !== 'Completed').length)} detail="HR actions in progress" icon={History} />
       </div>
 
       <section className="rounded-2xl border border-[#D9E5EE] bg-white p-5 shadow-md">
@@ -252,7 +217,7 @@ export default function DocumentsPage() {
               ))}
               {filteredDocuments.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-xs text-[#667085]">No documents found.</td>
+                  <td colSpan={6} className="px-4 py-8 text-center text-xs text-[#667085]">No documents found in database.</td>
                 </tr>
               )}
             </tbody>
@@ -262,7 +227,7 @@ export default function DocumentsPage() {
 
       <section className="rounded-2xl border border-[#D9E5EE] bg-white p-5 shadow-md">
         <div className="flex items-center justify-between"><div><h2 className="flex items-center gap-2 text-sm font-bold text-[#17324A]"><History className="h-4 w-4" /> HR Document Requests</h2><p className="mt-1 text-xs text-[#667085]">Track official documents requested from HR Operations.</p></div>{canManageOwnDocuments && <button onClick={() => setShowRequest(true)} className="hidden rounded-lg border border-[#9FC5E2] px-3 py-2 text-xs font-bold text-[#17324A] hover:bg-[#EAF2F8] sm:block">New Request</button>}</div>
-        <div className="mt-4 space-y-3">{visibleRequests.map((request) => <div key={request.id} className="rounded-xl border border-[#D9E5EE] bg-[#F9FBFD] p-4"><div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between"><div><div className="flex flex-wrap items-center gap-2"><span className="text-[10px] font-bold text-[#667085]">{request.id}</span><span className={`rounded-full border px-2.5 py-1 text-[10px] font-bold ${statusStyle[request.status]}`}>{request.status}</span></div><h3 className="mt-2 text-sm font-bold text-[#17324A]">{request.documentType}</h3><p className="mt-1 text-xs text-[#667085]">{request.reason}</p></div><div className="text-left text-[11px] text-[#667085] md:text-right"><p className="mt-1">Requested {request.requestedOn}</p><p className="mt-1 font-semibold text-[#17324A]">Requested by {request.requestedBy}</p></div></div></div>)}{visibleRequests.length === 0 && <div className="rounded-xl border border-dashed border-[#9FC2DC] bg-[#F5F9FC] px-4 py-8 text-center text-xs text-[#667085]">No document requests found.</div>}</div>
+        <div className="mt-4 space-y-3">{requests.map((request) => <div key={request.id} className="rounded-xl border border-[#D9E5EE] bg-[#F9FBFD] p-4"><div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between"><div><div className="flex flex-wrap items-center gap-2"><span className="text-[10px] font-bold text-[#667085]">{request.id}</span><span className={`rounded-full border px-2.5 py-1 text-[10px] font-bold ${statusStyle[request.status]}`}>{request.status}</span></div><h3 className="mt-2 text-sm font-bold text-[#17324A]">{request.documentType}</h3><p className="mt-1 text-xs text-[#667085]">{request.reason}</p></div><div className="text-left text-[11px] text-[#667085] md:text-right"><p className="mt-1">Requested {request.requestedOn}</p><p className="mt-1 font-semibold text-[#17324A]">Requested by {request.requestedBy}</p></div></div></div>)}{requests.length === 0 && <div className="rounded-xl border border-dashed border-[#9FC2DC] bg-[#F5F9FC] px-4 py-8 text-center text-xs text-[#667085]">No document requests found in database.</div>}</div>
       </section>
 
       {showUpload && <Modal title="Upload document" onClose={() => setShowUpload(false)}><form onSubmit={handleUpload} className="space-y-4"><Field label="Document name"><input value={uploadName} onChange={(event) => setUploadName(event.target.value)} placeholder="Optional display name" className={inputClass} /></Field><Field label="Document type"><select value={uploadType} onChange={(event) => setUploadType(event.target.value)} className={inputClass}><option>Identity Proof</option><option>Address Proof</option><option>Education Certificate</option><option>Bank Account Proof</option><option>Employment Document</option><option>Other</option></select></Field><Field label="Choose file"><input required id="document-file" name="document-file" type="file" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx" className={`${inputClass} file:mr-3 file:rounded-md file:border-0 file:bg-[#EAF2F8] file:px-2 file:py-1 file:text-xs file:font-bold`} /></Field><p className="text-[11px] text-[#667085]">Accepted: PDF, DOC, DOCX, JPG, or PNG. Maximum size: 10 MB.</p><button type="submit" className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#17324A] px-4 py-2.5 text-xs font-bold text-white hover:bg-[#244A68]"><Send className="h-4 w-4" /> Upload & Send to HR</button></form></Modal>}
@@ -270,8 +235,6 @@ export default function DocumentsPage() {
     </div>
   );
 }
-
-const inputClass = 'w-full rounded-lg border border-[#9FC2DC] bg-white px-3 py-2 text-sm text-[#17324A] outline-none focus:ring-2 focus:ring-[#B0D0EA]';
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return <label className="block text-xs font-bold text-[#17324A]">{label}<span className="mt-1 block">{children}</span></label>;

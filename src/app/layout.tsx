@@ -11,6 +11,13 @@ export const metadata: Metadata = {
   title: 'MYLOTIC GROUP PVT.LTD - HRMS Portal',
   description:
     'Streamlined HR management, employee self-service, leave tracking, payroll processing, and performance appraisals for MYLOTIC GROUP PVT.LTD.',
+  icons: {
+    icon: [
+      { url: '/icon.png', type: 'image/png' },
+      { url: '/favicon.ico', sizes: 'any' },
+    ],
+    apple: '/icon.png',
+  },
 };
 
 export default function RootLayout({

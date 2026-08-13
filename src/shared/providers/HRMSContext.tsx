@@ -80,10 +80,7 @@ export const DEMO_ACCOUNTS: Record<UserRole, UserAccount> = {
 };
 
 const AUTH_STORAGE_KEY = 'hrms-auth-role';
-const HELP_DESK_STORAGE_KEY = 'hrms-help-desk-tickets';
-const HELP_DESK_RESET_STORAGE_KEY = 'hrms-help-desk-reset-v1';
 const LATE_REQUEST_STORAGE_KEY = 'hrms-late-clock-in-requests';
-const LEAVE_REQUEST_STORAGE_KEY = 'hrms-leave-requests';
 const PORTAL_START_MINUTES = 8 * 60;
 const LATE_CLOCK_IN_MINUTES = 10 * 60;
 const PORTAL_END_MINUTES = 18 * 60;
@@ -92,6 +89,69 @@ const ACCESS_DENIED_MESSAGE = 'Clock-in access denied. Attendance clock-in is av
 const isUserRole = (value: string | null): value is UserRole =>
   value === 'employee' || value === 'manager' || value === 'admin';
 
+const formatDbEmployee = (emp: any, managerName = 'Arjun Mehta'): Employee => ({
+  id: emp.id,
+  employeeCode: emp.employeeCode || emp.employee_code || `EMP-${emp.id}`,
+  name: emp.name,
+  role: emp.roleTitle || emp.role || 'Staff Member',
+  department: emp.department || 'Engineering',
+  email: emp.email,
+  phone: emp.phone || '+91 98765 00000',
+  avatar: emp.avatarUrl || emp.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+  status: (emp.status === 'OnLeave' || emp.status === 'On Leave') ? 'On Leave' : (emp.status === 'Remote' ? 'Remote' : 'Active'),
+  joinDate: emp.joinDate || emp.join_date || '15 Mar 2026',
+  location: emp.location || 'Bengaluru, Karnataka',
+  salary: Number(emp.salary) || 0,
+  manager: typeof emp.manager === 'string' ? emp.manager : managerName,
+});
+
+const formatDbAttendance = (log: any): AttendanceRecord => {
+  let status: AttendanceRecord['status'] = 'On Time';
+  if (log.status === 'Late') status = 'Late';
+  else if (log.status === 'HalfDay' || log.status === 'Half Day') status = 'Half Day';
+  else if (log.status === 'Absent') status = 'Absent';
+  else if (log.status === 'OnLeave' || log.status === 'On Leave') status = 'On Leave';
+
+  return {
+    id: log.id,
+    date: log.date,
+    checkIn: log.checkIn,
+    checkOut: log.checkOut || 'In Progress',
+    hoursWorked: log.hoursWorked || '0h 0m',
+    status,
+    location: log.location || 'Office - HQ',
+  };
+};
+
+const formatDbLeave = (req: any): LeaveRequest => ({
+  id: req.id,
+  employeeId: req.employeeId,
+  employeeName: req.employee?.name || 'Ayush Vishnoi',
+  employeeAvatar: req.employee?.avatarUrl || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
+  leaveType: req.leaveType || 'Casual',
+  startDate: req.startDate,
+  endDate: req.endDate,
+  days: Number(req.days) || 1,
+  reason: req.reason || 'Personal leave',
+  status: req.status || 'Pending',
+  appliedOn: req.appliedOn || new Date().toISOString().split('T')[0],
+});
+
+const formatDbTicket = (t: any): HelpDeskTicket => ({
+  id: t.id,
+  employeeId: t.employeeId,
+  employeeName: t.employee?.name || 'Employee',
+  employeeCode: t.employee?.employeeCode || t.employeeId,
+  category: t.category,
+  priority: (t.priority as HelpDeskTicketPriority) || 'Medium',
+  subject: t.subject,
+  description: t.description,
+  status: (t.status as HelpDeskTicketStatus) || 'Open',
+  createdAt: t.createdAt,
+  resolution: t.resolution || undefined,
+  resolvedAt: t.resolvedAt || undefined,
+});
+
 interface HRMSContextType {
   isAuthenticated: boolean;
   isAuthReady: boolean;
@@ -99,7 +159,7 @@ interface HRMSContextType {
   login: (role: UserRole) => LoginResult;
   logout: () => void;
   employees: Employee[];
-  addEmployee: (emp: Omit<Employee, 'id' | 'employeeCode'>) => void;
+  addEmployee: (emp: Omit<Employee, 'id' | 'employeeCode'>) => Promise<void>;
   leaveRequests: LeaveRequest[];
   leaveBalances: typeof MOCK_LEAVE_BALANCES;
   attendanceLogs: AttendanceRecord[];
@@ -111,11 +171,11 @@ interface HRMSContextType {
   toggleClockIn: () => ClockActionResult;
   submitLateClockInRequest: (reason: string) => { success: boolean; message: string };
   reviewLateClockInRequest: (id: string, status: 'approved' | 'rejected') => void;
-  addLeaveRequest: (newLeave: Omit<LeaveRequest, 'id' | 'employeeId' | 'employeeName' | 'employeeAvatar' | 'status' | 'appliedOn'>) => void;
-  updateLeaveStatus: (id: string, status: 'Approved' | 'Rejected') => void;
+  addLeaveRequest: (newLeave: Omit<LeaveRequest, 'id' | 'employeeId' | 'employeeName' | 'employeeAvatar' | 'status' | 'appliedOn'>) => Promise<void>;
+  updateLeaveStatus: (id: string, status: 'Approved' | 'Rejected') => Promise<void>;
   helpDeskTickets: HelpDeskTicket[];
-  submitHelpDeskTicket: (ticket: Pick<HelpDeskTicket, 'category' | 'priority' | 'subject' | 'description'>) => string;
-  updateHelpDeskTicket: (id: string, status: HelpDeskTicketStatus, resolution?: string) => void;
+  submitHelpDeskTicket: (ticket: Pick<HelpDeskTicket, 'category' | 'priority' | 'subject' | 'description'>) => Promise<string>;
+  updateHelpDeskTicket: (id: string, status: HelpDeskTicketStatus, resolution?: string) => Promise<void>;
   selectedEmployee: Employee | null;
   setSelectedEmployee: (emp: Employee | null) => void;
 }
@@ -164,34 +224,57 @@ export const HRMSProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const lateClockInRequest = lateClockInRequests.find((request) => request.requesterId === currentUser.id) ?? null;
 
+  // Load from API on mount
   useEffect(() => {
     try {
       const storedRole = window.localStorage.getItem(AUTH_STORAGE_KEY);
-      const shouldResetHelpDesk = !window.localStorage.getItem(HELP_DESK_RESET_STORAGE_KEY);
-      const storedTickets = shouldResetHelpDesk
-        ? null
-        : window.localStorage.getItem(HELP_DESK_STORAGE_KEY);
       const storedLateRequests = window.localStorage.getItem(LATE_REQUEST_STORAGE_KEY);
-      const storedLeaveRequests = window.localStorage.getItem(LEAVE_REQUEST_STORAGE_KEY);
       if (isUserRole(storedRole)) {
         setCurrentUser(DEMO_ACCOUNTS[storedRole]);
         setIsAuthenticated(true);
       }
-      if (shouldResetHelpDesk) {
-        window.localStorage.removeItem(HELP_DESK_STORAGE_KEY);
-        window.localStorage.setItem(HELP_DESK_RESET_STORAGE_KEY, 'completed');
-      } else if (storedTickets) {
-        setHelpDeskTickets(JSON.parse(storedTickets) as HelpDeskTicket[]);
-      }
       if (storedLateRequests) {
         setLateClockInRequests(JSON.parse(storedLateRequests) as LateClockInRequest[]);
-      }
-      if (storedLeaveRequests) {
-        setLeaveRequests(JSON.parse(storedLeaveRequests) as LeaveRequest[]);
       }
     } finally {
       setIsAuthReady(true);
     }
+
+    // Fetch live data from PostgreSQL via existing backend APIs
+    const fetchData = async () => {
+      try {
+        const [empRes, leavesRes, ticketsRes, attRes] = await Promise.all([
+          fetch('/api/employees').then((r) => r.ok ? r.json() : null),
+          fetch('/api/leaves').then((r) => r.ok ? r.json() : null),
+          fetch('/api/help-desk').then((r) => r.ok ? r.json() : null),
+          fetch('/api/attendance').then((r) => r.ok ? r.json() : null),
+        ]);
+
+        if (empRes?.success && Array.isArray(empRes.data) && empRes.data.length > 0) {
+          const formatted = empRes.data.map((e: any) => formatDbEmployee(e));
+          setEmployees(formatted);
+        }
+
+        if (leavesRes?.success && leavesRes.data?.requests && Array.isArray(leavesRes.data.requests)) {
+          const formatted = leavesRes.data.requests.map((r: any) => formatDbLeave(r));
+          setLeaveRequests(formatted);
+        }
+
+        if (ticketsRes?.success && Array.isArray(ticketsRes.data)) {
+          const formatted = ticketsRes.data.map((t: any) => formatDbTicket(t));
+          setHelpDeskTickets(formatted);
+        }
+
+        if (attRes?.success && Array.isArray(attRes.data) && attRes.data.length > 0) {
+          const formatted = attRes.data.map((a: any) => formatDbAttendance(a));
+          setAttendanceLogs(formatted);
+        }
+      } catch (err) {
+        console.error('Error fetching initial database state:', err);
+      }
+    };
+
+    fetchData();
   }, []);
 
   const persistLateClockInRequests = (requests: LateClockInRequest[]) => {
@@ -199,16 +282,33 @@ export const HRMSProvider: React.FC<{ children: React.ReactNode }> = ({ children
     window.localStorage.setItem(LATE_REQUEST_STORAGE_KEY, JSON.stringify(requests));
   };
 
-  const finishClockOut = useCallback((date: Date) => {
+  const finishClockOut = useCallback(async (date: Date) => {
     if (!clockInAt || !activeAttendanceId) return;
     const workedSeconds = Math.max(0, Math.floor((date.getTime() - clockInAt) / 1000));
     const time = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    setAttendanceLogs((prev) => prev.map((log) => log.id === activeAttendanceId ? { ...log, checkOut: time, hoursWorked: formatWorkedHours(workedSeconds) } : log));
+    const hoursWorked = formatWorkedHours(workedSeconds);
+    const targetId = activeAttendanceId;
+
+    setAttendanceLogs((prev) => prev.map((log) => log.id === targetId ? { ...log, checkOut: time, hoursWorked } : log));
     setIsClockedIn(false);
     setClockInTime(null);
     setClockInAt(null);
     setActiveAttendanceId(null);
     setElapsedSeconds(0);
+
+    try {
+      await fetch('/api/attendance', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: targetId,
+          checkOut: time,
+          hoursWorked,
+        }),
+      });
+    } catch (err) {
+      console.error('Failed to update clock-out in database:', err);
+    }
   }, [activeAttendanceId, clockInAt]);
 
   useEffect(() => {
@@ -241,17 +341,54 @@ export const HRMSProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return { success: true };
   };
 
-  const addEmployee = (empData: Omit<Employee, 'id' | 'employeeCode'>) => {
-    const newEmployee: Employee = { ...empData, id: `EMP-${String(employees.length + 1).padStart(3, '0')}`, employeeCode: `EMP-2026-${Math.floor(100 + Math.random() * 900)}` };
-    setEmployees((prev) => [newEmployee, ...prev]);
+  const addEmployee = async (empData: Omit<Employee, 'id' | 'employeeCode'>) => {
+    try {
+      const res = await fetch('/api/employees', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...empData,
+          roleTitle: empData.role,
+          avatarUrl: empData.avatar,
+        }),
+      });
+      const json = await res.json();
+      if (json.success && json.data) {
+        const newEmployee = formatDbEmployee(json.data, empData.manager);
+        setEmployees((prev) => [newEmployee, ...prev.filter((e) => e.id !== newEmployee.id)]);
+      }
+    } catch (error) {
+      console.error('Failed to create employee in database:', error);
+    }
   };
 
-  const startClockIn = (now: Date, status: AttendanceRecord['status'] = 'On Time') => {
+  const startClockIn = async (now: Date, status: AttendanceRecord['status'] = 'On Time') => {
     const nowTime = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const id = `ATT-${now.getTime()}`;
     const newLog: AttendanceRecord = { id, date: formatLocalDate(now), checkIn: nowTime, checkOut: 'In Progress', hoursWorked: '0h 0m', status, location: 'Office - HQ' };
     setAttendanceLogs((prev) => [newLog, ...prev]);
-    setClockInTime(nowTime); setClockInAt(now.getTime()); setActiveAttendanceId(id); setElapsedSeconds(0); setIsClockedIn(true);
+    setClockInTime(nowTime);
+    setClockInAt(now.getTime());
+    setActiveAttendanceId(id);
+    setElapsedSeconds(0);
+    setIsClockedIn(true);
+
+    try {
+      await fetch('/api/attendance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id,
+          employeeId: currentUser.id,
+          date: formatLocalDate(now),
+          checkIn: nowTime,
+          status,
+          location: 'Office - HQ',
+        }),
+      });
+    } catch (err) {
+      console.error('Failed to save attendance record to database:', err);
+    }
   };
 
   const toggleClockIn = (): ClockActionResult => {
@@ -313,51 +450,148 @@ export const HRMSProvider: React.FC<{ children: React.ReactNode }> = ({ children
     persistLateClockInRequests(reviewed);
   };
 
-  const persistLeaveRequests = (requests: LeaveRequest[]) => {
-    setLeaveRequests(requests);
-    window.localStorage.setItem(LEAVE_REQUEST_STORAGE_KEY, JSON.stringify(requests));
+  const addLeaveRequest = async (newLeave: Omit<LeaveRequest, 'id' | 'employeeId' | 'employeeName' | 'employeeAvatar' | 'status' | 'appliedOn'>) => {
+    try {
+      const res = await fetch('/api/leaves', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          employeeId: currentUser.id,
+          leaveType: newLeave.leaveType,
+          startDate: newLeave.startDate,
+          endDate: newLeave.endDate,
+          days: newLeave.days,
+          reason: newLeave.reason,
+        }),
+      });
+      const json = await res.json();
+      if (json.success && json.data) {
+        const created: LeaveRequest = {
+          ...newLeave,
+          id: json.data.id,
+          employeeId: currentUser.id,
+          employeeName: currentUser.name,
+          employeeAvatar: currentUser.avatar,
+          status: json.data.status || 'Pending',
+          appliedOn: json.data.appliedOn || formatLocalDate(new Date()),
+        };
+        setLeaveRequests((prev) => [created, ...prev.filter((r) => r.id !== created.id)]);
+      }
+    } catch (err) {
+      console.error('Failed to submit leave request to database:', err);
+    }
   };
 
-  const addLeaveRequest = (newLeave: Omit<LeaveRequest, 'id' | 'employeeId' | 'employeeName' | 'employeeAvatar' | 'status' | 'appliedOn'>) => {
-    const created: LeaveRequest = { ...newLeave, id: `LR-${Date.now()}`, employeeId: currentUser.id, employeeName: currentUser.name, employeeAvatar: currentUser.avatar, status: 'Pending', appliedOn: formatLocalDate(new Date()) };
-    persistLeaveRequests([created, ...leaveRequests]);
+  const updateLeaveStatus = async (id: string, status: 'Approved' | 'Rejected') => {
+    setLeaveRequests((prev) => prev.map((request) => request.id === id ? { ...request, status } : request));
+    try {
+      await fetch('/api/leaves', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id,
+          status,
+          reviewerId: currentUser.id,
+        }),
+      });
+    } catch (err) {
+      console.error('Failed to update leave status in database:', err);
+    }
   };
 
-  const updateLeaveStatus = (id: string, status: 'Approved' | 'Rejected') => {
-    persistLeaveRequests(leaveRequests.map((request) => request.id === id ? { ...request, status } : request));
-  };
-
-  const persistHelpDeskTickets = (tickets: HelpDeskTicket[]) => {
-    setHelpDeskTickets(tickets);
-    window.localStorage.setItem(HELP_DESK_STORAGE_KEY, JSON.stringify(tickets));
-  };
-
-  const submitHelpDeskTicket = (ticket: Pick<HelpDeskTicket, 'category' | 'priority' | 'subject' | 'description'>) => {
-    const id = `HR-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
+  const submitHelpDeskTicket = async (ticket: Pick<HelpDeskTicket, 'category' | 'priority' | 'subject' | 'description'>): Promise<string> => {
+    const tempId = `HR-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
     const created: HelpDeskTicket = {
       ...ticket,
-      id,
+      id: tempId,
       employeeId: currentUser.id,
       employeeName: currentUser.name,
       employeeCode: currentUser.employeeCode,
       status: 'Open',
       createdAt: new Date().toLocaleString('en-IN'),
     };
-    persistHelpDeskTickets([created, ...helpDeskTickets]);
-    return id;
+    setHelpDeskTickets((prev) => [created, ...prev]);
+
+    try {
+      const res = await fetch('/api/help-desk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          employeeId: currentUser.id,
+          category: ticket.category,
+          priority: ticket.priority,
+          subject: ticket.subject,
+          description: ticket.description,
+        }),
+      });
+      const json = await res.json();
+      if (json.success && json.data) {
+        setHelpDeskTickets((prev) => prev.map((t) => t.id === tempId ? { ...t, id: json.data.id } : t));
+        return json.data.id;
+      }
+    } catch (err) {
+      console.error('Failed to save help desk ticket to database:', err);
+    }
+    return tempId;
   };
 
-  const updateHelpDeskTicket = (id: string, status: HelpDeskTicketStatus, resolution?: string) => {
-    const updated = helpDeskTickets.map((ticket) => ticket.id === id ? {
+  const updateHelpDeskTicket = async (id: string, status: HelpDeskTicketStatus, resolution?: string) => {
+    setHelpDeskTickets((prev) => prev.map((ticket) => ticket.id === id ? {
       ...ticket,
       status,
       resolution: resolution?.trim() || ticket.resolution,
       ...(status === 'Resolved' ? { resolvedAt: new Date().toLocaleString('en-IN') } : {}),
-    } : ticket);
-    persistHelpDeskTickets(updated);
+    } : ticket));
+
+    try {
+      await fetch('/api/help-desk', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id,
+          status,
+          resolution: resolution?.trim(),
+          resolvedById: currentUser.id,
+        }),
+      });
+    } catch (err) {
+      console.error('Failed to update help desk ticket in database:', err);
+    }
   };
 
-  return <HRMSContext.Provider value={{ isAuthenticated, isAuthReady, currentUser, login, logout, employees, addEmployee, leaveRequests, leaveBalances: MOCK_LEAVE_BALANCES, attendanceLogs, isClockedIn, clockInTime, elapsedWorkTime, lateClockInRequests, lateClockInRequest, toggleClockIn, submitLateClockInRequest, reviewLateClockInRequest, addLeaveRequest, updateLeaveStatus, helpDeskTickets, submitHelpDeskTicket, updateHelpDeskTicket, selectedEmployee, setSelectedEmployee }}>{children}</HRMSContext.Provider>;
+  return (
+    <HRMSContext.Provider
+      value={{
+        isAuthenticated,
+        isAuthReady,
+        currentUser,
+        login,
+        logout,
+        employees,
+        addEmployee,
+        leaveRequests,
+        leaveBalances: MOCK_LEAVE_BALANCES,
+        attendanceLogs,
+        isClockedIn,
+        clockInTime,
+        elapsedWorkTime,
+        lateClockInRequests,
+        lateClockInRequest,
+        toggleClockIn,
+        submitLateClockInRequest,
+        reviewLateClockInRequest,
+        addLeaveRequest,
+        updateLeaveStatus,
+        helpDeskTickets,
+        submitHelpDeskTicket,
+        updateHelpDeskTicket,
+        selectedEmployee,
+        setSelectedEmployee,
+      }}
+    >
+      {children}
+    </HRMSContext.Provider>
+  );
 };
 
 export const useHRMS = () => {

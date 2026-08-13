@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
   CalendarDays,
@@ -16,11 +16,20 @@ import {
   UsersRound,
 } from 'lucide-react';
 
+<<<<<<< HEAD
 import { EmployeeDetailsModal } from '@/features/employees/components/EmployeeDetailsModal';
 import { useHRMS } from '@/shared/providers/HRMSContext';
 import type { Employee } from '@/features/employees/data/employees';
 import { MOCK_MANAGED_TEAMS, MOCK_TEAM_METADATA } from '@/features/teams/data/teams';
 import type { TeamMemberMetadata } from '@/features/teams/data/teams';
+=======
+import { EmployeeDetailsModal } from '@/components/modals/EmployeeDetailsModal';
+import { useHRMS } from '@/context/HRMSContext';
+import {
+  Employee,
+  TeamMemberMetadata,
+} from '@/data/mockData';
+>>>>>>> 3cbe28a (new database integration)
 
 const statusFilters = ['All', 'Active', 'Remote', 'On Leave'] as const;
 type StatusFilter = (typeof statusFilters)[number];
@@ -30,17 +39,16 @@ type TeamPerson = {
   metadata: TeamMemberMetadata;
 };
 
-const fallbackMetadata = (employee: Employee, manager: string): TeamMemberMetadata => ({
-  employeeId: employee.id,
-  manager,
-  focus: `${employee.department} delivery and quarterly priorities`,
-  workload: 70,
-  goalProgress: 60,
-  goalLabel: 'Progress against quarterly priorities',
-  nextOneToOne: 'To be scheduled',
-  risk: 'On track',
-  notes: 'Add a coaching note after the next one-to-one.',
-});
+type FormattedTeam = {
+  id: string;
+  name: string;
+  department: string;
+  manager: string;
+  leaderId: string;
+  focus: string;
+  leader: TeamPerson;
+  members: TeamPerson[];
+};
 
 const getRiskClasses = (risk: TeamMemberMetadata['risk']) => {
   if (risk === 'At risk') return 'border-red-200 bg-red-50 text-red-600';
@@ -55,44 +63,31 @@ const getStatusClasses = (status: Employee['status']) => {
 };
 
 export default function MyTeamPage() {
-  const { currentUser, employees } = useHRMS();
+  const { currentUser } = useHRMS();
+  const [teams, setTeams] = useState<FormattedTeam[]>([]);
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('All');
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const [activeAction, setActiveAction] = useState<string | null>(null);
   const [notes, setNotes] = useState<Record<string, string>>({});
 
-  const teams = useMemo(
-    () =>
-      MOCK_MANAGED_TEAMS.filter((team) => team.manager === currentUser.name)
-        .map((team) => {
-          const leader = employees.find((employee) => employee.id === team.leaderId);
-          if (!leader) return null;
+  const fetchTeams = async () => {
+    try {
+      const res = await fetch(`/api/my-team?managerId=${encodeURIComponent(currentUser.id)}`);
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && Array.isArray(json.data)) {
+          setTeams(json.data);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load teams from database:', err);
+    }
+  };
 
-          const leaderMetadata =
-            MOCK_TEAM_METADATA.find(
-              (item) => item.employeeId === leader.id && item.manager === currentUser.name
-            ) ?? fallbackMetadata(leader, currentUser.name);
-
-          const members: TeamPerson[] = team.memberIds
-            .map((memberId) => employees.find((employee) => employee.id === memberId))
-            .filter((employee): employee is Employee => Boolean(employee))
-            .map((employee) => ({
-              employee,
-              metadata:
-                MOCK_TEAM_METADATA.find((item) => item.employeeId === employee.id) ??
-                fallbackMetadata(employee, leader.name),
-            }));
-
-          return {
-            ...team,
-            leader: { employee: leader, metadata: leaderMetadata },
-            members,
-          };
-        })
-        .filter((team): team is NonNullable<typeof team> => Boolean(team)),
-    [currentUser.name, employees]
-  );
+  useEffect(() => {
+    fetchTeams();
+  }, [currentUser.id]);
 
   const filteredTeams = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -132,9 +127,23 @@ export default function MyTeamPage() {
     window.setTimeout(() => setActiveAction(null), 2600);
   };
 
-  const saveNote = (leader: Employee) => {
-    setNotes((current) => ({ ...current, [leader.id]: current[leader.id] ?? '' }));
-    showAction(`Leadership note saved for ${leader.name}`);
+  const saveNote = async (leader: Employee) => {
+    const noteText = notes[leader.id] ?? '';
+    showAction(`Leadership note saved to database for ${leader.name}`);
+
+    try {
+      await fetch('/api/my-team', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          employeeId: leader.id,
+          managerId: currentUser.id,
+          notes: noteText,
+        }),
+      });
+    } catch (err) {
+      console.error('Failed to save team note to database:', err);
+    }
   };
 
   if (currentUser.userRole !== 'manager') {
@@ -164,7 +173,7 @@ export default function MyTeamPage() {
             Teams & Team Leaders
           </h1>
           <p className="mt-1 max-w-2xl text-sm text-[#55708A]">
-            Manage multiple teams through their leaders. Contact a Team Leader directly,
+            Manage multiple teams through their leaders backed by PostgreSQL. Contact a Team Leader directly,
             then expand the team only when member-level context is needed.
           </p>
         </div>
@@ -206,7 +215,7 @@ export default function MyTeamPage() {
           <div>
             <h2 className="text-sm font-bold text-[#17324A]">Team Leader directory</h2>
             <p className="mt-1 text-xs text-[#55708A]">
-              {filteredTeams.length} of {teams.length} managed teams shown
+              {filteredTeams.length} of {teams.length} managed teams shown from PostgreSQL
             </p>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row">
@@ -239,7 +248,7 @@ export default function MyTeamPage() {
           <div className="p-12 text-center">
             <UsersRound className="mx-auto h-8 w-8 text-[#9AB6CC]" />
             <p className="mt-3 text-sm font-semibold text-[#17324A]">No teams found</p>
-            <p className="mt-1 text-xs text-[#55708A]">No Team Leader or member matches the filters.</p>
+            <p className="mt-1 text-xs text-[#55708A]">No Team Leader or member matches the filters in database.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-5 p-5 xl:grid-cols-2">

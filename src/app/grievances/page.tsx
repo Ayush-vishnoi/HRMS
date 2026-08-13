@@ -36,10 +36,10 @@ export default function GrievancesPage() {
     [currentUser.id, helpDeskTickets]
   );
 
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    const ticketId = submitHelpDeskTicket({
+    const ticketId = await submitHelpDeskTicket({
       category: 'Grievance / Complaint',
       priority,
       subject: subject.trim(),

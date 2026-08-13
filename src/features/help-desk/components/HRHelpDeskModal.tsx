@@ -32,9 +32,9 @@ export const HRHelpDeskModal: React.FC<HRHelpDeskModalProps> = ({ isOpen, onClos
     onClose();
   };
 
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const createdTicketId = submitHelpDeskTicket({ category, priority, subject: subject.trim(), description: description.trim() });
+    const createdTicketId = await submitHelpDeskTicket({ category, priority, subject: subject.trim(), description: description.trim() });
     setTicketId(createdTicketId);
   };
 
