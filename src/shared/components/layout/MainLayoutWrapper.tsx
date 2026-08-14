@@ -7,6 +7,7 @@ import { Sidebar } from '@/shared/components/layout/Sidebar';
 import { Header } from '@/shared/components/layout/Header';
 import { LoginPage } from '@/features/auth/components/LoginPage';
 import { ClockInPermissionModal } from '@/features/attendance/components/ClockInPermissionModal';
+import { isRouteAllowedForRole } from '@/shared/lib/navigation';
 
 export const MainLayoutWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const pathname = usePathname();
@@ -14,6 +15,8 @@ export const MainLayoutWrapper: React.FC<{ children: React.ReactNode }> = ({ chi
   const { isAuthenticated, isAuthReady, currentUser, isClockedIn, lateClockInRequest, toggleClockIn } = useHRMS();
   const [isPermissionModalOpen, setIsPermissionModalOpen] = React.useState(false);
   const [notice, setNotice] = React.useState('');
+  const isCurrentRouteAllowed = !isAuthenticated
+    || isRouteAllowedForRole(pathname, currentUser.userRole);
 
   const handleClockAction = () => {
     const result = toggleClockIn();
@@ -37,12 +40,14 @@ export const MainLayoutWrapper: React.FC<{ children: React.ReactNode }> = ({ chi
   }, [notice]);
 
   React.useEffect(() => {
-    if (isAuthReady && !isAuthenticated && pathname !== '/') {
+    if (!isAuthReady) return;
+
+    if ((!isAuthenticated && pathname !== '/') || (isAuthenticated && !isCurrentRouteAllowed)) {
       router.replace('/');
     }
-  }, [isAuthReady, isAuthenticated, pathname, router]);
+  }, [isAuthReady, isAuthenticated, isCurrentRouteAllowed, pathname, router]);
 
-  if (!isAuthReady) {
+  if (!isAuthReady || (isAuthenticated && !isCurrentRouteAllowed)) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-app">
         <div className="rounded-xl border border-[#D9E5EE] bg-white px-5 py-3 text-sm font-semibold text-[#315B76] shadow-sm">

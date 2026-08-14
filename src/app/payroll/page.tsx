@@ -11,19 +11,10 @@ import {
   UsersRound,
   Wallet,
 } from 'lucide-react';
-<<<<<<< HEAD
-import { CURRENT_USER } from '@/features/employees/data/employees';
-import { MOCK_PAYSLIPS } from '@/features/payroll/data/payroll';
 import type { Payslip } from '@/features/payroll/data/payroll';
 import { PayslipModal } from '@/features/payroll/components/PayslipModal';
 import { exportToExcel } from '@/shared/lib/exportUtils';
 import { useHRMS } from '@/shared/providers/HRMSContext';
-=======
-import { Payslip } from '@/data/mockData';
-import { PayslipModal } from '@/components/modals/PayslipModal';
-import { exportToExcel } from '@/utils/exportUtils';
-import { useHRMS } from '@/context/HRMSContext';
->>>>>>> 3cbe28a (new database integration)
 
 type PayrollRecord = Payslip & {
   employeeName?: string;

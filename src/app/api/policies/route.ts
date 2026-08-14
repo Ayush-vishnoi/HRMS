@@ -1,24 +1,30 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import {
+  authAccessErrorResponse,
+  isAuthAccessError,
+  requireEmployee,
+  requireRole,
+} from '@/lib/auth-session';
 
-export async function GET(request: Request) {
+export async function GET(_request: Request) {
   try {
-    const { searchParams } = new URL(request.url);
-    const employeeId = searchParams.get('employeeId');
+    const employee = await requireEmployee();
 
     const policies = await db.companyPolicy.findMany({
       orderBy: { effectiveDate: 'desc' },
       include: {
-        acknowledgements: employeeId
-          ? {
-              where: { employeeId },
-            }
-          : true,
+        acknowledgements: employee.userRole === 'admin'
+          ? true
+          : {
+              where: { employeeId: employee.id },
+            },
       },
     });
 
     return NextResponse.json({ success: true, data: policies });
   } catch (error) {
+    if (isAuthAccessError(error)) return authAccessErrorResponse(error);
     console.error('Error fetching policies:', error);
     return NextResponse.json({ success: false, error: 'Failed to fetch policies' }, { status: 500 });
   }
@@ -37,15 +43,15 @@ const mapPolicyCategory = (cat: string): 'CodeOfConduct' | 'LeaveAndAttendance' 
 
 export async function POST(request: Request) {
   try {
+    const employee = await requireEmployee();
     const body = await request.json();
 
-    // Check if this is an acknowledgement action
     if (body.action === 'acknowledge') {
       const ack = await db.policyAcknowledgement.upsert({
         where: {
           policyId_employeeId: {
             policyId: body.policyId,
-            employeeId: body.employeeId,
+            employeeId: employee.id,
           },
         },
         update: {
@@ -53,14 +59,14 @@ export async function POST(request: Request) {
         },
         create: {
           policyId: body.policyId,
-          employeeId: body.employeeId,
+          employeeId: employee.id,
           acknowledgedOn: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
         },
       });
       return NextResponse.json({ success: true, data: ack });
     }
 
-    // Otherwise create new policy
+    const uploader = await requireRole('admin');
     const count = await db.companyPolicy.count();
     const newId = `POL-${String(count + 1).padStart(3, '0')}`;
 
@@ -73,7 +79,7 @@ export async function POST(request: Request) {
         version: body.version || 'v1.0',
         effectiveDate: body.effectiveDate,
         updatedOn: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
-        uploadedById: body.uploadedById || 'EMP-006',
+        uploadedById: uploader.id,
         mandatory: body.mandatory ?? true,
         acknowledgementRequired: body.acknowledgementRequired ?? true,
         fileName: body.fileName || 'policy-document.pdf',
@@ -83,6 +89,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true, data: newPolicy });
   } catch (error) {
+    if (isAuthAccessError(error)) return authAccessErrorResponse(error);
     console.error('Error creating/acknowledging policy:', error);
     return NextResponse.json({ success: false, error: 'Failed to process policy request' }, { status: 500 });
   }

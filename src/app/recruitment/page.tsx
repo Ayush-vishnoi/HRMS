@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
+import Image from 'next/image';
+import Link from 'next/link';
 import {
   Check,
   CheckCircle2,
@@ -12,15 +14,11 @@ import {
   Search,
   Sparkles,
   Upload,
+  UserPlus,
   X,
 } from 'lucide-react';
 
 import { useHRMS } from '@/shared/providers/HRMSContext';
-
-import {
-  MOCK_RECRUITMENT_CANDIDATES,
-  MOCK_RECRUITMENT_JOBS,
-} from '@/features/recruitment/data/recruitment';
 import type {
   RecruitmentCandidate,
   RecruitmentJob,
@@ -36,6 +34,127 @@ const stages = [
 ] as const;
 
 type CandidateStage = (typeof stages)[number];
+
+type RecruitmentJobRecord = {
+  id: string;
+  title: string;
+  department: string;
+  location: string;
+  employmentType: 'FullTime' | 'Contract';
+  openings: number;
+  applicants: number;
+  status: 'Open' | 'OnHold' | 'Closed';
+  postedOn: string;
+  description: string;
+  requirements: string[];
+};
+
+type RecruitmentCandidateRecord = {
+  id: string;
+  jobId: string;
+  name: string;
+  email: string;
+  phone: string;
+  avatarUrl: string | null;
+  appliedOn: string;
+  stage: RecruitmentCandidate['stage'];
+  score: number;
+  experience: string;
+  currentRole: string;
+  location: string;
+  matchedSkills: string[];
+  missingSkills: string[];
+  summary: string;
+  recommendation: 'StrongMatch' | 'Review' | 'LowMatch';
+  onboarding: {
+    employee: { employeeCode: string };
+  } | null;
+};
+
+type RecruitmentApiEnvelope = {
+  success?: boolean;
+  data?: {
+    jobs?: RecruitmentJobRecord[];
+    candidates?: RecruitmentCandidateRecord[];
+  };
+  error?: string;
+};
+
+type RecruitmentViewData = {
+  jobs: RecruitmentJob[];
+  candidates: RecruitmentCandidate[];
+};
+
+function mapRecruitmentData(payload: RecruitmentApiEnvelope): RecruitmentViewData {
+  const jobs = (payload.data?.jobs ?? []).map<RecruitmentJob>((job) => ({
+    id: job.id,
+    title: job.title,
+    department: job.department,
+    location: job.location,
+    employmentType: job.employmentType === 'Contract' ? 'Contract' : 'Full-time',
+    openings: Number(job.openings) || 1,
+    applicants: Number(job.applicants) || 0,
+    status: job.status === 'OnHold' ? 'On hold' : job.status,
+    postedOn: job.postedOn || '01 Aug 2026',
+    description: job.description || '',
+    requirements: Array.isArray(job.requirements) ? job.requirements : [],
+  }));
+
+  const candidates = (payload.data?.candidates ?? []).map<RecruitmentCandidate>(
+    (candidate) => ({
+      id: candidate.id,
+      jobId: candidate.jobId,
+      name: candidate.name,
+      email: candidate.email,
+      phone: candidate.phone || '',
+      avatar:
+        candidate.avatarUrl ||
+        'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80',
+      appliedOn: candidate.appliedOn || '06 Aug 2026',
+      stage: candidate.stage || 'New',
+      score: Number(candidate.score) || 80,
+      experience: candidate.experience || '',
+      currentRole: candidate.currentRole || '',
+      location: candidate.location || '',
+      matchedSkills: Array.isArray(candidate.matchedSkills)
+        ? candidate.matchedSkills
+        : [],
+      missingSkills: Array.isArray(candidate.missingSkills)
+        ? candidate.missingSkills
+        : [],
+      summary: candidate.summary || '',
+      recommendation:
+        candidate.recommendation === 'StrongMatch'
+          ? 'Strong match'
+          : candidate.recommendation === 'LowMatch'
+            ? 'Low match'
+            : 'Review',
+      onboardingEmployeeCode:
+        candidate.onboarding?.employee.employeeCode ?? null,
+    }),
+  );
+
+  return { jobs, candidates };
+}
+
+async function requestRecruitmentData(
+  signal?: AbortSignal,
+): Promise<RecruitmentViewData> {
+  const response = await fetch('/api/recruitment', {
+    cache: 'no-store',
+    headers: { Accept: 'application/json' },
+    signal,
+  });
+  const payload = (await response.json().catch(() => null)) as
+    | RecruitmentApiEnvelope
+    | null;
+
+  if (!response.ok || !payload?.success || !payload.data) {
+    throw new Error(payload?.error || 'Unable to load recruitment data.');
+  }
+
+  return mapRecruitmentData(payload);
+}
 
 /* -----------------------------
    SCORE COLORS
@@ -116,62 +235,28 @@ export default function RecruitmentPage() {
     requirements: '',
   });
 
-  const fetchRecruitmentData = async () => {
-    try {
-      const res = await fetch('/api/recruitment');
-      if (res.ok) {
-        const json = await res.json();
-        if (json.success && json.data) {
-          const fetchedJobs: RecruitmentJob[] = (json.data.jobs || []).map((j: any) => ({
-            id: j.id,
-            title: j.title,
-            department: j.department,
-            location: j.location,
-            employmentType: j.employmentType === 'Contract' ? 'Contract' : 'Full-time',
-            openings: Number(j.openings) || 1,
-            applicants: Number(j.applicants) || 0,
-            status: j.status || 'Open',
-            postedOn: j.postedOn || '01 Aug 2026',
-            description: j.description || '',
-            requirements: Array.isArray(j.requirements) ? j.requirements : [],
-          }));
-
-          const fetchedCandidates: RecruitmentCandidate[] = (json.data.candidates || []).map((c: any) => ({
-            id: c.id,
-            jobId: c.jobId || c.job_id,
-            name: c.name,
-            email: c.email,
-            phone: c.phone || '',
-            avatar: c.avatarUrl || 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80',
-            appliedOn: c.appliedOn || '06 Aug 2026',
-            stage: (c.stage as any) || 'New',
-            score: Number(c.score) || 80,
-            experience: c.experience || '',
-            currentRole: c.currentRole || '',
-            location: c.location || '',
-            matchedSkills: Array.isArray(c.matchedSkills) ? c.matchedSkills : [],
-            missingSkills: Array.isArray(c.missingSkills) ? c.missingSkills : [],
-            summary: c.summary || '',
-            recommendation: c.recommendation === 'StrongMatch' ? 'Strong match' : c.recommendation === 'LowMatch' ? 'Low match' : 'Review',
-          }));
-
-          setJobs(fetchedJobs);
-          setAllCandidates(fetchedCandidates);
-          if (fetchedJobs.length > 0 && !selectedJobId) {
-            setSelectedJobId(fetchedJobs[0].id);
-          }
-          if (fetchedCandidates.length > 0 && !selectedCandidateId) {
-            setSelectedCandidateId(fetchedCandidates[0].id);
-          }
-        }
-      }
-    } catch (err) {
-      console.error('Failed to load recruitment data from database:', err);
-    }
-  };
-
   useEffect(() => {
-    fetchRecruitmentData();
+    const controller = new AbortController();
+
+    void requestRecruitmentData(controller.signal)
+      .then(({ jobs: nextJobs, candidates: nextCandidates }) => {
+        setJobs(nextJobs);
+        setAllCandidates(nextCandidates);
+        setSelectedJobId((current) => current || nextJobs[0]?.id || '');
+        setSelectedCandidateId(
+          (current) => current || nextCandidates[0]?.id || '',
+        );
+      })
+      .catch((error: unknown) => {
+        if (!controller.signal.aborted) {
+          console.error(
+            'Failed to load recruitment data from database:',
+            error,
+          );
+        }
+      });
+
+    return () => controller.abort();
   }, []);
 
   const selectedJob =
@@ -231,6 +316,10 @@ export default function RecruitmentPage() {
       (candidate) =>
         candidate.id === selectedCandidateId
     ) ?? jobCandidates[0];
+
+  const selectedCandidateStage = selectedCandidate
+    ? candidateStages[selectedCandidate.id] ?? selectedCandidate.stage
+    : null;
 
   const openJobs = jobs.filter(
     (job) => job.status === 'Open'
@@ -461,7 +550,7 @@ export default function RecruitmentPage() {
           </p>
 
           <p className="mt-2 text-3xl font-bold text-[#17324A]">
-            {MOCK_RECRUITMENT_CANDIDATES.length}
+            {allCandidates.length}
           </p>
 
           <p className="mt-1 text-[11px] text-[#287047]">
@@ -531,7 +620,7 @@ export default function RecruitmentPage() {
                     setSelectedJobId(job.id);
 
                     setSelectedCandidateId(
-                      MOCK_RECRUITMENT_CANDIDATES.find(
+                      allCandidates.find(
                         (candidate) =>
                           candidate.jobId === job.id
                       )?.id ?? ''
@@ -701,9 +790,12 @@ export default function RecruitmentPage() {
                     }`}
                   >
 
-                    <img
+                    <Image
                       src={candidate.avatar}
                       alt=""
+                      width={40}
+                      height={40}
+                      unoptimized
                       className="h-10 w-10 rounded-full border border-[#9FC2DC] object-cover"
                     />
 
@@ -775,9 +867,12 @@ export default function RecruitmentPage() {
 
               <div className="flex min-w-0 items-center gap-3">
 
-                <img
+                <Image
                   src={selectedCandidate.avatar}
                   alt={selectedCandidate.name}
+                  width={48}
+                  height={48}
+                  unoptimized
                   className="h-12 w-12 rounded-full border border-[#9FC2DC] object-cover"
                 />
 
@@ -977,27 +1072,51 @@ export default function RecruitmentPage() {
 
             <div className="mt-5 flex flex-col gap-2 sm:flex-row">
 
-              <button
-                type="button"
-                onClick={() =>
-                  updateStage('Shortlisted')
-                }
-                className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-[#17324A] px-2.5 py-2 text-[11px] font-semibold text-white transition-colors hover:bg-[#315B76]"
-              >
-                <Check className="h-3.5 w-3.5" />
-                Shortlist
-              </button>
+              {selectedCandidate.onboardingEmployeeCode ? (
+                <div className="flex min-w-0 flex-1 items-center justify-center gap-2 rounded-lg border border-[#9CC9AC] bg-[#DDEFE4] px-2.5 py-2 text-[11px] font-semibold text-[#287047]">
+                  <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+                  <span className="min-w-0 truncate">
+                    Already onboarded · {selectedCandidate.onboardingEmployeeCode}
+                  </span>
+                </div>
+              ) : (
+                <>
+                  {selectedCandidateStage === 'Shortlisted' ? (
+                    <Link
+                      href={{
+                        pathname: '/employee-lifecycle',
+                        query: { candidateId: selectedCandidate.id },
+                      }}
+                      className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-[#17324A] px-2.5 py-2 text-[11px] font-semibold text-white transition-colors hover:bg-[#315B76]"
+                    >
+                      <UserPlus className="h-3.5 w-3.5" />
+                      Start onboarding
+                    </Link>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        updateStage('Shortlisted')
+                      }
+                      className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-[#17324A] px-2.5 py-2 text-[11px] font-semibold text-white transition-colors hover:bg-[#315B76]"
+                    >
+                      <Check className="h-3.5 w-3.5" />
+                      Shortlist
+                    </button>
+                  )}
 
-              <button
-                type="button"
-                onClick={() =>
-                  updateStage('Rejected')
-                }
-                className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-[#D9A3A3] bg-[#F3DCDC] px-2.5 py-2 text-[11px] font-semibold text-[#A45A5A] transition-colors hover:bg-[#EFD0D0]"
-              >
-                <X className="h-3.5 w-3.5" />
-                Reject
-              </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      updateStage('Rejected')
+                    }
+                    className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-[#D9A3A3] bg-[#F3DCDC] px-2.5 py-2 text-[11px] font-semibold text-[#A45A5A] transition-colors hover:bg-[#EFD0D0]"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                    Reject
+                  </button>
+                </>
+              )}
 
             </div>
 

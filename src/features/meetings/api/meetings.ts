@@ -1,8 +1,3 @@
-<<<<<<< HEAD:src/features/meetings/api/meetings.ts
-import { MOCK_EMPLOYEES } from '@/features/employees/data/employees';
-import type { Employee } from '@/features/employees/data/employees';
-=======
->>>>>>> 3cbe28a (new database integration):src/api/meetings.ts
 import type {
   CreateMeetingInput,
   EmployeeSearchResult,

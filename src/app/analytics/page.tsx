@@ -15,12 +15,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
-<<<<<<< HEAD
-import { MOCK_ANALYTICS } from '@/features/analytics/data/analytics';
 import { useHRMS } from '@/shared/providers/HRMSContext';
-=======
-import { useHRMS } from '@/context/HRMSContext';
->>>>>>> 3cbe28a (new database integration)
 
 type AnalyticsData = {
   totalHeadcount: number;

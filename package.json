@@ -6,12 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-<<<<<<< HEAD
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "validate": "npm run typecheck && npm run lint && npm run build"
-=======
-    "lint": "eslint",
+    "validate": "npm run typecheck && npm run lint && npm run build",
     "prisma:generate": "prisma generate",
     "prisma:push": "prisma db push",
     "prisma:seed": "prisma db seed",
@@ -19,15 +16,17 @@
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
->>>>>>> 3cbe28a (new database integration)
   },
   "dependencies": {
+    "@auth/prisma-adapter": "^2.11.3",
     "@hookform/resolvers": "^5.7.1",
     "@prisma/client": "^6.19.3",
     "@tanstack/react-query": "^5.101.4",
+    "argon2": "^0.45.1",
     "axios": "^1.19.0",
     "lucide-react": "^1.29.0",
     "next": "16.3.0",
+    "next-auth": "^5.0.0-beta.32",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "react-hook-form": "^7.84.0",

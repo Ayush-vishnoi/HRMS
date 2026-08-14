@@ -29,6 +29,7 @@ export interface RecruitmentCandidate {
   missingSkills: string[];
   summary: string;
   recommendation: 'Strong match' | 'Review' | 'Low match';
+  onboardingEmployeeCode?: string | null;
 }
 
 export const MOCK_RECRUITMENT_JOBS: RecruitmentJob[] = [

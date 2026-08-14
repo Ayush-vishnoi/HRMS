@@ -1,18 +1,34 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import {
+  authAccessErrorResponse,
+  isAuthAccessError,
+  requireRole,
+} from '@/lib/auth-session';
 
 export async function GET() {
   try {
+    await requireRole('admin');
     const [jobs, candidates] = await Promise.all([
       db.recruitmentJob.findMany({
         orderBy: { createdAt: 'desc' },
       }),
       db.recruitmentCandidate.findMany({
+        include: {
+          onboarding: {
+            select: {
+              employee: {
+                select: { employeeCode: true },
+              },
+            },
+          },
+        },
         orderBy: { appliedOn: 'desc' },
       }),
     ]);
     return NextResponse.json({ success: true, data: { jobs, candidates } });
   } catch (error) {
+    if (isAuthAccessError(error)) return authAccessErrorResponse(error);
     console.error('Error fetching recruitment data:', error);
     return NextResponse.json({ success: false, error: 'Failed to fetch recruitment data' }, { status: 500 });
   }
@@ -27,6 +43,7 @@ const mapEmploymentType = (type?: string): 'FullTime' | 'Contract' => {
 
 export async function POST(request: Request) {
   try {
+    await requireRole('admin');
     const body = await request.json();
     const count = await db.recruitmentJob.count();
     const newId = `JOB-${String(count + 1).padStart(3, '0')}`;
@@ -48,6 +65,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true, data: newJob });
   } catch (error) {
+    if (isAuthAccessError(error)) return authAccessErrorResponse(error);
     console.error('Error creating job:', error);
     return NextResponse.json({ success: false, error: 'Failed to create job' }, { status: 500 });
   }
@@ -56,6 +74,7 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
+    await requireRole('admin');
     const body = await request.json();
     const { candidateId, stage } = body;
 
@@ -66,6 +85,7 @@ export async function PATCH(request: Request) {
 
     return NextResponse.json({ success: true, data: updated });
   } catch (error) {
+    if (isAuthAccessError(error)) return authAccessErrorResponse(error);
     console.error('Error updating candidate stage:', error);
     return NextResponse.json({ success: false, error: 'Failed to update candidate stage' }, { status: 500 });
   }

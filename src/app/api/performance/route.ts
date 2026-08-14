@@ -1,6 +1,13 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { KraPriority, KraStatus } from '@prisma/client';
+import { KraPriority, KraStatus, type Prisma } from '@prisma/client';
+import {
+  authAccessErrorResponse,
+  isAuthAccessError,
+  requireEmployee,
+  requireEmployeeAccess,
+  requireRole,
+} from '@/lib/auth-session';
 
 const mapKraStatusToPrisma = (status?: string): KraStatus => {
   if (!status) return KraStatus.NotStarted;
@@ -22,30 +29,21 @@ const mapPrismaStatusToDisplay = (status: KraStatus): string => {
   }
 };
 
-export async function GET(request: Request) {
+export async function GET(_request: Request) {
   try {
-    const { searchParams } = new URL(request.url);
-    const employeeId = searchParams.get('employeeId');
-    const role = searchParams.get('role') || 'employee';
-
-    let whereClause: any = undefined;
-
-    if (role === 'employee' && employeeId) {
-      whereClause = { assignedToId: employeeId };
-    } else if (role === 'manager' && employeeId) {
-      // Find direct reports of this manager or KRAs assigned by/to manager
-      const directReports = await db.employee.findMany({
-        where: { managerId: employeeId },
-        select: { id: true },
-      });
-      const directReportIds = directReports.map((d) => d.id);
-      whereClause = {
-        OR: [
-          { assignedById: employeeId },
-          { assignedToId: { in: [employeeId, ...directReportIds] } },
-        ],
-      };
-    }
+    const employee = await requireEmployee();
+    const whereClause: Prisma.PerformanceKraWhereInput | undefined =
+      employee.userRole === 'admin'
+        ? undefined
+        : employee.userRole === 'manager'
+          ? {
+              OR: [
+                { assignedById: employee.id },
+                { assignedToId: employee.id },
+                { assignedTo: { managerId: employee.id } },
+              ],
+            }
+          : { assignedToId: employee.id };
 
     const kras = await db.performanceKra.findMany({
       where: whereClause,
@@ -82,6 +80,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ success: true, data: formatted });
   } catch (error) {
+    if (isAuthAccessError(error)) return authAccessErrorResponse(error);
     console.error('Error fetching performance KRAs:', error);
     return NextResponse.json({ success: false, error: 'Failed to fetch KRAs' }, { status: 500 });
   }
@@ -89,7 +88,9 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    const assigner = await requireRole('manager', 'admin');
     const body = await request.json();
+    await requireEmployeeAccess(body.assignedToId);
     const count = await db.performanceKra.count();
     const id = `KRA-${1043 + count + 1}`;
 
@@ -101,7 +102,7 @@ export async function POST(request: Request) {
         keyResult: body.keyResult,
         category: body.category || 'Team Delivery',
         assignedToId: body.assignedToId,
-        assignedById: body.assignedById || 'EMP-002',
+        assignedById: assigner.id,
         assignedOn: body.assignedOn || new Intl.DateTimeFormat('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date()),
         dueDate: body.dueDate,
         priority: (body.priority as KraPriority) || KraPriority.Medium,
@@ -143,6 +144,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true, data: formatted });
   } catch (error) {
+    if (isAuthAccessError(error)) return authAccessErrorResponse(error);
     console.error('Error creating KRA:', error);
     return NextResponse.json({ success: false, error: 'Failed to create KRA' }, { status: 500 });
   }
@@ -152,6 +154,19 @@ export async function PATCH(request: Request) {
   try {
     const body = await request.json();
     const { id, progress, status, lastUpdate } = body;
+    const existing = await db.performanceKra.findUnique({
+      where: { id },
+      select: { assignedToId: true },
+    });
+
+    if (!existing) {
+      return NextResponse.json(
+        { success: false, error: 'KRA not found' },
+        { status: 404 },
+      );
+    }
+
+    await requireEmployeeAccess(existing.assignedToId);
 
     const updated = await db.performanceKra.update({
       where: { id },
@@ -192,6 +207,7 @@ export async function PATCH(request: Request) {
 
     return NextResponse.json({ success: true, data: formatted });
   } catch (error) {
+    if (isAuthAccessError(error)) return authAccessErrorResponse(error);
     console.error('Error updating KRA:', error);
     return NextResponse.json({ success: false, error: 'Failed to update KRA' }, { status: 500 });
   }

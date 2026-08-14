@@ -16,20 +16,10 @@ import {
   UsersRound,
 } from 'lucide-react';
 
-<<<<<<< HEAD
 import { EmployeeDetailsModal } from '@/features/employees/components/EmployeeDetailsModal';
-import { useHRMS } from '@/shared/providers/HRMSContext';
 import type { Employee } from '@/features/employees/data/employees';
-import { MOCK_MANAGED_TEAMS, MOCK_TEAM_METADATA } from '@/features/teams/data/teams';
 import type { TeamMemberMetadata } from '@/features/teams/data/teams';
-=======
-import { EmployeeDetailsModal } from '@/components/modals/EmployeeDetailsModal';
-import { useHRMS } from '@/context/HRMSContext';
-import {
-  Employee,
-  TeamMemberMetadata,
-} from '@/data/mockData';
->>>>>>> 3cbe28a (new database integration)
+import { useHRMS } from '@/shared/providers/HRMSContext';
 
 const statusFilters = ['All', 'Active', 'Remote', 'On Leave'] as const;
 type StatusFilter = (typeof statusFilters)[number];

@@ -1,13 +1,35 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import {
+  authAccessErrorResponse,
+  isAuthAccessError,
+  requireEmployee,
+  requireEmployeeAccess,
+} from '@/lib/auth-session';
 
 export async function GET(request: Request) {
   try {
-    const { searchParams } = new URL(request.url);
-    const employeeId = searchParams.get('employeeId');
+    const employee = await requireEmployee();
+    const requestedEmployeeId = new URL(request.url).searchParams.get('employeeId');
+    const where =
+      employee.userRole === 'admin'
+        ? requestedEmployeeId
+          ? { employeeId: requestedEmployeeId }
+          : undefined
+        : employee.userRole === 'manager'
+          ? requestedEmployeeId
+            ? {
+                employeeId: requestedEmployeeId,
+                OR: [
+                  { employeeId: employee.id },
+                  { employee: { managerId: employee.id } },
+                ],
+              }
+            : { OR: [{ employeeId: employee.id }, { employee: { managerId: employee.id } }] }
+          : { employeeId: employee.id };
 
     const records = await db.attendanceRecord.findMany({
-      where: employeeId ? { employeeId } : undefined,
+      where,
       orderBy: { date: 'desc' },
       include: {
         employee: {
@@ -18,6 +40,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ success: true, data: records });
   } catch (error) {
+    if (isAuthAccessError(error)) return authAccessErrorResponse(error);
     console.error('Error fetching attendance records:', error);
     return NextResponse.json({ success: false, error: 'Failed to fetch attendance records' }, { status: 500 });
   }
@@ -36,11 +59,12 @@ const mapAttendanceStatus = (status?: string): 'OnTime' | 'Late' | 'HalfDay' | '
 
 export async function POST(request: Request) {
   try {
+    const employee = await requireEmployee();
     const body = await request.json();
     const newRecord = await db.attendanceRecord.create({
       data: {
         id: body.id || `ATT-${Date.now()}`,
-        employeeId: body.employeeId,
+        employeeId: employee.id,
         date: body.date || new Date().toISOString().split('T')[0],
         checkIn: body.checkIn,
         checkOut: body.checkOut || 'In Progress',
@@ -52,6 +76,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true, data: newRecord });
   } catch (error) {
+    if (isAuthAccessError(error)) return authAccessErrorResponse(error);
     console.error('Error creating attendance record:', error);
     return NextResponse.json({ success: false, error: 'Failed to create attendance record' }, { status: 500 });
   }
@@ -61,6 +86,19 @@ export async function PATCH(request: Request) {
   try {
     const body = await request.json();
     const { id, checkOut, hoursWorked, status } = body;
+    const record = await db.attendanceRecord.findUnique({
+      where: { id },
+      select: { employeeId: true },
+    });
+
+    if (!record) {
+      return NextResponse.json(
+        { success: false, error: 'Attendance record not found' },
+        { status: 404 },
+      );
+    }
+
+    await requireEmployeeAccess(record.employeeId);
 
     const updated = await db.attendanceRecord.update({
       where: { id },
@@ -73,6 +111,7 @@ export async function PATCH(request: Request) {
 
     return NextResponse.json({ success: true, data: updated });
   } catch (error) {
+    if (isAuthAccessError(error)) return authAccessErrorResponse(error);
     console.error('Error updating attendance record:', error);
     return NextResponse.json({ success: false, error: 'Failed to update attendance record' }, { status: 500 });
   }

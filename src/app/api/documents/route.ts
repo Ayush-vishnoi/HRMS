@@ -1,6 +1,12 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { DocumentRequestStatus, DocumentStatus } from '@prisma/client';
+import {
+  AuthorizationError,
+  authAccessErrorResponse,
+  isAuthAccessError,
+  requireEmployee,
+} from '@/lib/auth-session';
 
 const mapDocStatusToPrisma = (status?: string): DocumentStatus => {
   if (!status) return DocumentStatus.UnderReview;
@@ -40,13 +46,17 @@ const mapPrismaReqStatusToDisplay = (status: DocumentRequestStatus): string => {
 
 export async function GET(request: Request) {
   try {
-    const { searchParams } = new URL(request.url);
-    const employeeId = searchParams.get('employeeId');
-    const role = searchParams.get('role') || 'employee';
+    const employee = await requireEmployee();
+    const requestedEmployeeId = new URL(request.url).searchParams.get('employeeId');
+    const employeeId = requestedEmployeeId || employee.id;
 
-    const whereClause = (role === 'admin' && !searchParams.has('employeeId'))
+    if (employee.userRole !== 'admin' && employeeId !== employee.id) {
+      throw new AuthorizationError();
+    }
+
+    const whereClause = employee.userRole === 'admin' && !requestedEmployeeId
       ? undefined
-      : (employeeId ? { employeeId } : undefined);
+      : { employeeId };
 
     const [documents, requests] = await Promise.all([
       db.employeeDocument.findMany({
@@ -99,6 +109,7 @@ export async function GET(request: Request) {
       },
     });
   } catch (error) {
+    if (isAuthAccessError(error)) return authAccessErrorResponse(error);
     console.error('Error fetching documents data:', error);
     return NextResponse.json({ success: false, error: 'Failed to fetch documents' }, { status: 500 });
   }
@@ -106,6 +117,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    const employee = await requireEmployee();
     const body = await request.json();
     const action = body.action || 'upload';
 
@@ -116,7 +128,7 @@ export async function POST(request: Request) {
       const newDoc = await db.employeeDocument.create({
         data: {
           id,
-          employeeId: body.employeeId || 'EMP-001',
+          employeeId: employee.id,
           name: body.name,
           type: body.type || 'Identity Proof',
           size: body.size || '1.0 MB',
@@ -153,7 +165,7 @@ export async function POST(request: Request) {
       const newReq = await db.documentRequest.create({
         data: {
           id,
-          employeeId: body.employeeId || 'EMP-001',
+          employeeId: employee.id,
           documentType: body.documentType,
           reason: body.reason,
           status: mapReqStatusToPrisma(body.status),
@@ -181,6 +193,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: false, error: 'Unknown action' }, { status: 400 });
   } catch (error) {
+    if (isAuthAccessError(error)) return authAccessErrorResponse(error);
     console.error('Error creating document/request:', error);
     return NextResponse.json({ success: false, error: 'Failed to process document action' }, { status: 500 });
   }

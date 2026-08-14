@@ -4,6 +4,11 @@
 -- ============================================================================
 
 -- Drop existing tables (in reverse dependency order) if needed
+DROP TABLE IF EXISTS "auth_verification_tokens" CASCADE;
+DROP TABLE IF EXISTS "auth_sessions" CASCADE;
+DROP TABLE IF EXISTS "auth_accounts" CASCADE;
+DROP TABLE IF EXISTS "employee_offboardings" CASCADE;
+DROP TABLE IF EXISTS "employee_onboardings" CASCADE;
 DROP TABLE IF EXISTS "recruitment_candidates" CASCADE;
 DROP TABLE IF EXISTS "recruitment_jobs" CASCADE;
 DROP TABLE IF EXISTS "assets" CASCADE;
@@ -58,7 +63,7 @@ DROP TYPE IF EXISTS "CandidateRecommendation" CASCADE;
 -- 1. ENUMS
 -- ----------------------------------------------------------------------------
 CREATE TYPE "UserRole" AS ENUM ('employee', 'manager', 'admin');
-CREATE TYPE "EmploymentStatus" AS ENUM ('Active', 'On Leave', 'Remote');
+CREATE TYPE "EmploymentStatus" AS ENUM ('Active', 'On Leave', 'Remote', 'Offboarded');
 CREATE TYPE "AttendanceStatus" AS ENUM ('On Time', 'Late', 'Half Day', 'Absent', 'On Leave');
 CREATE TYPE "LateClockInStatus" AS ENUM ('pending', 'approved', 'rejected');
 CREATE TYPE "LeaveType" AS ENUM ('Casual', 'Sick', 'Earned', 'WFH');
@@ -104,8 +109,51 @@ CREATE TABLE "employees" (
     "location" VARCHAR(120) NOT NULL,
     "salary" NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
     "manager_id" VARCHAR(36) REFERENCES "employees"("id") ON DELETE SET NULL,
+    "failed_login_attempts" INT NOT NULL DEFAULT 0,
+    "locked_until" TIMESTAMP WITH TIME ZONE,
+    "last_login_at" TIMESTAMP WITH TIME ZONE,
     "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ----------------------------------------------------------------------------
+-- 2A. AUTHENTICATION TABLES
+-- ----------------------------------------------------------------------------
+CREATE TABLE "auth_accounts" (
+    "id" VARCHAR(36) PRIMARY KEY,
+    "employee_id" VARCHAR(36) NOT NULL REFERENCES "employees"("id") ON DELETE CASCADE,
+    "type" VARCHAR(50) NOT NULL,
+    "provider" VARCHAR(100) NOT NULL,
+    "provider_account_id" VARCHAR(150) NOT NULL,
+    "refresh_token" TEXT,
+    "access_token" TEXT,
+    "expires_at" INT,
+    "token_type" VARCHAR(50),
+    "scope" VARCHAR(255),
+    "id_token" TEXT,
+    "session_state" VARCHAR(255),
+    CONSTRAINT "auth_accounts_provider_provider_account_id_key"
+      UNIQUE ("provider", "provider_account_id")
+);
+CREATE INDEX "auth_accounts_employee_id_idx" ON "auth_accounts"("employee_id");
+
+CREATE TABLE "auth_sessions" (
+    "id" VARCHAR(36) PRIMARY KEY,
+    "session_token" VARCHAR(255) NOT NULL UNIQUE,
+    "employee_id" VARCHAR(36) NOT NULL REFERENCES "employees"("id") ON DELETE CASCADE,
+    "expires" TIMESTAMP WITH TIME ZONE NOT NULL,
+    "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX "auth_sessions_employee_id_idx" ON "auth_sessions"("employee_id");
+CREATE INDEX "auth_sessions_expires_idx" ON "auth_sessions"("expires");
+
+CREATE TABLE "auth_verification_tokens" (
+    "identifier" VARCHAR(255) NOT NULL,
+    "token" VARCHAR(255) NOT NULL UNIQUE,
+    "expires" TIMESTAMP WITH TIME ZONE NOT NULL,
+    CONSTRAINT "auth_verification_tokens_identifier_token_key"
+      UNIQUE ("identifier", "token")
 );
 
 -- ----------------------------------------------------------------------------
@@ -450,3 +498,29 @@ CREATE TABLE "recruitment_candidates" (
     "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX "idx_candidates_job_stage" ON "recruitment_candidates"("job_id", "stage");
+
+-- ----------------------------------------------------------------------------
+-- 22. EMPLOYEE LIFECYCLE AUDIT TABLES
+-- ----------------------------------------------------------------------------
+CREATE TABLE "employee_onboardings" (
+    "id" VARCHAR(36) PRIMARY KEY,
+    "candidate_id" VARCHAR(36) NOT NULL REFERENCES "recruitment_candidates"("id") ON DELETE RESTRICT,
+    "employee_id" VARCHAR(36) NOT NULL REFERENCES "employees"("id") ON DELETE RESTRICT,
+    "onboarded_by_id" VARCHAR(36) NOT NULL REFERENCES "employees"("id") ON DELETE RESTRICT,
+    "onboarded_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "employee_onboardings_candidate_id_key" UNIQUE ("candidate_id"),
+    CONSTRAINT "employee_onboardings_employee_id_key" UNIQUE ("employee_id")
+);
+CREATE INDEX "employee_onboardings_onboarded_by_id_onboarded_at_idx"
+  ON "employee_onboardings"("onboarded_by_id", "onboarded_at");
+
+CREATE TABLE "employee_offboardings" (
+    "id" VARCHAR(36) PRIMARY KEY,
+    "employee_id" VARCHAR(36) NOT NULL REFERENCES "employees"("id") ON DELETE RESTRICT,
+    "reason" TEXT NOT NULL,
+    "offboarded_by_id" VARCHAR(36) NOT NULL REFERENCES "employees"("id") ON DELETE RESTRICT,
+    "offboarded_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "employee_offboardings_employee_id_key" UNIQUE ("employee_id")
+);
+CREATE INDEX "employee_offboardings_offboarded_by_id_offboarded_at_idx"
+  ON "employee_offboardings"("offboarded_by_id", "offboarded_at");

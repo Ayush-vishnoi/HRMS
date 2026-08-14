@@ -1,12 +1,18 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import {
+  authAccessErrorResponse,
+  isAuthAccessError,
+  requireEmployee,
+  requireRole,
+} from '@/lib/auth-session';
 
-export async function GET(request?: Request) {
+export async function GET(_request?: Request) {
   try {
-    const employeeId = request ? new URL(request.url).searchParams.get('employeeId') : null;
+    const employee = await requireEmployee();
 
     const assets = await db.asset.findMany({
-      where: employeeId ? { assignedToId: employeeId } : undefined,
+      where: employee.userRole === 'admin' ? undefined : { assignedToId: employee.id },
       orderBy: { id: 'asc' },
       include: {
         assignedTo: {
@@ -16,6 +22,7 @@ export async function GET(request?: Request) {
     });
     return NextResponse.json({ success: true, data: assets });
   } catch (error) {
+    if (isAuthAccessError(error)) return authAccessErrorResponse(error);
     console.error('Error fetching assets:', error);
     return NextResponse.json({ success: false, error: 'Failed to fetch assets' }, { status: 500 });
   }
@@ -23,6 +30,7 @@ export async function GET(request?: Request) {
 
 export async function POST(request: Request) {
   try {
+    await requireRole('admin');
     const body = await request.json();
     const count = await db.asset.count();
     const newId = `AST-${String(count + 1).padStart(3, '0')}`;
@@ -56,6 +64,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true, data: newAsset });
   } catch (error) {
+    if (isAuthAccessError(error)) return authAccessErrorResponse(error);
     console.error('Error creating asset:', error);
     return NextResponse.json({ success: false, error: 'Failed to create asset' }, { status: 500 });
   }
@@ -63,13 +72,27 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
+    await requireRole('admin');
     const body = await request.json();
-    const { id, ...changes } = body;
+    const { id } = body;
 
     const updated = await db.asset.update({
       where: { id },
       data: {
-        ...changes,
+        ...(body.assetTag !== undefined ? { assetTag: body.assetTag } : {}),
+        ...(body.category !== undefined ? { category: body.category } : {}),
+        ...(body.name !== undefined ? { name: body.name } : {}),
+        ...(body.brand !== undefined ? { brand: body.brand } : {}),
+        ...(body.model !== undefined ? { model: body.model } : {}),
+        ...(body.serialNumber !== undefined ? { serialNumber: body.serialNumber } : {}),
+        ...(body.purchaseDate !== undefined ? { purchaseDate: body.purchaseDate } : {}),
+        ...(body.purchaseCost !== undefined ? { purchaseCost: body.purchaseCost || null } : {}),
+        ...(body.warrantyUntil !== undefined ? { warrantyUntil: body.warrantyUntil || null } : {}),
+        ...(body.status !== undefined ? { status: body.status } : {}),
+        ...(body.assignedToId !== undefined ? { assignedToId: body.assignedToId || null } : {}),
+        ...(body.location !== undefined ? { location: body.location } : {}),
+        ...(body.condition !== undefined ? { condition: body.condition } : {}),
+        ...(body.notes !== undefined ? { notes: body.notes || null } : {}),
         lastChecked: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
       },
       include: {
@@ -81,6 +104,7 @@ export async function PATCH(request: Request) {
 
     return NextResponse.json({ success: true, data: updated });
   } catch (error) {
+    if (isAuthAccessError(error)) return authAccessErrorResponse(error);
     console.error('Error updating asset:', error);
     return NextResponse.json({ success: false, error: 'Failed to update asset' }, { status: 500 });
   }

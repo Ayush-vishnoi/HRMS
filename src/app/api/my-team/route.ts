@@ -1,6 +1,12 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { TeamRisk } from '@prisma/client';
+import {
+  AuthorizationError,
+  authAccessErrorResponse,
+  isAuthAccessError,
+  requireRole,
+} from '@/lib/auth-session';
 
 const mapRiskToDisplay = (risk: TeamRisk): 'On track' | 'Needs attention' | 'At risk' => {
   switch (risk) {
@@ -22,10 +28,13 @@ const mapDisplayToRisk = (risk?: string): TeamRisk => {
 
 export async function GET(request: Request) {
   try {
-    const { searchParams } = new URL(request.url);
-    const managerId = searchParams.get('managerId') || 'EMP-002';
+    const employee = await requireRole('manager', 'admin');
+    const requestedManagerId = new URL(request.url).searchParams.get('managerId');
+    const managerId =
+      employee.userRole === 'admin' && requestedManagerId
+        ? requestedManagerId
+        : employee.id;
 
-    // 1. Fetch managed teams where managerId matches (or fetch all if admin)
     const teams = await db.managedTeam.findMany({
       where: { managerId },
       include: {
@@ -39,7 +48,6 @@ export async function GET(request: Request) {
       },
     });
 
-    // 2. Fetch team member metadata for this manager
     const metadataList = await db.teamMemberMetadata.findMany({
       where: { managerId },
     });
@@ -124,6 +132,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ success: true, data: formattedTeams });
   } catch (error) {
+    if (isAuthAccessError(error)) return authAccessErrorResponse(error);
     console.error('Error fetching team data:', error);
     return NextResponse.json({ success: false, error: 'Failed to fetch team data' }, { status: 500 });
   }
@@ -131,23 +140,32 @@ export async function GET(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
+    const manager = await requireRole('manager', 'admin');
     const body = await request.json();
-    const { employeeId, managerId, notes, risk, goalProgress, workload, nextOneToOne } = body;
-
-    const existing = await db.teamMemberMetadata.findUnique({
+    const { employeeId, notes, risk, goalProgress, workload, nextOneToOne } = body;
+    const requestedManagerId = typeof body.managerId === 'string' ? body.managerId : null;
+    const managerId =
+      manager.userRole === 'admin' && requestedManagerId
+        ? requestedManagerId
+        : manager.id;
+    const managedPerson = await db.managedTeam.findFirst({
       where: {
-        employeeId_managerId: {
-          employeeId,
-          managerId: managerId || 'EMP-002',
-        },
+        managerId,
+        OR: [
+          { leaderId: employeeId },
+          { members: { some: { employeeId } } },
+        ],
       },
+      select: { id: true },
     });
+
+    if (!managedPerson) throw new AuthorizationError();
 
     const updated = await db.teamMemberMetadata.upsert({
       where: {
         employeeId_managerId: {
           employeeId,
-          managerId: managerId || 'EMP-002',
+          managerId,
         },
       },
       update: {
@@ -160,7 +178,7 @@ export async function PATCH(request: Request) {
       create: {
         id: `TMM-${Date.now()}`,
         employeeId,
-        managerId: managerId || 'EMP-002',
+        managerId,
         focus: 'Team delivery and quarterly goals',
         goalLabel: 'Progress against quarterly priorities',
         workload: Number(workload) || 70,
@@ -173,6 +191,7 @@ export async function PATCH(request: Request) {
 
     return NextResponse.json({ success: true, data: updated });
   } catch (error) {
+    if (isAuthAccessError(error)) return authAccessErrorResponse(error);
     console.error('Error updating team metadata:', error);
     return NextResponse.json({ success: false, error: 'Failed to update team metadata' }, { status: 500 });
   }

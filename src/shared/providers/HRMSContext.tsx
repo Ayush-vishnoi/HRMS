@@ -41,10 +41,6 @@ export interface LateClockInRequest {
   reviewedAt?: string;
 }
 
-export type LoginResult =
-  | { success: true }
-  | { success: false; message: string };
-
 export type ClockActionResult =
   | { status: 'clocked-in'; attendanceStatus: 'On Time' | 'Late' }
   | { status: 'clocked-out' }
@@ -64,7 +60,7 @@ export interface UserAccount {
   employeeCode: string;
 }
 
-export const DEMO_ACCOUNTS: Record<UserRole, UserAccount> = {
+const DEMO_ACCOUNTS: Record<UserRole, UserAccount> = {
   employee: {
     id: 'EMP-001', name: 'Ayush Vishnoi', email: 'ayush.vishnoi@company.com', role: 'AI/ML Intern Developer', userRole: 'employee', department: 'AI/ML',
     avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80', employeeCode: 'EMP-2026-089',
@@ -79,15 +75,12 @@ export const DEMO_ACCOUNTS: Record<UserRole, UserAccount> = {
   },
 };
 
-const AUTH_STORAGE_KEY = 'hrms-auth-role';
 const LATE_REQUEST_STORAGE_KEY = 'hrms-late-clock-in-requests';
+const SESSION_STATUS_INTERVAL_MS = 30 * 1000;
 const PORTAL_START_MINUTES = 8 * 60;
 const LATE_CLOCK_IN_MINUTES = 10 * 60;
 const PORTAL_END_MINUTES = 18 * 60;
 const ACCESS_DENIED_MESSAGE = 'Clock-in access denied. Attendance clock-in is available from 8:00 AM to 6:00 PM.';
-
-const isUserRole = (value: string | null): value is UserRole =>
-  value === 'employee' || value === 'manager' || value === 'admin';
 
 const formatDbEmployee = (emp: any, managerName = 'Arjun Mehta'): Employee => ({
   id: emp.id,
@@ -156,7 +149,6 @@ interface HRMSContextType {
   isAuthenticated: boolean;
   isAuthReady: boolean;
   currentUser: UserAccount;
-  login: (role: UserRole) => LoginResult;
   logout: () => void;
   employees: Employee[];
   addEmployee: (emp: Omit<Employee, 'id' | 'employeeCode'>) => Promise<void>;
@@ -206,10 +198,17 @@ const isPortalOpen = (date: Date) => {
   return minutes >= PORTAL_START_MINUTES && minutes < PORTAL_END_MINUTES;
 };
 
-export const HRMSProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isAuthReady, setIsAuthReady] = useState(false);
-  const [currentUser, setCurrentUser] = useState<UserAccount>(DEMO_ACCOUNTS.employee);
+interface HRMSProviderProps {
+  children: React.ReactNode;
+  initialUser: UserAccount | null;
+}
+
+export const HRMSProvider: React.FC<HRMSProviderProps> = ({ children, initialUser }) => {
+  const [isAuthenticated, setIsAuthenticated] = useState(Boolean(initialUser));
+  const [currentUser, setCurrentUser] = useState<UserAccount>(
+    initialUser ?? DEMO_ACCOUNTS.employee,
+  );
+  const isAuthReady = true;
   const [employees, setEmployees] = useState<Employee[]>(MOCK_EMPLOYEES);
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>(INITIAL_LEAVE_REQUESTS);
   const [attendanceLogs, setAttendanceLogs] = useState<AttendanceRecord[]>(MOCK_ATTENDANCE_LOGS);
@@ -224,20 +223,11 @@ export const HRMSProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const lateClockInRequest = lateClockInRequests.find((request) => request.requesterId === currentUser.id) ?? null;
 
-  // Load from API on mount
+  // Load non-auth application state from the API on mount.
   useEffect(() => {
-    try {
-      const storedRole = window.localStorage.getItem(AUTH_STORAGE_KEY);
-      const storedLateRequests = window.localStorage.getItem(LATE_REQUEST_STORAGE_KEY);
-      if (isUserRole(storedRole)) {
-        setCurrentUser(DEMO_ACCOUNTS[storedRole]);
-        setIsAuthenticated(true);
-      }
-      if (storedLateRequests) {
-        setLateClockInRequests(JSON.parse(storedLateRequests) as LateClockInRequest[]);
-      }
-    } finally {
-      setIsAuthReady(true);
+    const storedLateRequests = window.localStorage.getItem(LATE_REQUEST_STORAGE_KEY);
+    if (storedLateRequests) {
+      setLateClockInRequests(JSON.parse(storedLateRequests) as LateClockInRequest[]);
     }
 
     // Fetch live data from PostgreSQL via existing backend APIs
@@ -329,17 +319,63 @@ export const HRMSProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [clockInAt, finishClockOut, isClockedIn]);
 
   const logout = useCallback(() => {
-    window.localStorage.removeItem(AUTH_STORAGE_KEY);
     setIsAuthenticated(false);
   }, []);
 
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    let activeController: AbortController | null = null;
+
+    const validateSession = async () => {
+      if (activeController) return;
+
+      const controller = new AbortController();
+      activeController = controller;
+
+      try {
+        const response = await fetch('/api/auth/session-status', {
+          cache: 'no-store',
+          signal: controller.signal,
+        });
+
+        if (response.status === 401) {
+          logout();
+        }
+      } catch (sessionError) {
+        if ((sessionError as Error).name !== 'AbortError') {
+          console.warn('Session status check could not reach the server.');
+        }
+      } finally {
+        if (activeController === controller) {
+          activeController = null;
+        }
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        void validateSession();
+      }
+    };
+
+    const intervalId = window.setInterval(
+      () => void validateSession(),
+      SESSION_STATUS_INTERVAL_MS,
+    );
+    window.addEventListener('focus', validateSession);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    void validateSession();
+
+    return () => {
+      activeController?.abort();
+      window.clearInterval(intervalId);
+      window.removeEventListener('focus', validateSession);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [isAuthenticated, logout]);
+
   const elapsedWorkTime = formatElapsedWorkTime(elapsedSeconds);
-  const login = (role: UserRole): LoginResult => {
-    window.localStorage.setItem(AUTH_STORAGE_KEY, role);
-    setCurrentUser(DEMO_ACCOUNTS[role]);
-    setIsAuthenticated(true);
-    return { success: true };
-  };
 
   const addEmployee = async (empData: Omit<Employee, 'id' | 'employeeCode'>) => {
     try {
@@ -565,7 +601,6 @@ export const HRMSProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isAuthenticated,
         isAuthReady,
         currentUser,
-        login,
         logout,
         employees,
         addEmployee,

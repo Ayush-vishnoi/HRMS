@@ -1,18 +1,20 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import {
+  authAccessErrorResponse,
+  isAuthAccessError,
+  requireEmployee,
+} from '@/lib/auth-session';
 
 export async function GET(request: Request) {
   try {
-    const { searchParams } = new URL(request.url);
-    const employeeId = searchParams.get('employeeId') || 'EMP-001';
-    const role = searchParams.get('role') || 'employee';
-    const view = searchParams.get('view') || 'my';
-
-    // Role & Data Security: Only admin can view "all" employees' payroll data
-    const isAdmin = role === 'admin';
-    const isAllEmployeesView = view === 'all' && isAdmin;
-
-    const whereClause = isAllEmployeesView ? {} : { employeeId };
+    const employeeAccount = await requireEmployee();
+    const view = new URL(request.url).searchParams.get('view') || 'my';
+    const isAllEmployeesView =
+      view === 'all' && employeeAccount.userRole === 'admin';
+    const whereClause = isAllEmployeesView
+      ? {}
+      : { employeeId: employeeAccount.id };
 
     const [payslips, employee] = await Promise.all([
       db.payslip.findMany({
@@ -25,7 +27,7 @@ export async function GET(request: Request) {
         },
       }),
       db.employee.findUnique({
-        where: { id: employeeId },
+        where: { id: employeeAccount.id },
         select: { salary: true, name: true, employeeCode: true, department: true, roleTitle: true },
       }),
     ]);
@@ -63,6 +65,7 @@ export async function GET(request: Request) {
       },
     });
   } catch (error) {
+    if (isAuthAccessError(error)) return authAccessErrorResponse(error);
     console.error('Error fetching payroll data:', error);
     return NextResponse.json({ success: false, error: 'Failed to fetch payroll data' }, { status: 500 });
   }

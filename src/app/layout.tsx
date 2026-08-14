@@ -4,6 +4,7 @@ import './globals.css';
 import { HRMSProvider } from '@/shared/providers/HRMSContext';
 import { MainLayoutWrapper } from '@/shared/components/layout/MainLayoutWrapper';
 import { MeetingsQueryProvider } from '@/shared/providers/MeetingsQueryProvider';
+import { getCurrentEmployee } from '@/lib/auth-session';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -20,17 +21,34 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const employee = await getCurrentEmployee();
+  const initialUser = employee
+    ? {
+        id: employee.id,
+        name: employee.name,
+        email: employee.email,
+        role: employee.roleTitle,
+        userRole: employee.userRole,
+        department: employee.department,
+        avatar: employee.avatarUrl ?? '',
+        employeeCode: employee.employeeCode,
+      }
+    : null;
+
   return (
     <html lang="en">
       <body
         className={`${inter.className} antialiased selection:bg-[#B0D0EA] selection:text-[#17324A]`}
       >
-        <HRMSProvider>
+        <HRMSProvider
+          key={initialUser?.id ?? 'anonymous'}
+          initialUser={initialUser}
+        >
           <MeetingsQueryProvider>
             <MainLayoutWrapper>{children}</MainLayoutWrapper>
           </MeetingsQueryProvider>

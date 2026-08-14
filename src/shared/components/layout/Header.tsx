@@ -2,7 +2,6 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import {
   Bell,
   CalendarDays,
@@ -31,8 +30,16 @@ interface HeaderProps {
   onClockAction: () => void;
 }
 
+interface AssignedAssetNotification {
+  id: string;
+  assetTag: string;
+  brand: string;
+  name: string;
+  lastChecked: string | null;
+  serialNumber: string | null;
+}
+
 export const Header: React.FC<HeaderProps> = ({ onClockAction }) => {
-  const router = useRouter();
   const {
     currentUser,
     isClockedIn,
@@ -99,7 +106,7 @@ export const Header: React.FC<HeaderProps> = ({ onClockAction }) => {
     return () => window.clearTimeout(hydrateDismissedNotifications);
   }, [notificationStorageKey]);
 
-  const [userAssignedAssets, setUserAssignedAssets] = useState<any[]>([]);
+  const [userAssignedAssets, setUserAssignedAssets] = useState<AssignedAssetNotification[]>([]);
 
   useEffect(() => {
     if (currentUser?.id) {
@@ -134,10 +141,17 @@ export const Header: React.FC<HeaderProps> = ({ onClockAction }) => {
     };
   }, [showProfile]);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     setShowProfile(false);
-    logout();
-    router.replace('/');
+
+    try {
+      const response = await fetch('/api/auth/logout', { method: 'POST' });
+      if (!response.ok) throw new Error('Logout request failed');
+      logout();
+      window.location.replace('/');
+    } catch (error) {
+      console.error('Failed to sign out:', error);
+    }
   };
 
   const pendingLeaveRequests = leaveRequests.filter(

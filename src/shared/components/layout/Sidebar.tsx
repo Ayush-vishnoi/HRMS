@@ -4,54 +4,21 @@ import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
-  LayoutDashboard,
-  Users,
-  UsersRound,
-  Clock,
-  CalendarDays,
-  CalendarRange,
-  CreditCard,
-  Headset,
-  Archive,
-  Target,
-  FileText,
-  BookOpenCheck,
-  BarChart3,
-  ScanSearch,
-  ChevronRight,
-  ShieldCheck,
-  ShieldAlert,
-  UserCheck,
   Briefcase,
   Building2,
-  LockKeyhole
+  ChevronRight,
+  LockKeyhole,
+  ShieldCheck,
+  UserCheck,
 } from 'lucide-react';
 import { useHRMS } from '@/shared/providers/HRMSContext';
+import { isNavigationItemActive, NAV_ITEMS } from '@/shared/lib/navigation';
 
 export const Sidebar: React.FC = () => {
   const pathname = usePathname();
   const { currentUser } = useHRMS();
 
   const role = currentUser.userRole;
-
-  const NAV_ITEMS = [
-    { name: 'Dashboard', href: '/', icon: LayoutDashboard, section: 'Workspace', roles: ['employee', 'manager', 'admin'] },
-    { name: 'My Team', href: '/my-team', icon: UsersRound, section: 'Workspace', roles: ['manager'] },
-    { name: 'Employee Directory', href: '/employees', icon: Users, section: 'Workspace', roles: ['manager', 'admin'] },
-    { name: 'Attendance & Time', href: '/attendance', icon: Clock, section: 'My Work', roles: ['employee', 'manager', 'admin'] },
-    { name: 'Leave Management', href: '/leaves', icon: CalendarDays, section: 'My Work', roles: ['employee', 'manager', 'admin'] },
-    { name: 'Meetings & Calendar', href: '/meetings/calendar', icon: CalendarRange, section: 'My Work', roles: ['employee', 'manager', 'admin'] },
-    { name: 'Payroll & Payslips', href: '/payroll', icon: CreditCard, section: 'My Work', roles: ['employee', 'manager', 'admin'] },
-    { name: 'KRA', href: '/performance', icon: Target, section: 'Resources', roles: ['employee', 'manager', 'admin'] },
-    { name: 'Documents', href: '/documents', icon: FileText, section: 'Resources', roles: ['employee', 'manager', 'admin'] },
-    { name: 'Policy Center', href: '/policies', icon: BookOpenCheck, section: 'Resources', roles: ['employee', 'manager', 'admin'] },
-    { name: 'Grievance / Complaint', href: '/grievances', icon: ShieldAlert, section: 'Resources', roles: ['employee'] },
-    { name: 'Reports & Analytics', href: '/analytics', icon: BarChart3, section: 'HR Operations', roles: ['admin'] },
-    { name: 'HR Help Desk', href: '/help-desk', icon: Headset, section: 'HR Operations', roles: ['admin'] },
-    { name: 'Asset & Inventory', href: '/assets', icon: Archive, section: 'HR Operations', roles: ['admin'] },
-    { name: 'Recruitment', href: '/recruitment', icon: ScanSearch, section: 'HR Operations', roles: ['admin'] },
-  ];
-
   const allowedNav = NAV_ITEMS.filter((item) => item.roles.includes(role));
   const navSections = Array.from(new Set(allowedNav.map((item) => item.section)));
 
@@ -121,7 +88,7 @@ export const Sidebar: React.FC = () => {
                 .filter((item) => item.section === section)
                 .map((item) => {
                   const Icon = item.icon;
-                  const isActive = pathname === item.href || (item.href === '/meetings/calendar' && pathname.startsWith('/meetings'));
+                  const isActive = isNavigationItemActive(pathname, item);
 
                   return (
                     <Link

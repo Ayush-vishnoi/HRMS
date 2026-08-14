@@ -1,8 +1,14 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import {
+  authAccessErrorResponse,
+  isAuthAccessError,
+  requireRole,
+} from '@/lib/auth-session';
 
 export async function GET() {
   try {
+    await requireRole('admin');
     const [
       totalHeadcount,
       openTicketsCount,
@@ -89,6 +95,7 @@ export async function GET() {
       },
     });
   } catch (error) {
+    if (isAuthAccessError(error)) return authAccessErrorResponse(error);
     console.error('Error computing analytics metrics:', error);
     return NextResponse.json({ success: false, error: 'Failed to compute analytics' }, { status: 500 });
   }

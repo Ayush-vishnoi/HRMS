@@ -1,8 +1,15 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import {
+  AuthorizationError,
+  authAccessErrorResponse,
+  isAuthAccessError,
+  requireEmployee,
+} from '@/lib/auth-session';
 
 export async function GET(request: Request) {
   try {
+    const employee = await requireEmployee();
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
     const search = searchParams.get('search');
@@ -95,7 +102,6 @@ export async function GET(request: Request) {
     const to = searchParams.get('to');
     const type = searchParams.get('type');
     const department = searchParams.get('department');
-    const employeeId = searchParams.get('employeeId') || 'EMP-001';
     const mine = searchParams.get('mine') === 'true';
 
     const meetings = await db.meeting.findMany({
@@ -111,8 +117,8 @@ export async function GET(request: Request) {
         ...(to ? { endsAt: { lte: new Date(to) } } : {}),
         ...(mine ? {
           OR: [
-            { organizerId: employeeId },
-            { attendees: { some: { employeeId } } },
+            { organizerId: employee.id },
+            { attendees: { some: { employeeId: employee.id } } },
           ],
         } : {}),
       },
@@ -162,6 +168,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ success: true, data: formatted });
   } catch (error) {
+    if (isAuthAccessError(error)) return authAccessErrorResponse(error);
     console.error('Error fetching meetings:', error);
     return NextResponse.json({ success: false, error: 'Failed to fetch meetings' }, { status: 500 });
   }
@@ -169,10 +176,11 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    const organizer = await requireEmployee();
     const body = await request.json();
     const count = await db.meeting.count();
     const newId = `MTG-${String(count + 1).padStart(3, '0')}`;
-    const organizerId = body.organizerId || 'EMP-001';
+    const organizerId = organizer.id;
 
     const newMeeting = await db.meeting.create({
       data: {
@@ -243,6 +251,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true, data: formatted });
   } catch (error) {
+    if (isAuthAccessError(error)) return authAccessErrorResponse(error);
     console.error('Error creating meeting:', error);
     return NextResponse.json({ success: false, error: 'Failed to create meeting' }, { status: 500 });
   }
@@ -250,8 +259,24 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
+    const employee = await requireEmployee();
     const body = await request.json();
-    const { id, action, rsvp, employeeId, ...updates } = body;
+    const { id, action, rsvp, ...updates } = body;
+    const existing = await db.meeting.findUnique({
+      where: { id },
+      select: { organizerId: true },
+    });
+
+    if (!existing) {
+      return NextResponse.json(
+        { success: false, error: 'Meeting not found' },
+        { status: 404 },
+      );
+    }
+
+    if (action !== 'rsvp' && employee.userRole !== 'admin' && existing.organizerId !== employee.id) {
+      throw new AuthorizationError();
+    }
 
     if (action === 'cancel') {
       const updated = await db.meeting.update({
@@ -266,14 +291,14 @@ export async function PATCH(request: Request) {
         where: {
           meetingId_employeeId: {
             meetingId: id,
-            employeeId: employeeId || 'EMP-001',
+            employeeId: employee.id,
           },
         },
         update: { rsvp },
         create: {
           id: `MA-${Date.now()}`,
           meetingId: id,
-          employeeId: employeeId || 'EMP-001',
+          employeeId: employee.id,
           rsvp,
         },
       });
@@ -296,6 +321,7 @@ export async function PATCH(request: Request) {
 
     return NextResponse.json({ success: true, data: updated });
   } catch (error) {
+    if (isAuthAccessError(error)) return authAccessErrorResponse(error);
     console.error('Error updating meeting:', error);
     return NextResponse.json({ success: false, error: 'Failed to update meeting' }, { status: 500 });
   }
