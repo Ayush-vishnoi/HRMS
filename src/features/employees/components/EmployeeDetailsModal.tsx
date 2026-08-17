@@ -135,6 +135,22 @@ export const EmployeeDetailsModal: React.FC<EmployeeDetailsModalProps> = ({
               </div>
             </div>
           )}
+
+          {/* Employee 360 Action */}
+          <div className="mt-5 flex items-center justify-end gap-3 pt-4 border-t border-[#D9E5EE]">
+            <button
+              onClick={onClose}
+              className="px-4 py-2 text-xs font-semibold text-[#52677A] hover:bg-[#F5F9FC] rounded-lg"
+            >
+              Close
+            </button>
+            <a
+              href={`/employees/${employee.id}`}
+              className="px-4 py-2 bg-[#17324A] hover:bg-[#244A68] text-white text-xs font-bold rounded-lg shadow-sm flex items-center gap-1.5 transition-all"
+            >
+              Open Full 360° Profile →
+            </a>
+          </div>
         </div>
       </div>
     </div>

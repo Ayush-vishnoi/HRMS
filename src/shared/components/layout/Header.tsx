@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
   Bell,
+  Bot,
   CalendarDays,
   CheckCircle2,
   Trash2,
@@ -17,6 +18,7 @@ import {
   Mail,
   MapPin,
   Phone,
+  Sparkles,
   UserRound,
   UsersRound,
   X,
@@ -234,6 +236,16 @@ export const Header: React.FC<HeaderProps> = ({ onClockAction }) => {
             <span className="hidden sm:inline">Ask HR</span>
           </button>
         )}
+
+        {/* AI Copilot Quick Launcher */}
+        <Link
+          href="/copilot"
+          className="inline-flex items-center gap-1.5 rounded-md border border-[#B0D0EA] bg-[#EAF2F8] px-2.5 py-1.5 text-xs font-bold text-[#17324A] transition-colors hover:bg-[#DCECF7]"
+          title="Open AI HR Copilot"
+        >
+          <Bot className="h-3.5 w-3.5 text-[#234B68]" />
+          <span className="hidden sm:inline">AI Copilot</span>
+        </Link>
 
         {/* Notifications Button */}
         <div className="relative">

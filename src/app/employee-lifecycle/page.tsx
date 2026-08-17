@@ -1,29 +1,36 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
 import {
   AlertCircle,
   ArrowRight,
+  Award,
   BadgeCheck,
   BriefcaseBusiness,
   Building2,
+  Calendar,
   Check,
   CheckCircle2,
-  Clipboard,
-  Copy,
+  ChevronRight,
+  Clock,
+  Coins,
+  FileCheck,
+  FileText,
   History,
-  KeyRound,
-  LoaderCircle,
-  LockKeyhole,
-  Mail,
+  Layers,
   MapPin,
+  Plus,
   RefreshCw,
   Search,
+  Send,
+  Shield,
   ShieldAlert,
   ShieldCheck,
+  Sparkles,
+  TrendingUp,
+  UserCheck,
   UserMinus,
   UserPlus,
   UsersRound,
@@ -31,954 +38,1216 @@ import {
 } from 'lucide-react';
 import { useHRMS } from '@/shared/providers/HRMSContext';
 
-type ApplicationRole = 'employee' | 'manager';
-
-type LifecycleCandidate = {
-  id: string;
-  jobId: string;
-  name: string;
-  email: string;
-  phone: string;
-  avatarUrl: string | null;
-  appliedOn: string;
-  stage: 'Shortlisted';
-  score: number;
-  experience: string;
-  currentRole: string;
-  location: string;
-  job: {
-    id: string;
-    title: string;
-    department: string;
-    location: string;
-    employmentType: string;
-  };
-};
-
-type LifecycleEmployee = {
-  id: string;
-  employeeCode: string;
-  name: string;
-  email: string;
-  roleTitle: string;
-  userRole: 'employee' | 'manager' | 'admin';
-  department: string;
-  phone: string | null;
-  avatarUrl: string | null;
-  status: 'Active' | 'OnLeave' | 'Remote';
-  joinDate: string;
-  location: string;
-  salary: number;
-  managerId: string | null;
-};
-
-type AuditEmployee = Pick<
-  LifecycleEmployee,
-  'id' | 'employeeCode' | 'name' | 'email' | 'roleTitle' | 'department'
->;
-
-type AuditAdministrator = {
-  id: string;
-  name: string;
-  employeeCode: string;
-};
-
-type OnboardingAudit = {
-  id: string;
-  candidateId: string;
-  employeeId: string;
-  onboardedById: string;
-  onboardedAt: string;
-  employee: AuditEmployee;
-  candidate: {
-    id: string;
-    name: string;
-    email: string;
-  };
-  onboardedBy: AuditAdministrator;
-};
-
-type OffboardingAudit = {
-  id: string;
-  employeeId: string;
-  offboardedById: string;
-  offboardedAt: string;
-  reason: string;
-  employee: AuditEmployee;
-  offboardedBy: AuditAdministrator;
-};
-
-type LifecycleData = {
-  candidates: LifecycleCandidate[];
-  employees: LifecycleEmployee[];
-  onboardingHistory: OnboardingAudit[];
-  offboardingHistory: OffboardingAudit[];
-};
-
-type OnboardingForm = {
-  name: string;
-  email: string;
-  phone: string;
-  avatarUrl: string;
-  roleTitle: string;
-  department: string;
-  location: string;
-  joinDate: string;
-  salary: string;
-  managerId: string;
-  userRole: ApplicationRole;
-};
-
-type Credentials = {
-  employeeName: string;
-  employeeCode: string;
-  temporaryPassword: string;
-};
-
-type ApiEnvelope<T> = {
-  success?: boolean;
-  data?: T;
-  error?: string;
-};
-
-async function requestLifecycleData(signal?: AbortSignal): Promise<LifecycleData> {
-  const response = await fetch('/api/employee-lifecycle', {
-    cache: 'no-store',
-    headers: { Accept: 'application/json' },
-    signal,
-  });
-  const payload = (await response.json().catch(() => null)) as ApiEnvelope<LifecycleData> | null;
-
-  if (!response.ok || !payload?.success || !payload.data) {
-    throw new Error(payload?.error || 'Unable to load employee lifecycle data.');
-  }
-
-  return payload.data;
-}
-
-type LifecycleTab = 'onboarding' | 'offboarding' | 'history';
-
-type CopyTarget = 'employeeCode' | 'temporaryPassword' | 'all';
-
-const EMPTY_DATA: LifecycleData = {
-  candidates: [],
-  employees: [],
-  onboardingHistory: [],
-  offboardingHistory: [],
-};
-
-const DEFAULT_AVATAR_URL =
-  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80';
-
-const inputClass =
-  'mt-1.5 w-full rounded-xl border border-[#C8D9E6] bg-white px-3 py-2.5 text-sm text-[#17324A] outline-none transition placeholder:text-[#91A3B0] focus:border-[#6FA6C9] focus:ring-2 focus:ring-[#B0D0EA]/40 disabled:bg-[#F3F7FA] disabled:text-[#8A9AAA]';
-
-function todayForInput() {
-  const now = new Date();
-  const local = new Date(now.getTime() - now.getTimezoneOffset() * 60_000);
-  return local.toISOString().slice(0, 10);
-}
-
-function emptyForm(): OnboardingForm {
-  return {
-    name: '',
-    email: '',
-    phone: '',
-    avatarUrl: '',
-    roleTitle: '',
-    department: '',
-    location: '',
-    joinDate: todayForInput(),
-    salary: '',
-    managerId: '',
-    userRole: 'employee',
-  };
-}
-
-function formFromCandidate(candidate: LifecycleCandidate): OnboardingForm {
-  return {
-    name: candidate.name,
-    email: candidate.email.toLowerCase(),
-    phone: candidate.phone ?? '',
-    avatarUrl: candidate.avatarUrl ?? '',
-    roleTitle: candidate.job.title || candidate.currentRole,
-    department: candidate.job.department,
-    location: candidate.job.location || candidate.location,
-    joinDate: todayForInput(),
-    salary: '',
-    managerId: '',
-    userRole: 'employee',
-  };
-}
-
-function displayDate(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(date);
-}
-
-function initials(name: string) {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase())
-    .join('');
-}
-
-function Avatar({ name, src, className = 'h-11 w-11' }: { name: string; src?: string | null; className?: string }) {
-  const [failedSrc, setFailedSrc] = useState<string | null>(null);
-
-  if (src && failedSrc !== src) {
-    return (
-      <Image
-        src={src}
-        alt={`${name} profile`}
-        width={48}
-        height={48}
-        unoptimized
-        onError={() => setFailedSrc(src)}
-        className={`${className} shrink-0 rounded-xl border border-[#D5E3EC] object-cover`}
-      />
-    );
-  }
-
-  return (
-    <span
-      aria-label={`${name} initials`}
-      className={`${className} flex shrink-0 items-center justify-center rounded-xl border border-[#B9D2E3] bg-[#E8F2FA] text-xs font-bold text-[#315B76]`}
-    >
-      {initials(name) || 'HR'}
-    </span>
-  );
-}
-
-function EmptyState({
-  icon: Icon,
-  title,
-  detail,
-}: {
-  icon: React.ComponentType<{ className?: string }>;
-  title: string;
-  detail: string;
-}) {
-  return (
-    <div className="flex min-h-52 flex-col items-center justify-center rounded-2xl border border-dashed border-[#B9D2E3] bg-[#F8FBFD] p-7 text-center">
-      <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#E5F0F7] text-[#315B76]">
-        <Icon className="h-5 w-5" />
-      </span>
-      <h3 className="mt-3 text-sm font-bold text-[#17324A]">{title}</h3>
-      <p className="mt-1 max-w-sm text-xs leading-5 text-[#6F8190]">{detail}</p>
-    </div>
-  );
-}
-
-function ModalShell({
-  labelledBy,
-  children,
-}: {
-  labelledBy: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-[#0C2233]/55 p-4 backdrop-blur-sm">
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={labelledBy}
-        className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-[#B9D2E3] bg-white shadow-2xl"
-      >
-        {children}
-      </div>
-    </div>
-  );
-}
+type TabKey = 'onboarding' | 'probation' | 'transfers' | 'promotions' | 'salary_revisions' | 'disciplinary';
 
 export default function EmployeeLifecyclePage() {
   const { currentUser } = useHRMS();
-  const searchParams = useSearchParams();
-  const requestedCandidateId = searchParams.get('candidateId');
-  const handledCandidateIdRef = useRef<string | null>(null);
+  const [activeTab, setActiveTab] = useState<TabKey>('onboarding');
+  const [loading, setLoading] = useState<boolean>(true);
+  const [data, setData] = useState<any>({
+    candidates: [],
+    employees: [],
+    onboardingHistory: [],
+    offboardingHistory: [],
+    employmentProfiles: [],
+    changeRequests: [],
+    salaryRevisions: [],
+    bgvRecords: [],
+    onboardingTasks: [],
+  });
 
-  const [activeTab, setActiveTab] = useState<LifecycleTab>('onboarding');
-  const [data, setData] = useState<LifecycleData>(EMPTY_DATA);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [loadError, setLoadError] = useState('');
-  const [notice, setNotice] = useState('');
-  const [selectedCandidateId, setSelectedCandidateId] = useState('');
-  const [form, setForm] = useState<OnboardingForm>(emptyForm);
-  const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
-  const [isOnboarding, setIsOnboarding] = useState(false);
-  const [credentials, setCredentials] = useState<Credentials | null>(null);
-  const [copiedTarget, setCopiedTarget] = useState<CopyTarget | null>(null);
-  const [employeeQuery, setEmployeeQuery] = useState('');
-  const [selectedOffboardingEmployee, setSelectedOffboardingEmployee] = useState<LifecycleEmployee | null>(null);
-  const [offboardingReason, setOffboardingReason] = useState('');
-  const [isOffboarding, setIsOffboarding] = useState(false);
+  const [warnings, setWarnings] = useState<any[]>([]);
+  const [searchTerm, setSearchTerm] = useState<string>('');
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
-  const managers = useMemo(
-    () => data.employees.filter((employee) => ['manager', 'admin'].includes(employee.userRole)),
-    [data.employees],
-  );
+  // Modals
+  const [showOnboardModal, setShowOnboardModal] = useState<boolean>(false);
+  const [selectedCandidate, setSelectedCandidate] = useState<any>(null);
+  const [showTransferModal, setShowTransferModal] = useState<boolean>(false);
+  const [showPromotionModal, setShowPromotionModal] = useState<boolean>(false);
+  const [showWarningModal, setShowWarningModal] = useState<boolean>(false);
+  const [showProbationModal, setShowProbationModal] = useState<boolean>(false);
+  const [selectedEmployee, setSelectedEmployee] = useState<any>(null);
 
-  const filteredEmployees = useMemo(() => {
-    const query = employeeQuery.trim().toLowerCase();
-    if (!query) return data.employees;
-    return data.employees.filter((employee) =>
-      [
-        employee.name,
-        employee.employeeCode,
-        employee.email,
-        employee.roleTitle,
-        employee.department,
-      ].some((value) => value.toLowerCase().includes(query)),
-    );
-  }, [data.employees, employeeQuery]);
+  // Form states
+  const [onboardForm, setOnboardForm] = useState<any>({
+    roleTitle: '',
+    department: 'Engineering',
+    location: 'Bengaluru HQ',
+    joinDate: new Date().toISOString().split('T')[0],
+    salary: 1800000,
+    managerId: '',
+    userRole: 'employee',
+    probationMonths: 6,
+  });
 
-  const applyLifecycleData = useCallback((nextData: LifecycleData) => {
-    setData(nextData);
-    setLoadError('');
+  const [transferForm, setTransferForm] = useState<any>({
+    employeeId: '',
+    toDepartment: 'Product',
+    toLocation: 'Bengaluru HQ',
+    toManagerId: '',
+    effectiveDate: new Date().toISOString().split('T')[0],
+    reason: 'Inter-departmental rotation and growth',
+  });
 
-    if (requestedCandidateId && handledCandidateIdRef.current !== requestedCandidateId) {
-      handledCandidateIdRef.current = requestedCandidateId;
-      const candidate = nextData.candidates.find((item) => item.id === requestedCandidateId);
-      if (candidate) {
-        setActiveTab('onboarding');
-        setSelectedCandidateId(candidate.id);
-        setForm(formFromCandidate(candidate));
-        setIsOnboardingOpen(true);
-      }
-    }
-  }, [requestedCandidateId]);
+  const [promotionForm, setPromotionForm] = useState<any>({
+    employeeId: '',
+    newDesignation: 'Senior Cloud Architect',
+    newCtcAnnual: 3200000,
+    effectiveDate: new Date().toISOString().split('T')[0],
+    reason: 'Exceeded FY26 H1 deliverable expectations and led core migration.',
+  });
 
-  const refreshLifecycleData = async () => {
-    setIsRefreshing(true);
-    setLoadError('');
+  const [warningForm, setWarningForm] = useState<any>({
+    employeeId: '',
+    type: 'PolicyViolation',
+    severity: 'Medium',
+    reason: '',
+    actionRequired: '',
+    incidentDate: new Date().toISOString().split('T')[0],
+    isEmployeeVisible: true,
+  });
 
+  const [probationForm, setProbationForm] = useState<any>({
+    decision: 'Confirm',
+    notes: 'Exceeds all probation milestones and integrates well with squad.',
+    extensionMonths: 3,
+  });
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
     try {
-      applyLifecycleData(await requestLifecycleData());
-    } catch (error) {
-      setLoadError(error instanceof Error ? error.message : 'Unable to load employee lifecycle data.');
+      const [resLifecycle, resWarnings] = await Promise.all([
+        fetch('/api/employee-lifecycle'),
+        fetch('/api/disciplinary'),
+      ]);
+
+      const jsonLifecycle = await resLifecycle.json();
+      const jsonWarnings = await resWarnings.json();
+
+      if (jsonLifecycle.success) setData(jsonLifecycle.data);
+      if (jsonWarnings.success) setWarnings(jsonWarnings.data);
+    } catch (err) {
+      console.error('Error fetching lifecycle data:', err);
     } finally {
-      setIsRefreshing(false);
+      setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    if (currentUser.userRole !== 'admin') return;
+    fetchData();
+  }, [fetchData]);
 
-    const controller = new AbortController();
-    void requestLifecycleData(controller.signal)
-      .then((nextData) => applyLifecycleData(nextData))
-      .catch((error: unknown) => {
-        if (!controller.signal.aborted) {
-          setLoadError(error instanceof Error ? error.message : 'Unable to load employee lifecycle data.');
-        }
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setIsLoading(false);
-      });
-
-    return () => controller.abort();
-  }, [currentUser.userRole, applyLifecycleData]);
-
-  useEffect(() => {
-    if (!notice) return;
-    const timeout = window.setTimeout(() => setNotice(''), 4500);
-    return () => window.clearTimeout(timeout);
-  }, [notice]);
-
-  const openOnboarding = (candidate: LifecycleCandidate) => {
-    setSelectedCandidateId(candidate.id);
-    setForm(formFromCandidate(candidate));
-    setIsOnboardingOpen(true);
-    setLoadError('');
-  };
-
-  const closeOnboarding = () => {
-    if (isOnboarding) return;
-    setIsOnboardingOpen(false);
-    setSelectedCandidateId('');
-    setForm(emptyForm());
-  };
-
-  const submitOnboarding = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!selectedCandidateId || isOnboarding) return;
-
-    const salary = Number(form.salary);
-    if (!Number.isFinite(salary) || salary < 0) {
-      setLoadError('Enter a valid salary amount.');
-      return;
-    }
-
-    setIsOnboarding(true);
-    setLoadError('');
-
+  const handleOnboardSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedCandidate) return;
     try {
-      const response = await fetch('/api/employee-lifecycle', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({
-          action: 'onboard',
-          candidateId: selectedCandidateId,
-          name: form.name,
-          email: form.email,
-          phone: form.phone || null,
-          avatarUrl: form.avatarUrl || null,
-          roleTitle: form.roleTitle,
-          department: form.department,
-          location: form.location,
-          joinDate: form.joinDate,
-          salary,
-          managerId: form.managerId || null,
-          userRole: form.userRole,
-        }),
-      });
-
-      const payload = (await response.json().catch(() => null)) as ApiEnvelope<{
-        employee: LifecycleEmployee;
-        credentials: {
-          employeeCode: string;
-          temporaryPassword: string;
-        };
-      }> | null;
-
-      if (!response.ok || !payload?.success || !payload.data?.credentials) {
-        throw new Error(payload?.error || 'Unable to onboard this candidate.');
+      const hasOffer = selectedCandidate.recruitment_offers && selectedCandidate.recruitment_offers.length > 0;
+      let res;
+      if (hasOffer) {
+        res = await fetch('/api/employee-lifecycle/convert', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            candidateId: selectedCandidate.id,
+            customJoinDate: onboardForm.joinDate,
+            customManagerId: onboardForm.managerId || undefined,
+            customProbationMonths: Number(onboardForm.probationMonths || 6),
+          }),
+        });
+      } else {
+        res = await fetch('/api/employee-lifecycle', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'onboard',
+            candidateId: selectedCandidate.id,
+            name: selectedCandidate.name,
+            email: selectedCandidate.email,
+            phone: selectedCandidate.phone,
+            avatarUrl: selectedCandidate.avatarUrl,
+            ...onboardForm,
+          }),
+        });
       }
-
-      setCredentials({
-        employeeName: payload.data.employee.name,
-        employeeCode: payload.data.credentials.employeeCode,
-        temporaryPassword: payload.data.credentials.temporaryPassword,
-      });
-      setIsOnboardingOpen(false);
-      setSelectedCandidateId('');
-      setForm(emptyForm());
-      await refreshLifecycleData();
-    } catch (error) {
-      setLoadError(error instanceof Error ? error.message : 'Unable to onboard this candidate.');
-    } finally {
-      setIsOnboarding(false);
-    }
-  };
-
-  const submitOffboarding = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!selectedOffboardingEmployee || isOffboarding) return;
-
-    const reason = offboardingReason.trim();
-    if (reason.length < 5) {
-      setLoadError('Offboarding reason must contain at least 5 characters.');
-      return;
-    }
-
-    setIsOffboarding(true);
-    setLoadError('');
-
-    try {
-      const response = await fetch('/api/employee-lifecycle', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({
-          action: 'offboard',
-          employeeId: selectedOffboardingEmployee.id,
-          reason,
-        }),
-      });
-
-      const payload = (await response.json().catch(() => null)) as ApiEnvelope<{
-        revokedSessions: number;
-      }> | null;
-
-      if (!response.ok || !payload?.success || !payload.data) {
-        throw new Error(payload?.error || 'Unable to offboard this employee.');
+      const result = await res.json();
+      if (result.success) {
+        const empCode = result.employee?.employeeCode || result.data?.employee?.employeeCode || 'New Employee';
+        setActionSuccess(`Employee created successfully (${empCode})! Onboarding checklist and tasks initialized.`);
+        setShowOnboardModal(false);
+        fetchData();
+      } else {
+        setActionError(result.error || 'Failed to onboard candidate');
       }
-
-      const revokedSessions = payload.data.revokedSessions ?? 0;
-      setNotice(
-        `${selectedOffboardingEmployee.name} was offboarded. ${revokedSessions} active session${revokedSessions === 1 ? '' : 's'} revoked.`,
-      );
-      setSelectedOffboardingEmployee(null);
-      setOffboardingReason('');
-      await refreshLifecycleData();
-    } catch (error) {
-      setLoadError(error instanceof Error ? error.message : 'Unable to offboard this employee.');
-    } finally {
-      setIsOffboarding(false);
-    }
-  };
-
-  const copyCredential = async (target: CopyTarget) => {
-    if (!credentials) return;
-
-    const text =
-      target === 'employeeCode'
-        ? credentials.employeeCode
-        : target === 'temporaryPassword'
-          ? credentials.temporaryPassword
-          : `Employee: ${credentials.employeeName}\nCompany ID: ${credentials.employeeCode}\nTemporary password: ${credentials.temporaryPassword}`;
-
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopiedTarget(target);
-      window.setTimeout(() => setCopiedTarget(null), 1800);
     } catch {
-      setNotice('Clipboard permission was denied. Select and copy the credential manually.');
+      setActionError('Network error onboarding candidate');
     }
   };
 
-  if (currentUser.userRole !== 'admin') {
-    return (
-      <div className="flex min-h-[65vh] items-center justify-center">
-        <div className="max-w-md rounded-2xl border border-[#D5E3EC] bg-white p-8 text-center shadow-sm">
-          <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#E8F2FA] text-[#17324A]">
-            <ShieldAlert className="h-7 w-7" />
-          </span>
-          <h1 className="mt-4 text-lg font-bold text-[#17324A]">HR Admin access required</h1>
-          <p className="mt-2 text-sm leading-6 text-[#667C8D]">
-            Employee onboarding, credentials, and offboarding records are restricted to HR administrators.
-          </p>
-          <Link href="/" className="mt-5 inline-flex items-center gap-2 rounded-xl bg-[#17324A] px-4 py-2.5 text-xs font-semibold text-white hover:bg-[#315B76]">
-            Return to dashboard
-            <ArrowRight className="h-4 w-4" />
-          </Link>
-        </div>
-      </div>
-    );
-  }
+  const handleTaskToggle = async (taskId: string, currentStatus: string) => {
+    const newStatus = currentStatus === 'Completed' ? 'Pending' : 'Completed';
+    try {
+      await fetch('/api/employee-lifecycle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'update_task', taskId, status: newStatus }),
+      });
+      fetchData();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleBgvUpdate = async (bgvId: string, status: string) => {
+    try {
+      await fetch('/api/employee-lifecycle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'update_bgv', bgvId, status }),
+      });
+      fetchData();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleTransferSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const res = await fetch('/api/employee-lifecycle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'transfer_request', ...transferForm }),
+      });
+      const result = await res.json();
+      if (result.success) {
+        setActionSuccess('Employee transfer processed and profile updated atomically!');
+        setShowTransferModal(false);
+        fetchData();
+      } else {
+        setActionError(result.error);
+      }
+    } catch {
+      setActionError('Network error processing transfer');
+    }
+  };
+
+  const handlePromotionSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const res = await fetch('/api/employee-lifecycle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'promotion_request', ...promotionForm }),
+      });
+      const result = await res.json();
+      if (result.success) {
+        setActionSuccess('Promotion approved! Designation updated and SalaryRevisionHistory record created.');
+        setShowPromotionModal(false);
+        fetchData();
+      } else {
+        setActionError(result.error);
+      }
+    } catch {
+      setActionError('Network error processing promotion');
+    }
+  };
+
+  const handleWarningSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const res = await fetch('/api/disciplinary', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(warningForm),
+      });
+      const result = await res.json();
+      if (result.success) {
+        setActionSuccess('Disciplinary record logged and employee notified.');
+        setShowWarningModal(false);
+        fetchData();
+      } else {
+        setActionError(result.error);
+      }
+    } catch {
+      setActionError('Network error submitting warning');
+    }
+  };
+
+  const handleProbationSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedEmployee) return;
+    try {
+      const res = await fetch('/api/employee-lifecycle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'probation_action',
+          employeeId: selectedEmployee.id,
+          ...probationForm,
+        }),
+      });
+      const result = await res.json();
+      if (result.success) {
+        setActionSuccess(`Probation action '${probationForm.decision}' recorded successfully!`);
+        setShowProbationModal(false);
+        fetchData();
+      } else {
+        setActionError(result.error);
+      }
+    } catch {
+      setActionError('Network error updating probation');
+    }
+  };
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6">
-      <section className="relative overflow-hidden rounded-2xl border border-[#315B76] bg-gradient-to-br from-[#17324A] via-[#234B68] to-[#315B76] p-5 text-white shadow-sm md:p-7">
-        <div className="absolute -right-20 -top-24 h-64 w-64 rounded-full bg-[#B0D0EA]/15" />
-        <div className="absolute -bottom-16 right-40 h-40 w-40 rounded-full bg-white/5" />
-        <div className="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.14em] text-[#D5E8F5]">
-              <ShieldCheck className="h-4 w-4" />
-              Secure HR operations
-            </div>
-            <h1 className="mt-2 text-2xl font-bold tracking-tight md:text-3xl">Employee lifecycle</h1>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-[#DCEAF4]">
-              Convert shortlisted candidates into secure employee accounts and revoke access with an immutable offboarding record.
-            </p>
+    <div className="space-y-6">
+      {/* Top Banner */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <div className="mb-1.5 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-[#5B91B5]">
+            <Layers className="h-4 w-4" /> Comprehensive Talent Operations
           </div>
-          <div className="grid grid-cols-3 gap-2 sm:gap-3">
-            <div className="rounded-xl border border-white/15 bg-white/10 px-3 py-3 backdrop-blur-sm">
-              <p className="text-lg font-bold">{data.candidates.length}</p>
-              <p className="mt-0.5 text-[10px] text-[#DCEAF4]">Ready to onboard</p>
-            </div>
-            <div className="rounded-xl border border-white/15 bg-white/10 px-3 py-3 backdrop-blur-sm">
-              <p className="text-lg font-bold">{data.employees.length}</p>
-              <p className="mt-0.5 text-[10px] text-[#DCEAF4]">Active workforce</p>
-            </div>
-            <div className="rounded-xl border border-white/15 bg-white/10 px-3 py-3 backdrop-blur-sm">
-              <p className="text-lg font-bold">{data.onboardingHistory.length + data.offboardingHistory.length}</p>
-              <p className="mt-0.5 text-[10px] text-[#DCEAF4]">Recent audits</p>
-            </div>
-          </div>
+          <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-[#17324A]">
+            Employee Lifecycle & HR Operations
+          </h1>
+          <p className="mt-1 text-xs md:text-sm text-[#667085]">
+            Manage complete employee journey: Onboarding, BGV, Probation confirmation, Transfers, Promotions, Salary Revision timeline, and Disciplinary records.
+          </p>
         </div>
-      </section>
 
-      {loadError && (
-        <div role="alert" className="flex items-start justify-between gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
-          <span className="flex items-start gap-2">
-            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-            <span>{loadError}</span>
-          </span>
-          <button type="button" onClick={() => setLoadError('')} aria-label="Dismiss error" className="rounded-md p-1 hover:bg-red-100">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => fetchData()}
+            className="flex items-center gap-2 rounded-xl border border-[#D5E2EC] bg-white px-3.5 py-2.5 text-xs font-bold text-[#17324A] shadow-sm hover:bg-[#F4F8FA] transition-all"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} /> Refresh
+          </button>
+          {currentUser?.role === 'admin' && (
+            <>
+              <button
+                onClick={() => {
+                  setTransferForm({
+                    employeeId: data.employees[0]?.id || '',
+                    toDepartment: 'AI/ML',
+                    toLocation: 'Bengaluru HQ',
+                    toManagerId: data.employees[1]?.id || '',
+                    effectiveDate: new Date().toISOString().split('T')[0],
+                    reason: 'Strategic reallocation to AI Core squad',
+                  });
+                  setShowTransferModal(true);
+                }}
+                className="flex items-center gap-2 rounded-xl bg-white border border-[#23587E]/20 px-3.5 py-2.5 text-xs font-bold text-[#17324A] hover:bg-[#F4F8FA] shadow-sm transition-all"
+              >
+                <ArrowRight className="h-3.5 w-3.5 text-[#23587E]" /> New Transfer
+              </button>
+              <button
+                onClick={() => {
+                  setPromotionForm({
+                    employeeId: data.employees[0]?.id || '',
+                    newDesignation: 'Staff AI Engineer',
+                    newCtcAnnual: 3200000,
+                    effectiveDate: new Date().toISOString().split('T')[0],
+                    reason: 'Outstanding contribution to Next.js 16 enterprise platform',
+                  });
+                  setShowPromotionModal(true);
+                }}
+                className="flex items-center gap-2 rounded-xl bg-[#23587E] px-4 py-2.5 text-xs font-bold text-white shadow-md hover:bg-[#1b4461] transition-all"
+              >
+                <TrendingUp className="h-3.5 w-3.5" /> Promotion & Salary Revision
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Action Alerts */}
+      {actionSuccess && (
+        <div className="flex items-center justify-between rounded-xl border border-emerald-200 bg-emerald-50/90 p-4 text-xs md:text-sm font-semibold text-emerald-800 shadow-sm animate-in fade-in">
+          <div className="flex items-center gap-3">
+            <CheckCircle2 className="h-5 w-5 text-emerald-600 flex-shrink-0" />
+            <span>{actionSuccess}</span>
+          </div>
+          <button onClick={() => setActionSuccess(null)} className="text-emerald-700 hover:text-emerald-900">
             <X className="h-4 w-4" />
           </button>
         </div>
       )}
 
-      <section className="rounded-2xl border border-[#D5E3EC] bg-white p-2 shadow-sm">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div className="grid flex-1 grid-cols-3 gap-1">
-            {([
-              ['onboarding', 'Onboarding', UserPlus],
-              ['offboarding', 'Offboarding', UserMinus],
-              ['history', 'Audit history', History],
-            ] as const).map(([tab, label, Icon]) => (
-              <button
-                key={tab}
-                type="button"
-                onClick={() => setActiveTab(tab)}
-                className={`flex min-h-10 items-center justify-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold transition ${
-                  activeTab === tab
-                    ? 'bg-[#17324A] text-white shadow-sm'
-                    : 'text-[#607789] hover:bg-[#EEF6FB] hover:text-[#17324A]'
-                }`}
-              >
-                <Icon className="h-4 w-4" />
-                <span>{label}</span>
-              </button>
-            ))}
+      {actionError && (
+        <div className="flex items-center justify-between rounded-xl border border-rose-200 bg-rose-50/90 p-4 text-xs md:text-sm font-semibold text-rose-800 shadow-sm animate-in fade-in">
+          <div className="flex items-center gap-3">
+            <ShieldAlert className="h-5 w-5 text-rose-600 flex-shrink-0" />
+            <span>{actionError}</span>
           </div>
-          <button
-            type="button"
-            onClick={() => void refreshLifecycleData()}
-            disabled={isRefreshing}
-            className="flex min-h-10 items-center justify-center gap-2 rounded-xl border border-[#C8D9E6] bg-[#F8FBFD] px-4 text-xs font-semibold text-[#315B76] hover:bg-[#EAF3F9] disabled:opacity-60"
-          >
-            <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-            Refresh
+          <button onClick={() => setActionError(null)} className="text-rose-700 hover:text-rose-900">
+            <X className="h-4 w-4" />
           </button>
         </div>
-      </section>
+      )}
 
-      {isLoading ? (
-        <div className="flex min-h-80 items-center justify-center rounded-2xl border border-[#D5E3EC] bg-white">
-          <div className="text-center text-[#56758A]">
-            <LoaderCircle className="mx-auto h-7 w-7 animate-spin" />
-            <p className="mt-3 text-xs font-semibold">Loading secure lifecycle records...</p>
-          </div>
-        </div>
-      ) : activeTab === 'onboarding' ? (
-        <section className="space-y-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#66859B]">Recruitment handoff</p>
-              <h2 className="mt-1 text-lg font-bold text-[#17324A]">Shortlisted candidates</h2>
-              <p className="mt-1 text-xs text-[#6F8190]">Only exact Shortlisted candidates without an employee account appear here.</p>
+      {/* Navigation Switcher Tabs */}
+      <div className="flex border-b border-[#E2ECEF] overflow-x-auto gap-2 bg-white/70 p-1.5 rounded-2xl border backdrop-blur-sm">
+        <button
+          onClick={() => setActiveTab('onboarding')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${
+            activeTab === 'onboarding'
+              ? 'bg-[#23587E] text-white shadow-sm'
+              : 'text-[#567089] hover:bg-[#F4F8FA] hover:text-[#17324A]'
+          }`}
+        >
+          <UserPlus className="h-3.5 w-3.5" /> Candidate Onboarding & BGV
+          {data.candidates.length > 0 && (
+            <span className="ml-1.5 rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] text-emerald-700 font-extrabold">
+              {data.candidates.length} Ready
+            </span>
+          )}
+        </button>
+
+        <button
+          onClick={() => setActiveTab('probation')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${
+            activeTab === 'probation'
+              ? 'bg-[#23587E] text-white shadow-sm'
+              : 'text-[#567089] hover:bg-[#F4F8FA] hover:text-[#17324A]'
+          }`}
+        >
+          <Clock className="h-3.5 w-3.5" /> Probation & Confirmation Tracker
+        </button>
+
+        <button
+          onClick={() => setActiveTab('transfers')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${
+            activeTab === 'transfers'
+              ? 'bg-[#23587E] text-white shadow-sm'
+              : 'text-[#567089] hover:bg-[#F4F8FA] hover:text-[#17324A]'
+          }`}
+        >
+          <ArrowRight className="h-3.5 w-3.5" /> Department Transfers
+        </button>
+
+        <button
+          onClick={() => setActiveTab('promotions')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${
+            activeTab === 'promotions'
+              ? 'bg-[#23587E] text-white shadow-sm'
+              : 'text-[#567089] hover:bg-[#F4F8FA] hover:text-[#17324A]'
+          }`}
+        >
+          <TrendingUp className="h-3.5 w-3.5" /> Promotions & Levels
+        </button>
+
+        <button
+          onClick={() => setActiveTab('salary_revisions')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${
+            activeTab === 'salary_revisions'
+              ? 'bg-[#23587E] text-white shadow-sm'
+              : 'text-[#567089] hover:bg-[#F4F8FA] hover:text-[#17324A]'
+          }`}
+        >
+          <Coins className="h-3.5 w-3.5" /> Salary Revision Timeline
+        </button>
+
+        <button
+          onClick={() => setActiveTab('disciplinary')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${
+            activeTab === 'disciplinary'
+              ? 'bg-[#23587E] text-white shadow-sm'
+              : 'text-[#567089] hover:bg-[#F4F8FA] hover:text-[#17324A]'
+          }`}
+        >
+          <ShieldAlert className="h-3.5 w-3.5" /> Disciplinary & Warnings
+          {warnings.length > 0 && (
+            <span className="ml-1.5 rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] text-amber-800 font-extrabold">
+              {warnings.length}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {/* TAB 1: ONBOARDING & BGV */}
+      {activeTab === 'onboarding' && (
+        <div className="space-y-6">
+          {/* Candidate Selection Queue */}
+          <div className="rounded-2xl border border-[#D5E2EC] bg-white p-6 shadow-sm">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-6">
+              <div>
+                <h2 className="text-base font-bold text-[#17324A]">Selected Candidates Ready for Onboarding</h2>
+                <p className="text-xs text-[#667085]">Candidates marked as &apos;Selected&apos; in ATS. Click to trigger transactional onboarding.</p>
+              </div>
+              <span className="rounded-full bg-[#EBF4FA] px-3 py-1 text-xs font-extrabold text-[#23587E]">
+                {data.candidates.length} Selected Candidates
+              </span>
             </div>
-            <Link href="/recruitment" className="inline-flex items-center gap-2 self-start rounded-xl border border-[#B9D2E3] bg-white px-3 py-2 text-xs font-semibold text-[#315B76] hover:bg-[#EEF6FB] sm:self-auto">
-              <BriefcaseBusiness className="h-4 w-4" />
-              Open recruitment
-            </Link>
+
+            {data.candidates.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-[#CBDDE9] p-8 text-center bg-[#F9FBFC]">
+                <UserCheck className="mx-auto h-8 w-8 text-[#8FAEC5] mb-2" />
+                <p className="text-xs font-bold text-[#4B6882]">No pending selected candidates in the onboarding pipeline.</p>
+                <p className="text-[11px] text-[#7895AE] mt-1">Select applicants in Recruitment ATS to populate this queue.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {data.candidates.map((c: any) => (
+                  <div key={c.id} className="rounded-xl border border-[#D5E2EC] p-4 bg-[#FBFDFE] hover:border-[#23587E] transition-all flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="h-10 w-10 rounded-full bg-[#23587E]/10 flex items-center justify-center text-xs font-extrabold text-[#23587E]">
+                          {c.name.charAt(0)}
+                        </div>
+                        <div>
+                          <div className="font-bold text-xs text-[#17324A]">{c.name}</div>
+                          <div className="text-[11px] text-[#667085]">{c.email}</div>
+                        </div>
+                      </div>
+                      <div className="space-y-1.5 text-[11px] text-[#4B6882] mb-4">
+                        <div className="flex items-center gap-1.5"><BriefcaseBusiness className="h-3.5 w-3.5 text-[#8FAEC5]" /> {c.job?.title || 'Applied Role'}</div>
+                        <div className="flex items-center gap-1.5"><Building2 className="h-3.5 w-3.5 text-[#8FAEC5]" /> {c.job?.department || 'Department'} · {c.location}</div>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setSelectedCandidate(c);
+                        setOnboardForm((prev: any) => ({
+                          ...prev,
+                          roleTitle: c.job?.title || 'Engineer',
+                          department: c.job?.department || 'Engineering',
+                        }));
+                        setShowOnboardModal(true);
+                      }}
+                      className="w-full rounded-lg bg-[#23587E] py-2 text-xs font-bold text-white hover:bg-[#1b4461] transition-all flex items-center justify-center gap-1.5"
+                    >
+                      <UserPlus className="h-3.5 w-3.5" /> Start Onboarding
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
-          {data.candidates.length === 0 ? (
-            <EmptyState
-              icon={BadgeCheck}
-              title="No candidates waiting for onboarding"
-              detail="Shortlist a candidate in Recruitment. They will appear here automatically when they have not already been onboarded."
-            />
-          ) : (
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {data.candidates.map((candidate) => (
-                <article key={candidate.id} className="flex flex-col rounded-2xl border border-[#D5E3EC] bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-[#9FC2DC] hover:shadow-md">
-                  <div className="flex items-start gap-3">
-                    <Avatar name={candidate.name} src={candidate.avatarUrl} className="h-12 w-12" />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <h3 className="truncate text-sm font-bold text-[#17324A]">{candidate.name}</h3>
-                          <p className="mt-0.5 truncate text-[11px] text-[#61798B]">{candidate.email}</p>
+          {/* Onboarding Checklist & BGV Tracker */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="rounded-2xl border border-[#D5E2EC] bg-white p-6 shadow-sm">
+              <h2 className="text-base font-bold text-[#17324A] mb-1">Onboarding Task Engine (Multi-Department)</h2>
+              <p className="text-xs text-[#667085] mb-4">Reusable task checklist across HR, Manager, IT, Finance, and Employee.</p>
+              
+              <div className="space-y-2.5 max-h-[400px] overflow-y-auto pr-1">
+                {data.onboardingTasks.length === 0 ? (
+                  <p className="text-xs text-[#8FAEC5] py-4 text-center">No active onboarding tasks.</p>
+                ) : (
+                  data.onboardingTasks.map((t: any) => (
+                    <div
+                      key={t.id}
+                      onClick={() => handleTaskToggle(t.id, t.status)}
+                      className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-all ${
+                        t.status === 'Completed'
+                          ? 'border-emerald-200 bg-emerald-50/50'
+                          : 'border-[#DCE8F0] bg-white hover:border-[#23587E]'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={`h-5 w-5 rounded-md flex items-center justify-center ${t.status === 'Completed' ? 'bg-emerald-600 text-white' : 'border border-[#CBDDE9]'}`}>
+                          {t.status === 'Completed' && <Check className="h-3.5 w-3.5" />}
                         </div>
-                        <span className="shrink-0 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-1 text-[9px] font-bold uppercase text-emerald-700">
-                          Shortlisted
+                        <div>
+                          <div className={`text-xs font-bold ${t.status === 'Completed' ? 'line-through text-emerald-900/60' : 'text-[#17324A]'}`}>
+                            {t.title}
+                          </div>
+                          <div className="text-[10px] text-[#667085]">Department Owner: <span className="font-semibold text-[#23587E]">{t.owner}</span></div>
+                        </div>
+                      </div>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${t.status === 'Completed' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
+                        {t.status}
+                      </span>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-[#D5E2EC] bg-white p-6 shadow-sm">
+              <h2 className="text-base font-bold text-[#17324A] mb-1">Background Verification (BGV) Status</h2>
+              <p className="text-xs text-[#667085] mb-4">Identity, criminal background, address & previous employment checks.</p>
+
+              <div className="space-y-3">
+                {data.bgvRecords.length === 0 ? (
+                  <p className="text-xs text-[#8FAEC5] py-4 text-center">No active BGV verifications.</p>
+                ) : (
+                  data.bgvRecords.map((b: any) => (
+                    <div key={b.id} className="p-3.5 rounded-xl border border-[#DCE8F0] bg-[#FBFDFE] flex items-center justify-between">
+                      <div className="space-y-1">
+                        <div className="text-xs font-bold text-[#17324A] flex items-center gap-2">
+                          <ShieldCheck className="h-4 w-4 text-[#23587E]" /> {b.checkType}
+                        </div>
+                        <div className="text-[11px] text-[#667085]">
+                          Status: <span className="font-semibold text-[#17324A]">{b.status}</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {b.status !== 'Verified' && (
+                          <button
+                            onClick={() => handleBgvUpdate(b.id, 'Verified')}
+                            className="rounded-lg bg-emerald-600 px-3 py-1 text-[11px] font-bold text-white hover:bg-emerald-700 transition-all"
+                          >
+                            Mark Verified
+                          </button>
+                        )}
+                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold ${b.status === 'Verified' ? 'bg-emerald-100 text-emerald-800' : 'bg-blue-100 text-blue-800'}`}>
+                          {b.status}
                         </span>
                       </div>
                     </div>
-                  </div>
-
-                  <div className="mt-4 space-y-2 rounded-xl bg-[#F6FAFC] p-3 text-xs text-[#5E778A]">
-                    <p className="flex items-center gap-2"><BriefcaseBusiness className="h-3.5 w-3.5 text-[#315B76]" /><span className="font-semibold text-[#17324A]">{candidate.job.title}</span></p>
-                    <p className="flex items-center gap-2"><Building2 className="h-3.5 w-3.5 text-[#315B76]" />{candidate.job.department}</p>
-                    <p className="flex items-center gap-2"><MapPin className="h-3.5 w-3.5 text-[#315B76]" />{candidate.job.location || candidate.location}</p>
-                  </div>
-
-                  <div className="mt-3 flex items-center justify-between text-[10px] text-[#738897]">
-                    <span>{candidate.experience || 'Experience not specified'}</span>
-                    <span className="font-bold text-[#315B76]">Match {candidate.score}%</span>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => openOnboarding(candidate)}
-                    className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#17324A] px-3 py-2.5 text-xs font-semibold text-white transition hover:bg-[#315B76]"
-                  >
-                    <UserPlus className="h-4 w-4" />
-                    Review & onboard
-                  </button>
-                </article>
-              ))}
+                  ))
+                )}
+              </div>
             </div>
-          )}
-        </section>
-      ) : activeTab === 'offboarding' ? (
-        <section className="space-y-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          </div>
+        </div>
+      )}
+
+      {/* TAB 2: PROBATION & CONFIRMATION */}
+      {activeTab === 'probation' && (
+        <div className="rounded-2xl border border-[#D5E2EC] bg-white p-6 shadow-sm">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-6">
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#66859B]">Access revocation</p>
-              <h2 className="mt-1 text-lg font-bold text-[#17324A]">Current employees</h2>
-              <p className="mt-1 text-xs text-[#6F8190]">Offboarding denies future login and revokes all database sessions immediately.</p>
-            </div>
-            <div className="relative w-full sm:w-80">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8094A3]" />
-              <input
-                type="search"
-                value={employeeQuery}
-                onChange={(event) => setEmployeeQuery(event.target.value)}
-                placeholder="Search employee, email, or ID"
-                className="w-full rounded-xl border border-[#C8D9E6] bg-white py-2.5 pl-9 pr-3 text-xs text-[#17324A] outline-none focus:border-[#6FA6C9] focus:ring-2 focus:ring-[#B0D0EA]/40"
-              />
+              <h2 className="text-base font-bold text-[#17324A]">Probation Milestones & Confirmation</h2>
+              <p className="text-xs text-[#667085]">Evaluate 90/180-day new joiner probation status, record manager reviews, and issue confirmations.</p>
             </div>
           </div>
 
-          {filteredEmployees.length === 0 ? (
-            <EmptyState icon={UsersRound} title="No employees found" detail="Change the search phrase or refresh the lifecycle data." />
-          ) : (
-            <div className="overflow-hidden rounded-2xl border border-[#D5E3EC] bg-white shadow-sm">
-              <div className="hidden grid-cols-[minmax(220px,1.5fr)_minmax(160px,1fr)_minmax(130px,.8fr)_auto] gap-4 border-b border-[#DCE7EE] bg-[#F6FAFC] px-4 py-3 text-[10px] font-bold uppercase tracking-[0.12em] text-[#718696] md:grid">
-                <span>Employee</span><span>Role & department</span><span>Status</span><span className="text-right">Action</span>
-              </div>
-              <div className="divide-y divide-[#E2EBF1]">
-                {filteredEmployees.map((employee) => {
-                  const isSelf = employee.id === currentUser.id;
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="border-b border-[#E2ECEF] bg-[#F8FAFC] text-[11px] font-extrabold uppercase text-[#5B768F]">
+                <tr>
+                  <th className="py-3 px-4">Employee</th>
+                  <th className="py-3 px-4">Department & Role</th>
+                  <th className="py-3 px-4">Joining Date</th>
+                  <th className="py-3 px-4">Probation End Date</th>
+                  <th className="py-3 px-4">Status</th>
+                  <th className="py-3 px-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#EBF1F5]">
+                {data.employees.map((emp: any) => {
+                  const prof = data.employmentProfiles.find((p: any) => p.employee_id === emp.id);
+                  const isProbation = prof?.lifecycle_status === 'Probation' || !prof?.confirmation_date;
+                  const probEnd = prof?.probation_end_date ? new Date(prof.probation_end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '6 Months from Joining';
+
                   return (
-                    <article key={employee.id} className="grid gap-3 px-4 py-4 transition hover:bg-[#FAFCFD] md:grid-cols-[minmax(220px,1.5fr)_minmax(160px,1fr)_minmax(130px,.8fr)_auto] md:items-center md:gap-4">
-                      <div className="flex min-w-0 items-center gap-3">
-                        <Avatar name={employee.name} src={employee.avatarUrl} />
-                        <div className="min-w-0">
-                          <h3 className="truncate text-sm font-bold text-[#17324A]">{employee.name}</h3>
-                          <p className="mt-0.5 truncate text-[11px] text-[#6C8190]">{employee.email}</p>
-                          <p className="mt-0.5 font-mono text-[10px] font-semibold text-[#315B76]">{employee.employeeCode}</p>
+                    <tr key={emp.id} className="hover:bg-[#F9FBFC] transition-colors">
+                      <td className="py-3.5 px-4 font-bold text-[#17324A]">
+                        <div className="flex items-center gap-2.5">
+                          <div className="h-7 w-7 rounded-full bg-[#23587E]/10 flex items-center justify-center text-xs font-bold text-[#23587E]">
+                            {emp.name.charAt(0)}
+                          </div>
+                          <div>
+                            <div>{emp.name}</div>
+                            <div className="text-[10px] text-[#667085]">{emp.employeeCode}</div>
+                          </div>
                         </div>
-                      </div>
-                      <div>
-                        <p className="text-xs font-semibold text-[#315B76]">{employee.roleTitle}</p>
-                        <p className="mt-1 text-[11px] text-[#748795]">{employee.department}</p>
-                      </div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[10px] font-bold text-emerald-700">{employee.status}</span>
-                        <span className="rounded-full border border-[#D5E3EC] bg-[#F6FAFC] px-2.5 py-1 text-[10px] font-semibold capitalize text-[#5D7587]">{employee.userRole}</span>
-                      </div>
-                      <button
-                        type="button"
-                        disabled={isSelf}
-                        title={isSelf ? 'You cannot offboard your own account' : `Offboard ${employee.name}`}
-                        onClick={() => {
-                          setSelectedOffboardingEmployee(employee);
-                          setOffboardingReason('');
-                          setLoadError('');
-                        }}
-                        className="inline-flex items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700 transition hover:bg-red-100 disabled:border-[#DCE5EB] disabled:bg-[#F5F7F8] disabled:text-[#9AA8B1] md:justify-self-end"
-                      >
-                        <UserMinus className="h-4 w-4" />
-                        {isSelf ? 'Current admin' : 'Offboard'}
-                      </button>
-                    </article>
+                      </td>
+                      <td className="py-3.5 px-4 text-[#4B6882]">{emp.department} · {emp.roleTitle}</td>
+                      <td className="py-3.5 px-4 text-[#4B6882]">{emp.joinDate}</td>
+                      <td className="py-3.5 px-4 font-semibold text-[#17324A]">{probEnd}</td>
+                      <td className="py-3.5 px-4">
+                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold ${isProbation ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'}`}>
+                          {isProbation ? 'In Probation' : 'Confirmed Full-Time'}
+                        </span>
+                      </td>
+                      <td className="py-3.5 px-4 text-right">
+                        {isProbation ? (
+                          <button
+                            onClick={() => {
+                              setSelectedEmployee(emp);
+                              setShowProbationModal(true);
+                            }}
+                            className="rounded-lg bg-[#23587E] px-3 py-1 text-xs font-bold text-white hover:bg-[#1b4461] transition-all"
+                          >
+                            Review & Confirm
+                          </button>
+                        ) : (
+                          <span className="text-[11px] font-semibold text-emerald-600 flex items-center justify-end gap-1">
+                            <BadgeCheck className="h-4 w-4" /> Confirmed
+                          </span>
+                        )}
+                      </td>
+                    </tr>
                   );
                 })}
-              </div>
-            </div>
-          )}
-        </section>
-      ) : (
-        <section className="grid gap-5 xl:grid-cols-2">
-          <div className="rounded-2xl border border-[#D5E3EC] bg-white p-4 shadow-sm sm:p-5">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-emerald-700">Account creation</p>
-                <h2 className="mt-1 text-base font-bold text-[#17324A]">Onboarding history</h2>
-              </div>
-              <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-bold text-emerald-700">{data.onboardingHistory.length} records</span>
-            </div>
-            <div className="mt-4 space-y-3">
-              {data.onboardingHistory.length === 0 ? (
-                <EmptyState icon={UserPlus} title="No onboarding records" detail="Completed onboarding audits will be shown here." />
-              ) : data.onboardingHistory.map((audit) => (
-                <article key={audit.id} className="rounded-xl border border-[#DFE9EF] bg-[#FAFCFD] p-3.5">
-                  <div className="flex items-start gap-3">
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700"><CheckCircle2 className="h-4 w-4" /></span>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
-                        <div>
-                          <h3 className="text-sm font-bold text-[#17324A]">{audit.employee.name}</h3>
-                          <p className="mt-0.5 font-mono text-[10px] font-semibold text-[#315B76]">{audit.employee.employeeCode}</p>
-                        </div>
-                        <span className="text-[10px] text-[#7C8F9C]">{displayDate(audit.onboardedAt)}</span>
-                      </div>
-                      <p className="mt-2 text-[11px] text-[#687F90]">{audit.employee.roleTitle} · {audit.employee.department}</p>
-                      <p className="mt-1 text-[10px] text-[#8495A1]">Processed by {audit.onboardedBy.name} ({audit.onboardedBy.employeeCode})</p>
-                    </div>
-                  </div>
-                </article>
-              ))}
-            </div>
+              </tbody>
+            </table>
           </div>
-
-          <div className="rounded-2xl border border-[#D5E3EC] bg-white p-4 shadow-sm sm:p-5">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-red-700">Access termination</p>
-                <h2 className="mt-1 text-base font-bold text-[#17324A]">Offboarding history</h2>
-              </div>
-              <span className="rounded-full bg-red-50 px-2.5 py-1 text-[10px] font-bold text-red-700">{data.offboardingHistory.length} records</span>
-            </div>
-            <div className="mt-4 space-y-3">
-              {data.offboardingHistory.length === 0 ? (
-                <EmptyState icon={UserMinus} title="No offboarding records" detail="Completed offboarding audits and their reasons will be shown here." />
-              ) : data.offboardingHistory.map((audit) => (
-                <article key={audit.id} className="rounded-xl border border-[#DFE9EF] bg-[#FAFCFD] p-3.5">
-                  <div className="flex items-start gap-3">
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-red-50 text-red-700"><LockKeyhole className="h-4 w-4" /></span>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
-                        <div>
-                          <h3 className="text-sm font-bold text-[#17324A]">{audit.employee.name}</h3>
-                          <p className="mt-0.5 font-mono text-[10px] font-semibold text-[#315B76]">{audit.employee.employeeCode}</p>
-                        </div>
-                        <span className="text-[10px] text-[#7C8F9C]">{displayDate(audit.offboardedAt)}</span>
-                      </div>
-                      <p className="mt-2 rounded-lg border border-red-100 bg-red-50/70 px-2.5 py-2 text-[11px] leading-5 text-red-800">{audit.reason}</p>
-                      <p className="mt-2 text-[10px] text-[#8495A1]">Processed by {audit.offboardedBy.name} ({audit.offboardedBy.employeeCode})</p>
-                    </div>
-                  </div>
-                </article>
-              ))}
-            </div>
-          </div>
-        </section>
+        </div>
       )}
 
-      {isOnboardingOpen && (
-        <ModalShell labelledBy="onboarding-dialog-title">
-          <form onSubmit={submitOnboarding}>
-            <div className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-[#DCE7EE] bg-white px-5 py-4">
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#66859B]">Editable employee profile</p>
-                <h2 id="onboarding-dialog-title" className="mt-1 text-lg font-bold text-[#17324A]">Complete onboarding</h2>
-                <p className="mt-1 text-xs text-[#6D8190]">Review all details before the secure account is created.</p>
-              </div>
-              <button type="button" onClick={closeOnboarding} disabled={isOnboarding} aria-label="Close onboarding dialog" className="rounded-lg p-2 text-[#718696] hover:bg-[#EEF5F9] hover:text-[#17324A]">
-                <X className="h-4 w-4" />
-              </button>
+      {/* TAB 3: TRANSFERS & MOBILITY */}
+      {activeTab === 'transfers' && (
+        <div className="rounded-2xl border border-[#D5E2EC] bg-white p-6 shadow-sm">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-6">
+            <div>
+              <h2 className="text-base font-bold text-[#17324A]">Internal Department & Location Mobility</h2>
+              <p className="text-xs text-[#667085]">Audit log of inter-department transfers, reporting manager changes, and geographical relocations.</p>
             </div>
-
-            <div className="space-y-5 p-5">
-              <div className="flex items-center gap-3 rounded-xl border border-[#C8DDEB] bg-[#F1F7FB] p-3">
-                <Avatar name={form.name || 'Candidate'} src={form.avatarUrl || DEFAULT_AVATAR_URL} />
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-bold text-[#17324A]">{form.name}</p>
-                  <p className="mt-0.5 truncate text-[11px] text-[#60798B]">{form.email}</p>
-                </div>
-                <span className="ml-auto rounded-full border border-emerald-200 bg-emerald-50 px-2 py-1 text-[9px] font-bold text-emerald-700">Shortlisted</span>
-              </div>
-
-              <fieldset>
-                <legend className="flex items-center gap-2 text-xs font-bold text-[#17324A]"><Mail className="h-4 w-4 text-[#315B76]" />Personal & contact details</legend>
-                <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                  <label className="text-[11px] font-semibold text-[#405F75]">Full name<input required minLength={2} maxLength={120} value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} className={inputClass} /></label>
-                  <label className="text-[11px] font-semibold text-[#405F75]">Work email<input required type="email" maxLength={254} value={form.email} onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))} className={inputClass} /></label>
-                  <label className="text-[11px] font-semibold text-[#405F75]">Phone<input type="tel" maxLength={30} value={form.phone} onChange={(event) => setForm((current) => ({ ...current, phone: event.target.value }))} className={inputClass} placeholder="Optional" /></label>
-                  <label className="text-[11px] font-semibold text-[#405F75]">Avatar URL<input type="url" maxLength={2048} value={form.avatarUrl} onChange={(event) => setForm((current) => ({ ...current, avatarUrl: event.target.value }))} className={inputClass} placeholder="Optional HTTPS URL" /></label>
-                </div>
-              </fieldset>
-
-              <fieldset>
-                <legend className="flex items-center gap-2 text-xs font-bold text-[#17324A]"><BriefcaseBusiness className="h-4 w-4 text-[#315B76]" />Employment details</legend>
-                <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                  <label className="text-[11px] font-semibold text-[#405F75]">Designation<input required minLength={2} maxLength={100} value={form.roleTitle} onChange={(event) => setForm((current) => ({ ...current, roleTitle: event.target.value }))} className={inputClass} /></label>
-                  <label className="text-[11px] font-semibold text-[#405F75]">Department<input required minLength={2} maxLength={80} value={form.department} onChange={(event) => setForm((current) => ({ ...current, department: event.target.value }))} className={inputClass} /></label>
-                  <label className="text-[11px] font-semibold text-[#405F75]">Location<input required minLength={2} maxLength={120} value={form.location} onChange={(event) => setForm((current) => ({ ...current, location: event.target.value }))} className={inputClass} /></label>
-                  <label className="text-[11px] font-semibold text-[#405F75]">Joining date<input required type="date" value={form.joinDate} onChange={(event) => setForm((current) => ({ ...current, joinDate: event.target.value }))} className={inputClass} /></label>
-                  <label className="text-[11px] font-semibold text-[#405F75]">Annual salary (INR)<input required type="number" min="0" max="1000000000" step="1" value={form.salary} onChange={(event) => setForm((current) => ({ ...current, salary: event.target.value }))} className={inputClass} placeholder="e.g. 900000" /></label>
-                  <label className="text-[11px] font-semibold text-[#405F75]">Reporting manager<select value={form.managerId} onChange={(event) => setForm((current) => ({ ...current, managerId: event.target.value }))} className={inputClass}><option value="">No reporting manager</option>{managers.map((manager) => <option key={manager.id} value={manager.id}>{manager.name} · {manager.roleTitle}</option>)}</select></label>
-                  <label className="text-[11px] font-semibold text-[#405F75] sm:col-span-2">Application access role<select value={form.userRole} onChange={(event) => setForm((current) => ({ ...current, userRole: event.target.value as ApplicationRole }))} className={inputClass}><option value="employee">Employee · Self-service access</option><option value="manager">Manager · Team management access</option></select></label>
-                </div>
-              </fieldset>
-
-              <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-[11px] leading-5 text-amber-900">
-                <KeyRound className="mt-0.5 h-4 w-4 shrink-0" />
-                <p>A unique company ID and secure temporary password will be generated after the transaction commits. The password is displayed once and is never stored in plaintext.</p>
-              </div>
-            </div>
-
-            <div className="sticky bottom-0 flex flex-col-reverse gap-2 border-t border-[#DCE7EE] bg-white px-5 py-4 sm:flex-row sm:justify-end">
-              <button type="button" onClick={closeOnboarding} disabled={isOnboarding} className="rounded-xl border border-[#C8D9E6] bg-white px-4 py-2.5 text-xs font-semibold text-[#315B76] hover:bg-[#F2F7FA] disabled:opacity-60">Cancel</button>
-              <button type="submit" disabled={isOnboarding} className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#17324A] px-4 py-2.5 text-xs font-semibold text-white hover:bg-[#315B76] disabled:opacity-60">
-                {isOnboarding ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
-                {isOnboarding ? 'Creating secure account...' : 'Create employee account'}
-              </button>
-            </div>
-          </form>
-        </ModalShell>
-      )}
-
-      {credentials && (
-        <ModalShell labelledBy="credentials-dialog-title">
-          <div className="p-5 sm:p-6">
-            <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700"><BadgeCheck className="h-7 w-7" /></span>
-            <div className="mt-4 text-center">
-              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-emerald-700">Onboarding completed</p>
-              <h2 id="credentials-dialog-title" className="mt-1 text-xl font-bold text-[#17324A]">Save credentials now</h2>
-              <p className="mt-2 text-sm leading-6 text-[#667D8E]">Secure access was created for <strong className="text-[#17324A]">{credentials.employeeName}</strong>.</p>
-            </div>
-
-            <div className="mt-5 rounded-xl border border-red-200 bg-red-50 p-3 text-xs leading-5 text-red-800">
-              <p className="flex items-start gap-2 font-semibold"><ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />This temporary password is shown only once. Closing this window permanently removes it from the HR interface.</p>
-            </div>
-
-            <div className="mt-4 space-y-3">
-              <div className="rounded-xl border border-[#D5E3EC] bg-[#F8FBFD] p-3">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="min-w-0"><p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#748A9A]">Company employee ID</p><p className="mt-1 break-all font-mono text-sm font-bold text-[#17324A]">{credentials.employeeCode}</p></div>
-                  <button type="button" onClick={() => void copyCredential('employeeCode')} aria-label="Copy company employee ID" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[#C8D9E6] bg-white text-[#315B76] hover:bg-[#EAF3F9]">{copiedTarget === 'employeeCode' ? <Check className="h-4 w-4 text-emerald-600" /> : <Copy className="h-4 w-4" />}</button>
-                </div>
-              </div>
-              <div className="rounded-xl border border-[#D5E3EC] bg-[#F8FBFD] p-3">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="min-w-0"><p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#748A9A]">One-time temporary password</p><p className="mt-1 break-all font-mono text-sm font-bold text-[#17324A]">{credentials.temporaryPassword}</p></div>
-                  <button type="button" onClick={() => void copyCredential('temporaryPassword')} aria-label="Copy temporary password" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[#C8D9E6] bg-white text-[#315B76] hover:bg-[#EAF3F9]">{copiedTarget === 'temporaryPassword' ? <Check className="h-4 w-4 text-emerald-600" /> : <Copy className="h-4 w-4" />}</button>
-                </div>
-              </div>
-            </div>
-
-            <button type="button" onClick={() => void copyCredential('all')} className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[#B9D2E3] bg-[#EEF6FB] px-4 py-2.5 text-xs font-semibold text-[#17324A] hover:bg-[#DCECF7]">
-              {copiedTarget === 'all' ? <Check className="h-4 w-4 text-emerald-600" /> : <Clipboard className="h-4 w-4" />}
-              {copiedTarget === 'all' ? 'Credentials copied' : 'Copy both credentials'}
+            <button
+              onClick={() => {
+                setTransferForm({
+                  employeeId: data.employees[0]?.id || '',
+                  toDepartment: 'AI/ML',
+                  toLocation: 'Bengaluru HQ',
+                  toManagerId: data.employees[1]?.id || '',
+                  effectiveDate: new Date().toISOString().split('T')[0],
+                  reason: 'Strategic reallocation',
+                });
+                setShowTransferModal(true);
+              }}
+              className="flex items-center gap-1.5 rounded-xl bg-[#23587E] px-3.5 py-2 text-xs font-bold text-white hover:bg-[#1b4461]"
+            >
+              <Plus className="h-3.5 w-3.5" /> Request Transfer
             </button>
-            <button type="button" onClick={() => { setCredentials(null); setCopiedTarget(null); setNotice('Onboarding completed. The one-time password has been cleared from this screen.'); }} className="mt-2 w-full rounded-xl bg-[#17324A] px-4 py-2.5 text-xs font-semibold text-white hover:bg-[#315B76]">I have saved the credentials</button>
           </div>
-        </ModalShell>
+
+          <div className="space-y-3">
+            {data.changeRequests.length === 0 ? (
+              <p className="text-xs text-[#8FAEC5] py-8 text-center">No transfer change requests recorded.</p>
+            ) : (
+              data.changeRequests.map((req: any) => (
+                <div key={req.id} className="p-4 rounded-xl border border-[#D5E2EC] bg-[#FBFDFE] flex flex-col md:flex-row md:items-center justify-between gap-3">
+                  <div>
+                    <div className="text-xs font-bold text-[#17324A] flex items-center gap-2">
+                      <ArrowRight className="h-4 w-4 text-[#23587E]" />
+                      <span>{req.employees_employee_change_requests_employee_idToemployees?.name || 'Employee'}</span>
+                      <span className="text-[11px] font-normal text-[#667085]">({req.employees_employee_change_requests_employee_idToemployees?.employeeCode})</span>
+                    </div>
+                    <div className="text-[11px] text-[#4B6882] mt-1">
+                      Effective Date: <span className="font-semibold text-[#17324A]">{new Date(req.effective_date).toLocaleDateString()}</span> · Reason: {req.reason}
+                    </div>
+                  </div>
+                  <span className="px-3 py-1 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800 self-start md:self-auto">
+                    {req.status}
+                  </span>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
       )}
 
-      {selectedOffboardingEmployee && (
-        <ModalShell labelledBy="offboarding-dialog-title">
-          <form onSubmit={submitOffboarding}>
-            <div className="flex items-start justify-between gap-4 border-b border-[#F0D5D5] bg-red-50/70 px-5 py-4">
+      {/* TAB 4: PROMOTIONS & LEVELS */}
+      {activeTab === 'promotions' && (
+        <div className="rounded-2xl border border-[#D5E2EC] bg-white p-6 shadow-sm">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-6">
+            <div>
+              <h2 className="text-base font-bold text-[#17324A]">Promotion Matrix & Level Progression</h2>
+              <p className="text-xs text-[#667085]">Promotions automatically update employee designations, active SalaryStructures, and write to SalaryRevisionHistory.</p>
+            </div>
+            <button
+              onClick={() => {
+                setPromotionForm({
+                  employeeId: data.employees[0]?.id || '',
+                  newDesignation: 'Staff AI Engineer',
+                  newCtcAnnual: 3200000,
+                  effectiveDate: new Date().toISOString().split('T')[0],
+                  reason: 'Outstanding contribution to enterprise platform',
+                });
+                setShowPromotionModal(true);
+              }}
+              className="flex items-center gap-1.5 rounded-xl bg-[#23587E] px-3.5 py-2 text-xs font-bold text-white hover:bg-[#1b4461]"
+            >
+              <TrendingUp className="h-3.5 w-3.5" /> Execute Promotion
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {data.employees.map((emp: any) => (
+              <div key={emp.id} className="p-4 rounded-xl border border-[#D5E2EC] bg-[#FBFDFE] flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center gap-2.5 mb-2">
+                    <div className="h-8 w-8 rounded-full bg-[#23587E]/10 flex items-center justify-center text-xs font-bold text-[#23587E]">
+                      {emp.name.charAt(0)}
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-[#17324A]">{emp.name}</div>
+                      <div className="text-[10px] text-[#667085]">{emp.employeeCode} · {emp.department}</div>
+                    </div>
+                  </div>
+                  <div className="mt-3 p-3 rounded-lg bg-white border border-[#E2ECEF] space-y-1 text-[11px]">
+                    <div className="text-[#667085]">Current Role: <span className="font-bold text-[#17324A]">{emp.roleTitle}</span></div>
+                    <div className="text-[#667085]">Current CTC: <span className="font-extrabold text-[#23587E]">₹{Number(emp.salary).toLocaleString('en-IN')}</span></div>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    setPromotionForm({
+                      employeeId: emp.id,
+                      newDesignation: `Senior ${emp.roleTitle}`,
+                      newCtcAnnual: Math.round(Number(emp.salary) * 1.2),
+                      effectiveDate: new Date().toISOString().split('T')[0],
+                      reason: 'Performance merit elevation',
+                    });
+                    setShowPromotionModal(true);
+                  }}
+                  className="mt-4 w-full rounded-lg bg-[#EBF4FA] py-2 text-xs font-bold text-[#23587E] hover:bg-[#23587E] hover:text-white transition-all flex items-center justify-center gap-1.5"
+                >
+                  <TrendingUp className="h-3.5 w-3.5" /> Promote Employee
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* TAB 5: SALARY REVISION TIMELINE */}
+      {activeTab === 'salary_revisions' && (
+        <div className="rounded-2xl border border-[#D5E2EC] bg-white p-6 shadow-sm">
+          <div className="mb-6">
+            <h2 className="text-base font-bold text-[#17324A]">Immutable Salary Revision Timeline</h2>
+            <p className="text-xs text-[#667085]">Historical audit ledger recording every CTC adjustment, merit appraisal increment, and promotion change.</p>
+          </div>
+
+          <div className="space-y-4">
+            {data.salaryRevisions.length === 0 ? (
+              <p className="text-xs text-[#8FAEC5] py-8 text-center">No salary revisions recorded.</p>
+            ) : (
+              data.salaryRevisions.map((r: any) => {
+                const emp = data.employees.find((e: any) => e.id === r.employeeId);
+                return (
+                  <div key={r.id} className="p-4 rounded-xl border border-[#D5E2EC] bg-[#FBFDFE] flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div className="space-y-1">
+                      <div className="text-xs font-bold text-[#17324A] flex items-center gap-2">
+                        <Coins className="h-4 w-4 text-[#23587E]" />
+                        <span>{emp?.name || 'Employee'}</span>
+                        <span className="text-[11px] font-normal text-[#667085]">({emp?.employeeCode})</span>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-blue-100 text-blue-800">
+                          {r.revisionType}
+                        </span>
+                      </div>
+                      <div className="text-[11px] text-[#4B6882]">
+                        Effective Date: <span className="font-bold text-[#17324A]">{r.effectiveDate}</span> · Reason: {r.reason}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-4 bg-white p-2.5 rounded-lg border border-[#E2ECEF]">
+                      <div className="text-right">
+                        <div className="text-[10px] text-[#667085]">Previous CTC</div>
+                        <div className="text-xs font-bold text-[#4B6882]">₹{Number(r.previousCtcAnnual).toLocaleString('en-IN')}</div>
+                      </div>
+                      <ArrowRight className="h-4 w-4 text-emerald-600" />
+                      <div>
+                        <div className="text-[10px] text-[#667085]">New Revised CTC</div>
+                        <div className="text-xs font-extrabold text-emerald-700">₹{Number(r.newCtcAnnual).toLocaleString('en-IN')}</div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* TAB 6: DISCIPLINARY & WARNINGS */}
+      {activeTab === 'disciplinary' && (
+        <div className="rounded-2xl border border-[#D5E2EC] bg-white p-6 shadow-sm">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-6">
+            <div>
+              <h2 className="text-base font-bold text-[#17324A]">Confidential Disciplinary & Compliance Warnings</h2>
+              <p className="text-xs text-[#667085]">Strictly RBAC-enforced disciplinary records. Employees only see designated notices.</p>
+            </div>
+            {currentUser?.role !== 'employee' && (
+              <button
+                onClick={() => {
+                  setWarningForm({
+                    employeeId: data.employees[0]?.id || '',
+                    type: 'PolicyViolation',
+                    severity: 'Medium',
+                    reason: 'Delayed submission of mandatory compliance policy acknowledgment.',
+                    actionRequired: 'Submit signed document within 24 hours.',
+                    incidentDate: new Date().toISOString().split('T')[0],
+                    isEmployeeVisible: true,
+                  });
+                  setShowWarningModal(true);
+                }}
+                className="flex items-center gap-1.5 rounded-xl bg-rose-600 px-3.5 py-2 text-xs font-bold text-white hover:bg-rose-700"
+              >
+                <ShieldAlert className="h-3.5 w-3.5" /> Issue Disciplinary Notice
+              </button>
+            )}
+          </div>
+
+          <div className="space-y-3">
+            {warnings.length === 0 ? (
+              <p className="text-xs text-[#8FAEC5] py-8 text-center">No disciplinary warnings on record. Clean compliance record!</p>
+            ) : (
+              warnings.map((w: any) => {
+                const emp = data.employees.find((e: any) => e.id === w.employeeId);
+                return (
+                  <div key={w.id} className="p-4 rounded-xl border border-rose-100 bg-rose-50/30 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div className="space-y-1">
+                      <div className="text-xs font-bold text-rose-950 flex items-center gap-2">
+                        <ShieldAlert className="h-4 w-4 text-rose-600" />
+                        <span>{emp?.name || 'Employee'}</span>
+                        <span className="text-[11px] font-normal text-rose-800">({emp?.employeeCode})</span>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-200 text-rose-900">
+                          {w.type} · Severity: {w.severity}
+                        </span>
+                      </div>
+                      <div className="text-[11px] text-rose-900">
+                        Incident Date: <span className="font-semibold">{w.incidentDate}</span> · Issued by: {w.issuedByName}
+                      </div>
+                      <div className="text-[11px] text-[#4B6882] mt-1 font-medium">
+                        Reason: {w.reason} | Action: <span className="font-semibold text-rose-900">{w.actionRequired}</span>
+                      </div>
+                    </div>
+                    <span className="px-3 py-1 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800 self-start md:self-auto">
+                      {w.status}
+                    </span>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 1: ONBOARDING */}
+      {showOnboardModal && selectedCandidate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl animate-in zoom-in-95">
+            <div className="flex items-center justify-between border-b pb-3 mb-4">
+              <h3 className="text-sm font-bold text-[#17324A]">Onboard Candidate: {selectedCandidate.name}</h3>
+              <button onClick={() => setShowOnboardModal(false)}><X className="h-4 w-4 text-[#8FAEC5]" /></button>
+            </div>
+            <form onSubmit={handleOnboardSubmit} className="space-y-3.5 text-xs">
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-red-700">Irreversible access action</p>
-                <h2 id="offboarding-dialog-title" className="mt-1 text-lg font-bold text-[#17324A]">Offboard employee</h2>
+                <label className="block text-[11px] font-bold text-[#4B6882] mb-1">Official Role Title</label>
+                <input
+                  type="text"
+                  value={onboardForm.roleTitle}
+                  onChange={(e) => setOnboardForm({ ...onboardForm, roleTitle: e.target.value })}
+                  className="w-full rounded-xl border border-[#CBDDE9] px-3 py-2 text-xs"
+                  required
+                />
               </div>
-              <button type="button" disabled={isOffboarding} onClick={() => { setSelectedOffboardingEmployee(null); setOffboardingReason(''); }} aria-label="Close offboarding dialog" className="rounded-lg p-2 text-[#718696] hover:bg-red-100 hover:text-red-700"><X className="h-4 w-4" /></button>
-            </div>
-            <div className="space-y-4 p-5">
-              <div className="flex items-center gap-3 rounded-xl border border-[#D5E3EC] bg-[#F8FBFD] p-3">
-                <Avatar name={selectedOffboardingEmployee.name} src={selectedOffboardingEmployee.avatarUrl} />
-                <div className="min-w-0"><p className="truncate text-sm font-bold text-[#17324A]">{selectedOffboardingEmployee.name}</p><p className="mt-0.5 text-[11px] text-[#687F90]">{selectedOffboardingEmployee.roleTitle} · {selectedOffboardingEmployee.department}</p><p className="mt-1 font-mono text-[10px] font-semibold text-[#315B76]">{selectedOffboardingEmployee.employeeCode}</p></div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-bold text-[#4B6882] mb-1">Department</label>
+                  <input
+                    type="text"
+                    value={onboardForm.department}
+                    onChange={(e) => setOnboardForm({ ...onboardForm, department: e.target.value })}
+                    className="w-full rounded-xl border border-[#CBDDE9] px-3 py-2 text-xs"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-[#4B6882] mb-1">Annual CTC (₹)</label>
+                  <input
+                    type="number"
+                    value={onboardForm.salary}
+                    onChange={(e) => setOnboardForm({ ...onboardForm, salary: Number(e.target.value) })}
+                    className="w-full rounded-xl border border-[#CBDDE9] px-3 py-2 text-xs"
+                    required
+                  />
+                </div>
               </div>
-
-              <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs leading-5 text-red-800">
-                <p className="flex items-start gap-2"><LockKeyhole className="mt-0.5 h-4 w-4 shrink-0" /><span>The employee status will become <strong>Offboarded</strong>, future login will be denied, and every active database session will be revoked.</span></p>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-bold text-[#4B6882] mb-1">Joining Date</label>
+                  <input
+                    type="date"
+                    value={onboardForm.joinDate}
+                    onChange={(e) => setOnboardForm({ ...onboardForm, joinDate: e.target.value })}
+                    className="w-full rounded-xl border border-[#CBDDE9] px-3 py-2 text-xs"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-[#4B6882] mb-1">Probation Period</label>
+                  <select
+                    value={onboardForm.probationMonths}
+                    onChange={(e) => setOnboardForm({ ...onboardForm, probationMonths: Number(e.target.value) })}
+                    className="w-full rounded-xl border border-[#CBDDE9] px-3 py-2 text-xs"
+                  >
+                    <option value={3}>3 Months</option>
+                    <option value={6}>6 Months</option>
+                  </select>
+                </div>
               </div>
-
-              <label className="block text-xs font-bold text-[#17324A]">Reason for offboarding <span className="text-red-600">*</span><textarea required minLength={5} maxLength={2000} rows={5} value={offboardingReason} onChange={(event) => setOffboardingReason(event.target.value)} className={`${inputClass} resize-y`} placeholder="Document the business reason for offboarding (minimum 5 characters)" /><span className="mt-1.5 flex justify-between text-[10px] font-normal text-[#7C8F9C]"><span>This reason is stored in the immutable HR audit.</span><span>{offboardingReason.length}/2000</span></span></label>
-            </div>
-            <div className="flex flex-col-reverse gap-2 border-t border-[#DCE7EE] px-5 py-4 sm:flex-row sm:justify-end">
-              <button type="button" disabled={isOffboarding} onClick={() => { setSelectedOffboardingEmployee(null); setOffboardingReason(''); }} className="rounded-xl border border-[#C8D9E6] bg-white px-4 py-2.5 text-xs font-semibold text-[#315B76] hover:bg-[#F2F7FA] disabled:opacity-60">Cancel</button>
-              <button type="submit" disabled={isOffboarding || offboardingReason.trim().length < 5} className="inline-flex items-center justify-center gap-2 rounded-xl bg-red-700 px-4 py-2.5 text-xs font-semibold text-white hover:bg-red-800 disabled:opacity-50">{isOffboarding ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <UserMinus className="h-4 w-4" />}{isOffboarding ? 'Revoking access...' : 'Confirm offboarding'}</button>
-            </div>
-          </form>
-        </ModalShell>
+              <div className="flex justify-end gap-2 pt-3 border-t">
+                <button type="button" onClick={() => setShowOnboardModal(false)} className="rounded-xl px-4 py-2 text-xs font-bold text-[#667085] hover:bg-[#F4F8FA]">Cancel</button>
+                <button type="submit" className="rounded-xl bg-[#23587E] px-4 py-2 text-xs font-bold text-white hover:bg-[#1b4461]">Confirm Onboarding</button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
 
-      {notice && (
-        <div role="status" className="fixed bottom-5 right-5 z-[90] flex max-w-md items-start gap-2 rounded-xl border border-[#B9D2E3] bg-white px-4 py-3 text-xs font-semibold leading-5 text-[#17324A] shadow-xl">
-          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
-          <span>{notice}</span>
+      {/* MODAL 2: TRANSFER */}
+      {showTransferModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl animate-in zoom-in-95">
+            <div className="flex items-center justify-between border-b pb-3 mb-4">
+              <h3 className="text-sm font-bold text-[#17324A]">Initiate Employee Transfer</h3>
+              <button onClick={() => setShowTransferModal(false)}><X className="h-4 w-4 text-[#8FAEC5]" /></button>
+            </div>
+            <form onSubmit={handleTransferSubmit} className="space-y-3.5 text-xs">
+              <div>
+                <label className="block text-[11px] font-bold text-[#4B6882] mb-1">Select Employee</label>
+                <select
+                  value={transferForm.employeeId}
+                  onChange={(e) => setTransferForm({ ...transferForm, employeeId: e.target.value })}
+                  className="w-full rounded-xl border border-[#CBDDE9] px-3 py-2 text-xs"
+                  required
+                >
+                  {data.employees.map((e: any) => (
+                    <option key={e.id} value={e.id}>{e.name} ({e.employeeCode})</option>
+                  ))}
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-bold text-[#4B6882] mb-1">New Department</label>
+                  <input
+                    type="text"
+                    value={transferForm.toDepartment}
+                    onChange={(e) => setTransferForm({ ...transferForm, toDepartment: e.target.value })}
+                    className="w-full rounded-xl border border-[#CBDDE9] px-3 py-2 text-xs"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-[#4B6882] mb-1">New Location</label>
+                  <input
+                    type="text"
+                    value={transferForm.toLocation}
+                    onChange={(e) => setTransferForm({ ...transferForm, toLocation: e.target.value })}
+                    className="w-full rounded-xl border border-[#CBDDE9] px-3 py-2 text-xs"
+                    required
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-[11px] font-bold text-[#4B6882] mb-1">Effective Date</label>
+                <input
+                  type="date"
+                  value={transferForm.effectiveDate}
+                  onChange={(e) => setTransferForm({ ...transferForm, effectiveDate: e.target.value })}
+                  className="w-full rounded-xl border border-[#CBDDE9] px-3 py-2 text-xs"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] font-bold text-[#4B6882] mb-1">Transfer Justification</label>
+                <textarea
+                  rows={2}
+                  value={transferForm.reason}
+                  onChange={(e) => setTransferForm({ ...transferForm, reason: e.target.value })}
+                  className="w-full rounded-xl border border-[#CBDDE9] px-3 py-2 text-xs"
+                  required
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-3 border-t">
+                <button type="button" onClick={() => setShowTransferModal(false)} className="rounded-xl px-4 py-2 text-xs font-bold text-[#667085] hover:bg-[#F4F8FA]">Cancel</button>
+                <button type="submit" className="rounded-xl bg-[#23587E] px-4 py-2 text-xs font-bold text-white hover:bg-[#1b4461]">Execute Transfer</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 3: PROMOTION */}
+      {showPromotionModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl animate-in zoom-in-95">
+            <div className="flex items-center justify-between border-b pb-3 mb-4">
+              <h3 className="text-sm font-bold text-[#17324A]">Promote & Revise Salary Structure</h3>
+              <button onClick={() => setShowPromotionModal(false)}><X className="h-4 w-4 text-[#8FAEC5]" /></button>
+            </div>
+            <form onSubmit={handlePromotionSubmit} className="space-y-3.5 text-xs">
+              <div>
+                <label className="block text-[11px] font-bold text-[#4B6882] mb-1">Select Employee</label>
+                <select
+                  value={promotionForm.employeeId}
+                  onChange={(e) => setPromotionForm({ ...promotionForm, employeeId: e.target.value })}
+                  className="w-full rounded-xl border border-[#CBDDE9] px-3 py-2 text-xs"
+                  required
+                >
+                  {data.employees.map((e: any) => (
+                    <option key={e.id} value={e.id}>{e.name} ({e.employeeCode} · {e.roleTitle})</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-[11px] font-bold text-[#4B6882] mb-1">New Promoted Designation</label>
+                <input
+                  type="text"
+                  value={promotionForm.newDesignation}
+                  onChange={(e) => setPromotionForm({ ...promotionForm, newDesignation: e.target.value })}
+                  className="w-full rounded-xl border border-[#CBDDE9] px-3 py-2 text-xs"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] font-bold text-[#4B6882] mb-1">New Annual CTC (₹)</label>
+                <input
+                  type="number"
+                  value={promotionForm.newCtcAnnual}
+                  onChange={(e) => setPromotionForm({ ...promotionForm, newCtcAnnual: Number(e.target.value) })}
+                  className="w-full rounded-xl border border-[#CBDDE9] px-3 py-2 text-xs"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] font-bold text-[#4B6882] mb-1">Promotion Reason & Justification</label>
+                <textarea
+                  rows={2}
+                  value={promotionForm.reason}
+                  onChange={(e) => setPromotionForm({ ...promotionForm, reason: e.target.value })}
+                  className="w-full rounded-xl border border-[#CBDDE9] px-3 py-2 text-xs"
+                  required
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-3 border-t">
+                <button type="button" onClick={() => setShowPromotionModal(false)} className="rounded-xl px-4 py-2 text-xs font-bold text-[#667085] hover:bg-[#F4F8FA]">Cancel</button>
+                <button type="submit" className="rounded-xl bg-[#23587E] px-4 py-2 text-xs font-bold text-white hover:bg-[#1b4461]">Approve Promotion</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 4: PROBATION REVIEW */}
+      {showProbationModal && selectedEmployee && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl animate-in zoom-in-95">
+            <div className="flex items-center justify-between border-b pb-3 mb-4">
+              <h3 className="text-sm font-bold text-[#17324A]">Probation Evaluation: {selectedEmployee.name}</h3>
+              <button onClick={() => setShowProbationModal(false)}><X className="h-4 w-4 text-[#8FAEC5]" /></button>
+            </div>
+            <form onSubmit={handleProbationSubmit} className="space-y-3.5 text-xs">
+              <div>
+                <label className="block text-[11px] font-bold text-[#4B6882] mb-1">Action Decision</label>
+                <select
+                  value={probationForm.decision}
+                  onChange={(e) => setProbationForm({ ...probationForm, decision: e.target.value })}
+                  className="w-full rounded-xl border border-[#CBDDE9] px-3 py-2 text-xs"
+                >
+                  <option value="Confirm">Confirm Full-Time Employment</option>
+                  <option value="Extend">Extend Probation Period</option>
+                </select>
+              </div>
+              {probationForm.decision === 'Extend' && (
+                <div>
+                  <label className="block text-[11px] font-bold text-[#4B6882] mb-1">Extension Duration</label>
+                  <select
+                    value={probationForm.extensionMonths}
+                    onChange={(e) => setProbationForm({ ...probationForm, extensionMonths: Number(e.target.value) })}
+                    className="w-full rounded-xl border border-[#CBDDE9] px-3 py-2 text-xs"
+                  >
+                    <option value={1}>1 Month</option>
+                    <option value={3}>3 Months</option>
+                    <option value={6}>6 Months</option>
+                  </select>
+                </div>
+              )}
+              <div>
+                <label className="block text-[11px] font-bold text-[#4B6882] mb-1">Evaluation & Manager Review Notes</label>
+                <textarea
+                  rows={3}
+                  value={probationForm.notes}
+                  onChange={(e) => setProbationForm({ ...probationForm, notes: e.target.value })}
+                  className="w-full rounded-xl border border-[#CBDDE9] px-3 py-2 text-xs"
+                  required
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-3 border-t">
+                <button type="button" onClick={() => setShowProbationModal(false)} className="rounded-xl px-4 py-2 text-xs font-bold text-[#667085] hover:bg-[#F4F8FA]">Cancel</button>
+                <button type="submit" className="rounded-xl bg-[#23587E] px-4 py-2 text-xs font-bold text-white hover:bg-[#1b4461]">Save Decision</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 5: DISCIPLINARY */}
+      {showWarningModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl animate-in zoom-in-95">
+            <div className="flex items-center justify-between border-b pb-3 mb-4">
+              <h3 className="text-sm font-bold text-rose-950">Issue Disciplinary Notice</h3>
+              <button onClick={() => setShowWarningModal(false)}><X className="h-4 w-4 text-[#8FAEC5]" /></button>
+            </div>
+            <form onSubmit={handleWarningSubmit} className="space-y-3.5 text-xs">
+              <div>
+                <label className="block text-[11px] font-bold text-[#4B6882] mb-1">Employee</label>
+                <select
+                  value={warningForm.employeeId}
+                  onChange={(e) => setWarningForm({ ...warningForm, employeeId: e.target.value })}
+                  className="w-full rounded-xl border border-[#CBDDE9] px-3 py-2 text-xs"
+                  required
+                >
+                  {data.employees.map((e: any) => (
+                    <option key={e.id} value={e.id}>{e.name} ({e.employeeCode})</option>
+                  ))}
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-bold text-[#4B6882] mb-1">Warning Category</label>
+                  <select
+                    value={warningForm.type}
+                    onChange={(e) => setWarningForm({ ...warningForm, type: e.target.value })}
+                    className="w-full rounded-xl border border-[#CBDDE9] px-3 py-2 text-xs"
+                  >
+                    <option value="Verbal">Verbal Warning</option>
+                    <option value="Written">Written Warning</option>
+                    <option value="PolicyViolation">Policy Violation</option>
+                    <option value="Attendance">Attendance Infraction</option>
+                    <option value="Performance">Performance Deficit</option>
+                    <option value="Final">Final Warning</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-[#4B6882] mb-1">Severity</label>
+                  <select
+                    value={warningForm.severity}
+                    onChange={(e) => setWarningForm({ ...warningForm, severity: e.target.value })}
+                    className="w-full rounded-xl border border-[#CBDDE9] px-3 py-2 text-xs"
+                  >
+                    <option value="Low">Low</option>
+                    <option value="Medium">Medium</option>
+                    <option value="High">High</option>
+                    <option value="Critical">Critical</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="block text-[11px] font-bold text-[#4B6882] mb-1">Reason & Incident Description</label>
+                <textarea
+                  rows={2}
+                  value={warningForm.reason}
+                  onChange={(e) => setWarningForm({ ...warningForm, reason: e.target.value })}
+                  className="w-full rounded-xl border border-[#CBDDE9] px-3 py-2 text-xs"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] font-bold text-[#4B6882] mb-1">Action Required / Corrective Measures</label>
+                <input
+                  type="text"
+                  value={warningForm.actionRequired}
+                  onChange={(e) => setWarningForm({ ...warningForm, actionRequired: e.target.value })}
+                  className="w-full rounded-xl border border-[#CBDDE9] px-3 py-2 text-xs"
+                  required
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-3 border-t">
+                <button type="button" onClick={() => setShowWarningModal(false)} className="rounded-xl px-4 py-2 text-xs font-bold text-[#667085] hover:bg-[#F4F8FA]">Cancel</button>
+                <button type="submit" className="rounded-xl bg-rose-600 px-4 py-2 text-xs font-bold text-white hover:bg-rose-700">Issue Disciplinary Notice</button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </div>

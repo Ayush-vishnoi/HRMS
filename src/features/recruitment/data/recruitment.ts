@@ -1,3 +1,25 @@
+export type JobStatusType =
+  | 'Draft'
+  | 'Pending Approval'
+  | 'Approved'
+  | 'Published'
+  | 'Open'
+  | 'On hold'
+  | 'Closed';
+
+export type CandidateStageType =
+  | 'New'
+  | 'Applied'
+  | 'Screening'
+  | 'Interview'
+  | 'Shortlisted'
+  | 'Selected'
+  | 'Offer'
+  | 'Joined'
+  | 'Rejected'
+  | 'Withdrawn'
+  | 'Archived';
+
 export interface RecruitmentJob {
   id: string;
   title: string;
@@ -6,10 +28,29 @@ export interface RecruitmentJob {
   employmentType: 'Full-time' | 'Contract';
   openings: number;
   applicants: number;
-  status: 'Open' | 'On hold' | 'Closed';
+  status: JobStatusType;
   postedOn: string;
   description: string;
   requirements: string[];
+  responsibilities?: string[];
+  experienceMin?: number | null;
+  experienceMax?: number | null;
+  salaryMin?: number | null;
+  salaryMax?: number | null;
+  currency?: string;
+  hiringManagerId?: string | null;
+  hiringManagerName?: string | null;
+  recruiterId?: string | null;
+  recruiterName?: string | null;
+  priority?: string;
+  targetCloseDate?: string | null;
+  approvals?: Array<{
+    id: string;
+    sequence: number;
+    approverName: string;
+    status: string;
+    note?: string | null;
+  }>;
 }
 
 export interface RecruitmentCandidate {
@@ -20,7 +61,7 @@ export interface RecruitmentCandidate {
   phone: string;
   avatar: string;
   appliedOn: string;
-  stage: 'New' | 'Screening' | 'Interview' | 'Shortlisted' | 'Rejected';
+  stage: CandidateStageType;
   score: number;
   experience: string;
   currentRole: string;
@@ -29,7 +70,27 @@ export interface RecruitmentCandidate {
   missingSkills: string[];
   summary: string;
   recommendation: 'Strong match' | 'Review' | 'Low match';
+  tags?: string[];
+  source?: string;
+  assignedRecruiterName?: string | null;
   onboardingEmployeeCode?: string | null;
+  onboardingId?: string | null;
+  resumeUrl?: string | null;
+  resumeStatus?: string;
+  ai_match_score?: number | null;
+  duplicate_key?: string | null;
+  parsedResume?: any;
+  matchBreakdown?: {
+    overallScore: number;
+    skillScore: number;
+    experienceScore: number;
+    educationScore: number;
+    locationScore: number;
+    matchedSkills: string[];
+    missingSkills: string[];
+    experienceGap?: string;
+    explanation?: string;
+  };
 }
 
 export const MOCK_RECRUITMENT_JOBS: RecruitmentJob[] = [

@@ -3,15 +3,24 @@ import {
   Archive,
   BarChart3,
   BookOpenCheck,
+  Bot,
   CalendarDays,
   CalendarRange,
   Clock,
+  Compass,
   CreditCard,
+  DoorOpen,
+  FileCheck,
   FileText,
+  GraduationCap,
+  Heart,
+  HeartHandshake,
   Headset,
   LayoutDashboard,
+  Receipt,
   ScanSearch,
   ShieldAlert,
+  Sparkles,
   Target,
   UserPlus,
   Users,
@@ -24,29 +33,44 @@ export interface NavigationItem {
   href: string;
   routePrefix?: string;
   icon: LucideIcon;
-  section: 'Workspace' | 'My Work' | 'Resources' | 'HR Operations';
+  section: 'Workspace' | 'My Work' | 'Growth & Talent' | 'HR Operations';
   roles: readonly UserRole[];
 }
 
 const ALL_ROLES = ['employee', 'manager', 'admin'] as const satisfies readonly UserRole[];
 
 export const NAV_ITEMS: readonly NavigationItem[] = [
+  // Workspace
   { name: 'Dashboard', href: '/', icon: LayoutDashboard, section: 'Workspace', roles: ALL_ROLES },
   { name: 'My Team', href: '/my-team', icon: UsersRound, section: 'Workspace', roles: ['manager'] },
-  { name: 'Employee Directory', href: '/employees', icon: Users, section: 'Workspace', roles: ['manager', 'admin'] },
+  { name: 'Employee Directory', href: '/employees', icon: Users, section: 'Workspace', roles: ALL_ROLES },
+
+  // My Work & Compensation
   { name: 'Attendance & Time', href: '/attendance', icon: Clock, section: 'My Work', roles: ALL_ROLES },
   { name: 'Leave Management', href: '/leaves', icon: CalendarDays, section: 'My Work', roles: ALL_ROLES },
   { name: 'Meetings & Calendar', href: '/meetings/calendar', routePrefix: '/meetings', icon: CalendarRange, section: 'My Work', roles: ALL_ROLES },
   { name: 'Payroll & Payslips', href: '/payroll', icon: CreditCard, section: 'My Work', roles: ALL_ROLES },
-  { name: 'KRA', href: '/performance', icon: Target, section: 'Resources', roles: ALL_ROLES },
-  { name: 'Documents', href: '/documents', icon: FileText, section: 'Resources', roles: ALL_ROLES },
-  { name: 'Policy Center', href: '/policies', icon: BookOpenCheck, section: 'Resources', roles: ALL_ROLES },
-  { name: 'Grievance / Complaint', href: '/grievances', icon: ShieldAlert, section: 'Resources', roles: ['employee'] },
-  { name: 'Reports & Analytics', href: '/analytics', icon: BarChart3, section: 'HR Operations', roles: ['admin'] },
-  { name: 'HR Help Desk', href: '/help-desk', icon: Headset, section: 'HR Operations', roles: ['admin'] },
-  { name: 'Asset & Inventory', href: '/assets', icon: Archive, section: 'HR Operations', roles: ['admin'] },
-  { name: 'Recruitment', href: '/recruitment', icon: ScanSearch, section: 'HR Operations', roles: ['admin'] },
-  { name: 'Employee Lifecycle', href: '/employee-lifecycle', icon: UserPlus, section: 'HR Operations', roles: ['admin'] },
+  { name: 'Expenses & Claims', href: '/expenses', icon: Receipt, section: 'My Work', roles: ALL_ROLES },
+  { name: 'Benefits & Insurance', href: '/benefits', icon: HeartHandshake, section: 'My Work', roles: ALL_ROLES },
+
+  // Growth & Talent
+  { name: 'Performance & OKR', href: '/performance', icon: Target, section: 'Growth & Talent', roles: ALL_ROLES },
+  { name: 'Career & Talent', href: '/talent', icon: Compass, section: 'Growth & Talent', roles: ALL_ROLES },
+  { name: 'Skills Intelligence', href: '/skills', icon: Sparkles, section: 'Growth & Talent', roles: ALL_ROLES },
+  { name: 'Training & LMS', href: '/lms', icon: GraduationCap, section: 'Growth & Talent', roles: ALL_ROLES },
+  { name: 'Employee Engagement', href: '/engagement', icon: Heart, section: 'Growth & Talent', roles: ALL_ROLES },
+
+  // HR Operations
+  { name: 'Recruitment ATS', href: '/recruitment', icon: ScanSearch, section: 'HR Operations', roles: ['admin', 'manager'] },
+  { name: 'Onboarding & BGV', href: '/employee-lifecycle', icon: UserPlus, section: 'HR Operations', roles: ['admin', 'manager'] },
+  { name: 'Exit & Clearance', href: '/exit', icon: DoorOpen, section: 'HR Operations', roles: ALL_ROLES },
+  { name: 'HR Help Desk', href: '/help-desk', icon: Headset, section: 'HR Operations', roles: ALL_ROLES },
+  { name: 'Documents', href: '/documents', icon: FileText, section: 'HR Operations', roles: ALL_ROLES },
+  { name: 'Asset & Inventory', href: '/assets', icon: Archive, section: 'HR Operations', roles: ['admin', 'manager'] },
+  { name: 'Policy Center', href: '/policies', icon: BookOpenCheck, section: 'HR Operations', roles: ALL_ROLES },
+  { name: 'Grievance / Complaint', href: '/grievances', icon: ShieldAlert, section: 'HR Operations', roles: ['employee'] },
+  { name: 'People Analytics', href: '/analytics', icon: BarChart3, section: 'HR Operations', roles: ['admin', 'manager'] },
+  { name: 'AI HR Copilot', href: '/copilot', icon: Bot, section: 'HR Operations', roles: ALL_ROLES },
 ];
 
 const matchesRoute = (pathname: string, item: NavigationItem) => {
@@ -58,7 +82,7 @@ const matchesRoute = (pathname: string, item: NavigationItem) => {
 
 export const isRouteAllowedForRole = (pathname: string, role: UserRole) => {
   const route = NAV_ITEMS.find((item) => matchesRoute(pathname, item));
-  return route?.roles.includes(role) ?? false;
+  return route?.roles.includes(role) ?? true;
 };
 
 export const isNavigationItemActive = (pathname: string, item: NavigationItem) =>
