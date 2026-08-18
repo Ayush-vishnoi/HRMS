@@ -1,0 +1,65 @@
+import { ExpensesService } from './expenses.service';
+export declare class ExpensesController {
+    private expensesService;
+    constructor(expensesService: ExpensesService);
+    findAll(user: any, view?: string, employeeId?: string): Promise<{
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        employeeId: string;
+        title: string;
+        description: string;
+        currency: string;
+        category: string;
+        claimNumber: string;
+        amount: number;
+        expenseDate: string;
+        merchantName: string;
+        receiptUrl: string | null;
+        managerStatus: string;
+        financeStatus: string;
+        paymentStatus: string;
+        approvedAmount: number | null;
+        settlementDate: string | null;
+    }[]>;
+    create(user: any, body: any): Promise<{
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        employeeId: string;
+        title: string;
+        description: string;
+        currency: string;
+        category: string;
+        claimNumber: string;
+        amount: number;
+        expenseDate: string;
+        merchantName: string;
+        receiptUrl: string | null;
+        managerStatus: string;
+        financeStatus: string;
+        paymentStatus: string;
+        approvedAmount: number | null;
+        settlementDate: string | null;
+    }>;
+    update(body: any): Promise<{
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        employeeId: string;
+        title: string;
+        description: string;
+        currency: string;
+        category: string;
+        claimNumber: string;
+        amount: number;
+        expenseDate: string;
+        merchantName: string;
+        receiptUrl: string | null;
+        managerStatus: string;
+        financeStatus: string;
+        paymentStatus: string;
+        approvedAmount: number | null;
+        settlementDate: string | null;
+    }>;
+}

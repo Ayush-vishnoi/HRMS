@@ -1,0 +1,113 @@
+import { PrismaService } from '../prisma/prisma.service';
+export declare class EngagementService {
+    private prisma;
+    constructor(prisma: PrismaService);
+    findAll(): Promise<{
+        surveys: ({
+            responses: {
+                id: string;
+                surveyId: string;
+                respondentId: string | null;
+                npsScore: number;
+                answersJson: string;
+                feedback: string | null;
+                submittedAt: Date;
+            }[];
+        } & {
+            id: string;
+            status: string;
+            createdAt: Date;
+            startDate: string;
+            endDate: string;
+            title: string;
+            description: string;
+            surveyType: string;
+            isAnonymous: boolean;
+            responseCount: number;
+        })[];
+        feedPosts: {
+            id: string;
+            createdAt: Date;
+            title: string;
+            authorId: string;
+            authorName: string;
+            authorAvatar: string | null;
+            postType: string;
+            content: string;
+            mediaUrl: string | null;
+            pinned: boolean;
+            likesCount: number;
+            commentsCount: number;
+        }[];
+        recognitions: {
+            id: string;
+            createdAt: Date;
+            message: string;
+            likesCount: number;
+            giverId: string;
+            giverName: string;
+            receiverId: string;
+            receiverName: string;
+            recognitionType: string;
+            badgeIcon: string;
+            isPublic: boolean;
+        }[];
+        suggestions: {
+            id: string;
+            status: string;
+            createdAt: Date;
+            employeeId: string | null;
+            title: string;
+            description: string;
+            category: string;
+            employeeName: string | null;
+            upvotesCount: number;
+            hrResponse: string | null;
+        }[];
+    }>;
+    handleAction(body: any): Promise<{
+        id: string;
+        createdAt: Date;
+        title: string;
+        authorId: string;
+        authorName: string;
+        authorAvatar: string | null;
+        postType: string;
+        content: string;
+        mediaUrl: string | null;
+        pinned: boolean;
+        likesCount: number;
+        commentsCount: number;
+    } | {
+        id: string;
+        createdAt: Date;
+        message: string;
+        likesCount: number;
+        giverId: string;
+        giverName: string;
+        receiverId: string;
+        receiverName: string;
+        recognitionType: string;
+        badgeIcon: string;
+        isPublic: boolean;
+    } | {
+        id: string;
+        status: string;
+        createdAt: Date;
+        employeeId: string | null;
+        title: string;
+        description: string;
+        category: string;
+        employeeName: string | null;
+        upvotesCount: number;
+        hrResponse: string | null;
+    } | {
+        id: string;
+        surveyId: string;
+        respondentId: string | null;
+        npsScore: number;
+        answersJson: string;
+        feedback: string | null;
+        submittedAt: Date;
+    }>;
+}

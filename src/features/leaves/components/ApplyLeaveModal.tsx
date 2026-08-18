@@ -12,8 +12,11 @@ interface ApplyLeaveModalProps {
 export const ApplyLeaveModal: React.FC<ApplyLeaveModalProps> = ({ isOpen, onClose }) => {
   const { addLeaveRequest, leaveBalances } = useHRMS();
   const [leaveType, setLeaveType] = useState<'Casual' | 'Sick' | 'Earned' | 'WFH'>('Casual');
-  const [startDate, setStartDate] = useState<string>('2026-08-12');
-  const [endDate, setEndDate] = useState<string>('2026-08-14');
+  const today = new Date();
+  const todayStr = today.toISOString().split('T')[0];
+  const tomorrowStr = new Date(today.getTime() + 86400000).toISOString().split('T')[0];
+  const [startDate, setStartDate] = useState<string>(todayStr);
+  const [endDate, setEndDate] = useState<string>(tomorrowStr);
   const [reason, setReason] = useState<string>('');
   const [submitted, setSubmitted] = useState<boolean>(false);
 
@@ -67,7 +70,7 @@ export const ApplyLeaveModal: React.FC<ApplyLeaveModalProps> = ({ isOpen, onClos
           <div className="p-8 text-center space-y-3 bg-surface">
             <CheckCircle className="w-12 h-12 text-emerald-500 mx-auto animate-bounce" />
             <h4 className="text-base font-bold text-foreground">Leave Request Submitted!</h4>
-            <p className="text-xs text-secondary">Your request has been sent to HR for approval.</p>
+            <p className="text-xs text-secondary">Your request has been sent to HR and your manager for approval.</p>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="p-6 space-y-4 bg-surface">

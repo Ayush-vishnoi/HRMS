@@ -184,7 +184,7 @@ export const LoginPage: React.FC = () => {
         <div className="mb-6 text-center">
           <div className="mb-2 inline-flex h-20 w-36 items-center justify-center">
             <img
-              src="/logo.png"
+              src="/m360-logo.jpeg"
               alt="MYLOTIC GROUP Logo"
               className="h-full w-full object-contain drop-shadow-sm"
             />

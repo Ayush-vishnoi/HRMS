@@ -45,7 +45,7 @@ export const Sidebar: React.FC = () => {
         <div className="relative flex items-center gap-3">
           <div className="flex h-11 w-12 shrink-0 items-center justify-center rounded-xl border border-white/20 bg-white p-1.5 shadow-sm">
             <img
-              src="/logo.png"
+              src="/m360-logo.jpeg"
               alt="MYLOTIC GROUP Logo"
               className="h-full w-full object-contain"
             />

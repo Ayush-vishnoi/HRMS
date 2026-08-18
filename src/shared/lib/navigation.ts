@@ -3,7 +3,6 @@ import {
   Archive,
   BarChart3,
   BookOpenCheck,
-  Bot,
   CalendarDays,
   CalendarRange,
   Clock,
@@ -15,7 +14,6 @@ import {
   GraduationCap,
   Heart,
   HeartHandshake,
-  Headset,
   LayoutDashboard,
   Receipt,
   ScanSearch,
@@ -64,13 +62,11 @@ export const NAV_ITEMS: readonly NavigationItem[] = [
   { name: 'Recruitment ATS', href: '/recruitment', icon: ScanSearch, section: 'HR Operations', roles: ['admin', 'manager'] },
   { name: 'Onboarding & BGV', href: '/employee-lifecycle', icon: UserPlus, section: 'HR Operations', roles: ['admin', 'manager'] },
   { name: 'Exit & Clearance', href: '/exit', icon: DoorOpen, section: 'HR Operations', roles: ALL_ROLES },
-  { name: 'HR Help Desk', href: '/help-desk', icon: Headset, section: 'HR Operations', roles: ALL_ROLES },
   { name: 'Documents', href: '/documents', icon: FileText, section: 'HR Operations', roles: ALL_ROLES },
   { name: 'Asset & Inventory', href: '/assets', icon: Archive, section: 'HR Operations', roles: ['admin', 'manager'] },
   { name: 'Policy Center', href: '/policies', icon: BookOpenCheck, section: 'HR Operations', roles: ALL_ROLES },
   { name: 'Grievance / Complaint', href: '/grievances', icon: ShieldAlert, section: 'HR Operations', roles: ['employee'] },
   { name: 'People Analytics', href: '/analytics', icon: BarChart3, section: 'HR Operations', roles: ['admin', 'manager'] },
-  { name: 'AI HR Copilot', href: '/copilot', icon: Bot, section: 'HR Operations', roles: ALL_ROLES },
 ];
 
 const matchesRoute = (pathname: string, item: NavigationItem) => {

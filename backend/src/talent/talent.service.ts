@@ -1,0 +1,63 @@
+import { Injectable } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+
+@Injectable()
+export class TalentService {
+  constructor(private prisma: PrismaService) {}
+
+  async findAll(userId: string, userRole: string, employeeId?: string) {
+    const targetId = employeeId || userId;
+    const [careerPaths, aspiration, benchmarks] = await Promise.all([
+      this.prisma.career_paths.findMany({ where: { is_active: true }, orderBy: { level_order: 'asc' } }),
+      this.prisma.career_aspirations.findUnique({ where: { employee_id: targetId } }),
+      this.prisma.role_skill_benchmarks.findMany({ include: { skill: true } }),
+    ]);
+
+    let talentPools: any = null;
+    let successionPlans: any = null;
+    if (userRole === 'admin') {
+      [talentPools, successionPlans] = await Promise.all([
+        this.prisma.talent_pools.findMany({ include: { members: { include: { employee: { select: { id: true, name: true, employeeCode: true, department: true, roleTitle: true, avatarUrl: true } } } } } }),
+        this.prisma.succession_plans.findMany({ include: { incumbent: { select: { id: true, name: true, employeeCode: true, roleTitle: true, department: true } }, emergencySuccessor: { select: { id: true, name: true, employeeCode: true, roleTitle: true } } } }),
+      ]);
+    }
+
+    return { careerPaths, aspiration, benchmarks, talentPools, successionPlans };
+  }
+
+  async handleAction(userId: string, userRole: string, body: any) {
+    const { action } = body;
+    const org = await this.prisma.organizations.findFirst({ select: { id: true } });
+    const orgId = org?.id || 'org_default';
+
+    if (action === 'save_aspirations' || action === 'update_aspirations') {
+      const empId = body.employeeId || userId;
+      return this.prisma.career_aspirations.upsert({
+        where: { employee_id: empId },
+        update: { target_role: body.targetRole, target_department: body.targetDepartment || null, target_timeline: body.targetTimeline || '1-2 Years', skills_to_develop: body.skillsToDevelop || [], last_discussed_at: new Date(), updated_at: new Date() },
+        create: { employee_id: empId, target_role: body.targetRole, target_department: body.targetDepartment || null, target_timeline: body.targetTimeline || '1-2 Years', skills_to_develop: body.skillsToDevelop || [], last_discussed_at: new Date() },
+      });
+    }
+
+    if (action === 'create_talent_pool') {
+      return this.prisma.talent_pools.create({ data: { organization_id: orgId, name: body.name, category: body.category || 'HighPotential', description: body.description, is_confidential: Boolean(body.isConfidential ?? true), created_by_id: userId } });
+    }
+
+    if (action === 'add_talent_pool_member') {
+      return this.prisma.talent_pool_members.upsert({
+        where: { pool_id_employee_id: { pool_id: body.poolId, employee_id: body.employeeId } },
+        update: { notes: body.notes },
+        create: { pool_id: body.poolId, employee_id: body.employeeId, added_by_id: userId, notes: body.notes || null },
+      });
+    }
+
+    if (action === 'save_succession_plan') {
+      const existing = await this.prisma.succession_plans.findFirst({ where: { critical_role_title: body.criticalRoleTitle, department: body.department } });
+      const data = { incumbent_employee_id: body.incumbentId || null, emergency_successor_id: body.emergencySuccessorId || null, successors_json: JSON.stringify(body.successors || []), risk_level: body.riskLevel || 'Medium', last_reviewed_at: new Date(), updated_at: new Date() };
+      if (existing) return this.prisma.succession_plans.update({ where: { id: existing.id }, data });
+      return this.prisma.succession_plans.create({ data: { organization_id: orgId, critical_role_title: body.criticalRoleTitle, department: body.department, ...data } });
+    }
+
+    throw new Error('Invalid talent action');
+  }
+}

@@ -127,7 +127,7 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({ payslip, onClose }) 
           <div className="flex flex-col gap-4 border-b border-[#D9E5EE] pb-5 sm:flex-row sm:items-start sm:justify-between">
             <div className="flex items-center gap-3">
               <img
-                src="/logo.png"
+                src="/m360-logo.jpeg"
                 alt="MYLOTIC GROUP Logo"
                 className="h-10 w-auto object-contain shrink-0"
               />

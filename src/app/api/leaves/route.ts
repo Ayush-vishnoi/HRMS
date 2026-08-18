@@ -77,6 +77,30 @@ export async function POST(request: Request) {
       },
     });
 
+    // Notify HR admins and employee's manager
+    const notifyTargets = await db.employee.findMany({
+      where: {
+        OR: [
+          { userRole: 'admin' },
+          { id: employee.managerId ?? '' },
+        ],
+      },
+      select: { id: true },
+    });
+
+    if (notifyTargets.length > 0) {
+      await db.userNotification.createMany({
+        data: notifyTargets.map((t) => ({
+          userId: t.id,
+          title: 'New Leave Request',
+          message: `${employee.name} has applied for ${body.leaveType} leave from ${body.startDate} to ${body.endDate} (${body.days} day(s)).`,
+          type: 'Leave',
+          linkUrl: '/leaves',
+        })),
+        skipDuplicates: true,
+      });
+    }
+
     return NextResponse.json({ success: true, data: newRequest });
   } catch (error) {
     if (isAuthAccessError(error)) return authAccessErrorResponse(error);
@@ -114,6 +138,17 @@ export async function PATCH(request: Request) {
       data: {
         status,
         reviewerId: reviewer.id,
+      },
+    });
+
+    // Notify the employee whose leave was reviewed
+    await db.userNotification.create({
+      data: {
+        userId: requestToReview.employeeId,
+        title: `Leave Request ${status}`,
+        message: `Your leave request has been ${status.toLowerCase()} by ${reviewer.name}.`,
+        type: 'Leave',
+        linkUrl: '/leaves',
       },
     });
 

@@ -1,0 +1,63 @@
+import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
+import { PrismaModule } from './prisma/prisma.module';
+import { AuthModule } from './auth/auth.module';
+import { EmployeesModule } from './employees/employees.module';
+import { AttendanceModule } from './attendance/attendance.module';
+import { LeavesModule } from './leaves/leaves.module';
+import { MeetingsModule } from './meetings/meetings.module';
+import { PayrollModule } from './payroll/payroll.module';
+import { HelpDeskModule } from './help-desk/help-desk.module';
+import { NotificationsModule } from './notifications/notifications.module';
+import { AnalyticsModule } from './analytics/analytics.module';
+import { AssetsModule } from './assets/assets.module';
+import { PoliciesModule } from './policies/policies.module';
+import { DocumentsModule } from './documents/documents.module';
+import { EngagementModule } from './engagement/engagement.module';
+import { ExpensesModule } from './expenses/expenses.module';
+import { BenefitsModule } from './benefits/benefits.module';
+import { LmsModule } from './lms/lms.module';
+import { SkillsModule } from './skills/skills.module';
+import { TalentModule } from './talent/talent.module';
+import { MyTeamModule } from './my-team/my-team.module';
+import { ExitModule } from './exit/exit.module';
+import { PerformanceModule } from './performance/performance.module';
+import { RecruitmentModule } from './recruitment/recruitment.module';
+import { WorkforceModule } from './workforce/workforce.module';
+import { DisciplinaryModule } from './disciplinary/disciplinary.module';
+import { EmployeeLifecycleModule } from './employee-lifecycle/employee-lifecycle.module';
+import { CalendarModule } from './calendar/calendar.module';
+
+@Module({
+  imports: [
+    ConfigModule.forRoot({ isGlobal: true }),
+    PrismaModule,
+    AuthModule,
+    EmployeesModule,
+    AttendanceModule,
+    LeavesModule,
+    MeetingsModule,
+    PayrollModule,
+    HelpDeskModule,
+    NotificationsModule,
+    AnalyticsModule,
+    AssetsModule,
+    PoliciesModule,
+    DocumentsModule,
+    EngagementModule,
+    ExpensesModule,
+    BenefitsModule,
+    LmsModule,
+    SkillsModule,
+    TalentModule,
+    MyTeamModule,
+    ExitModule,
+    PerformanceModule,
+    RecruitmentModule,
+    WorkforceModule,
+    DisciplinaryModule,
+    EmployeeLifecycleModule,
+    CalendarModule,
+  ],
+})
+export class AppModule {}
