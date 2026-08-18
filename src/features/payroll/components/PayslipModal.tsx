@@ -6,10 +6,11 @@ import { CURRENT_USER } from '@/features/employees/data/employees';
 
 interface PayslipModalProps {
   payslip: any | null;
+  showAmounts: boolean;
   onClose: () => void;
 }
 
-export const PayslipModal: React.FC<PayslipModalProps> = ({ payslip, onClose }) => {
+export const PayslipModal: React.FC<PayslipModalProps> = ({ payslip, showAmounts, onClose }) => {
   const [downloading, setDownloading] = useState(false);
 
   if (!payslip) return null;
@@ -53,6 +54,8 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({ payslip, onClose }) 
   const panNumber = payslip.panNumber || 'ABCDE1234F';
   const bankAccount = payslip.bankAccountMasked || '•••• •••• 4921';
   const bankIfsc = payslip.bankIfsc || 'HDFC0001234';
+  const formatAmount = (value: number) =>
+    showAmounts ? `₹${value.toLocaleString('en-IN')}` : '••••••';
 
   const handleDownloadPdf = async () => {
     try {
@@ -174,22 +177,22 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({ payslip, onClose }) 
                 <span className="text-[11px] text-[#667085]">Amount (₹)</span>
               </div>
               <div className="space-y-2 text-xs">
-                <div className="flex justify-between"><span className="text-[#667085]">Basic Salary</span><span className="font-semibold text-[#17324A]">₹{basicSalary.toLocaleString('en-IN')}</span></div>
-                <div className="flex justify-between"><span className="text-[#667085]">House Rent Allowance (HRA)</span><span className="font-semibold text-[#17324A]">₹{hra.toLocaleString('en-IN')}</span></div>
-                <div className="flex justify-between"><span className="text-[#667085]">Conveyance Allowance</span><span className="font-semibold text-[#17324A]">₹{conveyance.toLocaleString('en-IN')}</span></div>
-                <div className="flex justify-between"><span className="text-[#667085]">Special Allowance</span><span className="font-semibold text-[#17324A]">₹{specialAllowance.toLocaleString('en-IN')}</span></div>
-                <div className="flex justify-between"><span className="text-[#667085]">Medical Allowance</span><span className="font-semibold text-[#17324A]">₹{medicalAllowance.toLocaleString('en-IN')}</span></div>
-                {lta > 0 && <div className="flex justify-between"><span className="text-[#667085]">Leave Travel Allowance</span><span className="font-semibold text-[#17324A]">₹{lta.toLocaleString('en-IN')}</span></div>}
+                <div className="flex justify-between"><span className="text-[#667085]">Basic Salary</span><span className="font-semibold text-[#17324A]">{formatAmount(basicSalary)}</span></div>
+                <div className="flex justify-between"><span className="text-[#667085]">House Rent Allowance (HRA)</span><span className="font-semibold text-[#17324A]">{formatAmount(hra)}</span></div>
+                <div className="flex justify-between"><span className="text-[#667085]">Conveyance Allowance</span><span className="font-semibold text-[#17324A]">{formatAmount(conveyance)}</span></div>
+                <div className="flex justify-between"><span className="text-[#667085]">Special Allowance</span><span className="font-semibold text-[#17324A]">{formatAmount(specialAllowance)}</span></div>
+                <div className="flex justify-between"><span className="text-[#667085]">Medical Allowance</span><span className="font-semibold text-[#17324A]">{formatAmount(medicalAllowance)}</span></div>
+                {lta > 0 && <div className="flex justify-between"><span className="text-[#667085]">Leave Travel Allowance</span><span className="font-semibold text-[#17324A]">{formatAmount(lta)}</span></div>}
                 {(bonus > 0 || incentives > 0) && (
-                  <div className="flex justify-between"><span className="text-[#667085]">Bonus / Variable Pay</span><span className="font-semibold text-emerald-600">₹{(bonus + incentives).toLocaleString('en-IN')}</span></div>
+                  <div className="flex justify-between"><span className="text-[#667085]">Bonus / Variable Pay</span><span className="font-semibold text-emerald-600">{formatAmount(bonus + incentives)}</span></div>
                 )}
-                {overtimePay > 0 && <div className="flex justify-between"><span className="text-[#667085]">Overtime Earnings</span><span className="font-semibold text-emerald-600">₹{overtimePay.toLocaleString('en-IN')}</span></div>}
-                {arrears > 0 && <div className="flex justify-between"><span className="text-[#667085]">Salary Arrears</span><span className="font-semibold text-emerald-600">₹{arrears.toLocaleString('en-IN')}</span></div>}
-                {reimbursements > 0 && <div className="flex justify-between"><span className="text-[#667085]">Expense Reimbursements</span><span className="font-semibold text-emerald-600">₹{reimbursements.toLocaleString('en-IN')}</span></div>}
+                {overtimePay > 0 && <div className="flex justify-between"><span className="text-[#667085]">Overtime Earnings</span><span className="font-semibold text-emerald-600">{formatAmount(overtimePay)}</span></div>}
+                {arrears > 0 && <div className="flex justify-between"><span className="text-[#667085]">Salary Arrears</span><span className="font-semibold text-emerald-600">{formatAmount(arrears)}</span></div>}
+                {reimbursements > 0 && <div className="flex justify-between"><span className="text-[#667085]">Expense Reimbursements</span><span className="font-semibold text-emerald-600">{formatAmount(reimbursements)}</span></div>}
               </div>
               <div className="mt-3 flex justify-between border-t border-[#D9E5EE] pt-2 text-xs font-bold text-emerald-700">
                 <span>Total Gross Earnings</span>
-                <span>₹{grossEarnings.toLocaleString('en-IN')}</span>
+                <span>{formatAmount(grossEarnings)}</span>
               </div>
             </div>
 
@@ -200,17 +203,17 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({ payslip, onClose }) 
                 <span className="text-[11px] text-[#667085]">Amount (₹)</span>
               </div>
               <div className="space-y-2 text-xs">
-                <div className="flex justify-between"><span className="text-[#667085]">Provident Fund (Employee)</span><span className="font-semibold text-[#17324A]">₹{pfDeduction.toLocaleString('en-IN')}</span></div>
-                {esicDeduction > 0 && <div className="flex justify-between"><span className="text-[#667085]">ESIC (Employee 0.75%)</span><span className="font-semibold text-[#17324A]">₹{esicDeduction.toLocaleString('en-IN')}</span></div>}
-                <div className="flex justify-between"><span className="text-[#667085]">Professional Tax (PT)</span><span className="font-semibold text-[#17324A]">₹{ptDeduction.toLocaleString('en-IN')}</span></div>
-                <div className="flex justify-between"><span className="text-[#667085]">Income Tax (TDS)</span><span className="font-semibold text-[#17324A]">₹{taxDeduction.toLocaleString('en-IN')}</span></div>
-                {lwfDeduction > 0 && <div className="flex justify-between"><span className="text-[#667085]">Labour Welfare Fund</span><span className="font-semibold text-[#17324A]">₹{lwfDeduction.toLocaleString('en-IN')}</span></div>}
-                {loanDeduction > 0 && <div className="flex justify-between"><span className="text-[#667085]">Loan / Advance EMI</span><span className="font-semibold text-rose-600">₹{loanDeduction.toLocaleString('en-IN')}</span></div>}
-                {lossOfPayDeduction > 0 && <div className="flex justify-between"><span className="text-[#667085]">Loss of Pay (LOP) Deduction</span><span className="font-semibold text-rose-600">₹{lossOfPayDeduction.toLocaleString('en-IN')}</span></div>}
+                <div className="flex justify-between"><span className="text-[#667085]">Provident Fund (Employee)</span><span className="font-semibold text-[#17324A]">{formatAmount(pfDeduction)}</span></div>
+                {esicDeduction > 0 && <div className="flex justify-between"><span className="text-[#667085]">ESIC (Employee 0.75%)</span><span className="font-semibold text-[#17324A]">{formatAmount(esicDeduction)}</span></div>}
+                <div className="flex justify-between"><span className="text-[#667085]">Professional Tax (PT)</span><span className="font-semibold text-[#17324A]">{formatAmount(ptDeduction)}</span></div>
+                <div className="flex justify-between"><span className="text-[#667085]">Income Tax (TDS)</span><span className="font-semibold text-[#17324A]">{formatAmount(taxDeduction)}</span></div>
+                {lwfDeduction > 0 && <div className="flex justify-between"><span className="text-[#667085]">Labour Welfare Fund</span><span className="font-semibold text-[#17324A]">{formatAmount(lwfDeduction)}</span></div>}
+                {loanDeduction > 0 && <div className="flex justify-between"><span className="text-[#667085]">Loan / Advance EMI</span><span className="font-semibold text-rose-600">{formatAmount(loanDeduction)}</span></div>}
+                {lossOfPayDeduction > 0 && <div className="flex justify-between"><span className="text-[#667085]">Loss of Pay (LOP) Deduction</span><span className="font-semibold text-rose-600">{formatAmount(lossOfPayDeduction)}</span></div>}
               </div>
               <div className="mt-3 flex justify-between border-t border-[#D9E5EE] pt-2 text-xs font-bold text-rose-700">
                 <span>Total Deductions</span>
-                <span>₹{totalDeductions.toLocaleString('en-IN')}</span>
+                <span>{formatAmount(totalDeductions)}</span>
               </div>
             </div>
           </div>
@@ -220,15 +223,15 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({ payslip, onClose }) 
             <div className="rounded-xl border border-[#D9E5EE] bg-[#F8FAFC] p-3.5">
               <span className="text-[11px] font-bold uppercase tracking-wider text-[#667085]">Employer Contributions (CTC)</span>
               <div className="mt-2 space-y-1.5 text-xs text-[#17324A]">
-                <div className="flex justify-between"><dt className="text-[#667085]">PF Employer Contribution (12%):</dt><dd className="font-semibold">₹{pfEmployer.toLocaleString('en-IN')}</dd></div>
-                {esicEmployer > 0 && <div className="flex justify-between"><dt className="text-[#667085]">ESIC Employer (3.25%):</dt><dd className="font-semibold">₹{esicEmployer.toLocaleString('en-IN')}</dd></div>}
-                <div className="flex justify-between"><dt className="text-[#667085]">Gratuity Monthly Provision:</dt><dd className="font-semibold">₹{gratuityProvision.toLocaleString('en-IN')}</dd></div>
+                <div className="flex justify-between"><dt className="text-[#667085]">PF Employer Contribution (12%):</dt><dd className="font-semibold">{formatAmount(pfEmployer)}</dd></div>
+                {esicEmployer > 0 && <div className="flex justify-between"><dt className="text-[#667085]">ESIC Employer (3.25%):</dt><dd className="font-semibold">{formatAmount(esicEmployer)}</dd></div>}
+                <div className="flex justify-between"><dt className="text-[#667085]">Gratuity Monthly Provision:</dt><dd className="font-semibold">{formatAmount(gratuityProvision)}</dd></div>
               </div>
             </div>
 
             <div className="flex flex-col justify-center rounded-xl border border-emerald-200 bg-emerald-50/50 p-4">
               <span className="text-xs font-bold uppercase text-emerald-800">Net Take-Home Payable</span>
-              <p className="mt-1 text-2xl font-black text-emerald-700">₹{netPayable.toLocaleString('en-IN')}</p>
+              <p className="mt-1 text-2xl font-black text-emerald-700">{formatAmount(netPayable)}</p>
               <p className="text-[10px] text-emerald-700">Directly transferred to {bankAccount}</p>
             </div>
           </div>

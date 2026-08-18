@@ -154,6 +154,7 @@ interface HRMSContextType {
   addEmployee: (emp: Omit<Employee, 'id' | 'employeeCode'>) => Promise<void>;
   leaveRequests: LeaveRequest[];
   leaveBalances: typeof MOCK_LEAVE_BALANCES;
+  setLeaveBalances: React.Dispatch<React.SetStateAction<typeof MOCK_LEAVE_BALANCES>>;
   attendanceLogs: AttendanceRecord[];
   isClockedIn: boolean;
   clockInTime: string | null;
@@ -209,8 +210,18 @@ export const HRMSProvider: React.FC<HRMSProviderProps> = ({ children, initialUse
     initialUser ?? DEMO_ACCOUNTS.employee,
   );
   const isAuthReady = true;
+
+  // Store this tab's user ID in sessionStorage so it survives navigation
+  // but stays isolated from other tabs (sessionStorage is tab-specific)
+  useEffect(() => {
+    if (initialUser?.id) {
+      window.sessionStorage.setItem('hrms_tab_user_id', initialUser.id);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [employees, setEmployees] = useState<Employee[]>(MOCK_EMPLOYEES);
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>(INITIAL_LEAVE_REQUESTS);
+  const [leaveBalances, setLeaveBalances] = useState(MOCK_LEAVE_BALANCES);
   const [attendanceLogs, setAttendanceLogs] = useState<AttendanceRecord[]>(MOCK_ATTENDANCE_LOGS);
   const [isClockedIn, setIsClockedIn] = useState(false);
   const [clockInTime, setClockInTime] = useState<string | null>(null);
@@ -248,6 +259,21 @@ export const HRMSProvider: React.FC<HRMSProviderProps> = ({ children, initialUse
         if (leavesRes?.success && leavesRes.data?.requests && Array.isArray(leavesRes.data.requests)) {
           const formatted = leavesRes.data.requests.map((r: any) => formatDbLeave(r));
           setLeaveRequests(formatted);
+        }
+
+        if (leavesRes?.success && Array.isArray(leavesRes.data?.balances) && leavesRes.data.balances.length > 0) {
+          const b = leavesRes.data.balances;
+          const pick = (type: string) => b.find((x: any) => x.leaveType === type);
+          const casual = pick('Casual');
+          const sick = pick('Sick');
+          const earned = pick('Earned');
+          const wfh = pick('WFH');
+          setLeaveBalances({
+            casual: casual ? { total: casual.total, used: casual.used, remaining: casual.remaining } : MOCK_LEAVE_BALANCES.casual,
+            sick: sick ? { total: sick.total, used: sick.used, remaining: sick.remaining } : MOCK_LEAVE_BALANCES.sick,
+            earned: earned ? { total: earned.total, used: earned.used, remaining: earned.remaining } : MOCK_LEAVE_BALANCES.earned,
+            wfh: wfh ? { total: wfh.total, used: wfh.used, remaining: wfh.remaining } : MOCK_LEAVE_BALANCES.wfh,
+          });
         }
 
         if (ticketsRes?.success && Array.isArray(ticketsRes.data)) {
@@ -320,6 +346,7 @@ export const HRMSProvider: React.FC<HRMSProviderProps> = ({ children, initialUse
 
   const logout = useCallback(() => {
     setIsAuthenticated(false);
+    window.sessionStorage.removeItem('hrms_tab_user_id');
   }, []);
 
   useEffect(() => {
@@ -341,6 +368,13 @@ export const HRMSProvider: React.FC<HRMSProviderProps> = ({ children, initialUse
 
         if (response.status === 401) {
           logout();
+        } else if (response.ok) {
+          const data = await response.json();
+          const tabUserId = window.sessionStorage.getItem('hrms_tab_user_id');
+          // If cookie switched to a different user in another tab, log this tab out
+          if (tabUserId && data.user && data.user.id !== tabUserId) {
+            logout();
+          }
         }
       } catch (sessionError) {
         if ((sessionError as Error).name !== 'AbortError') {
@@ -365,6 +399,13 @@ export const HRMSProvider: React.FC<HRMSProviderProps> = ({ children, initialUse
     );
     window.addEventListener('focus', validateSession);
     document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    const handleStorageEvent = (e: StorageEvent) => {
+      // Intentionally ignored — tabs run independent sessions
+      void e;
+    };
+    window.addEventListener('storage', handleStorageEvent);
+
     void validateSession();
 
     return () => {
@@ -372,6 +413,7 @@ export const HRMSProvider: React.FC<HRMSProviderProps> = ({ children, initialUse
       window.clearInterval(intervalId);
       window.removeEventListener('focus', validateSession);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('storage', handleStorageEvent);
     };
   }, [isAuthenticated, logout]);
 
@@ -486,6 +528,22 @@ export const HRMSProvider: React.FC<HRMSProviderProps> = ({ children, initialUse
     persistLateClockInRequests(reviewed);
   };
 
+  const refreshLeaveBalances = async (employeeId?: string) => {
+    const url = employeeId ? `/api/leaves?employeeId=${employeeId}` : '/api/leaves';
+    const res = await fetch(url).then((r) => r.ok ? r.json() : null);
+    if (res?.success && Array.isArray(res.data?.balances) && res.data.balances.length > 0) {
+      const b = res.data.balances;
+      const pick = (type: string) => b.find((x: any) => x.leaveType === type);
+      const casual = pick('Casual'); const sick = pick('Sick'); const earned = pick('Earned'); const wfh = pick('WFH');
+      setLeaveBalances({
+        casual: casual ? { total: casual.total, used: casual.used, remaining: casual.remaining } : MOCK_LEAVE_BALANCES.casual,
+        sick: sick ? { total: sick.total, used: sick.used, remaining: sick.remaining } : MOCK_LEAVE_BALANCES.sick,
+        earned: earned ? { total: earned.total, used: earned.used, remaining: earned.remaining } : MOCK_LEAVE_BALANCES.earned,
+        wfh: wfh ? { total: wfh.total, used: wfh.used, remaining: wfh.remaining } : MOCK_LEAVE_BALANCES.wfh,
+      });
+    }
+  };
+
   const addLeaveRequest = async (newLeave: Omit<LeaveRequest, 'id' | 'employeeId' | 'employeeName' | 'employeeAvatar' | 'status' | 'appliedOn'>) => {
     try {
       const res = await fetch('/api/leaves', {
@@ -512,6 +570,16 @@ export const HRMSProvider: React.FC<HRMSProviderProps> = ({ children, initialUse
           appliedOn: json.data.appliedOn || formatLocalDate(new Date()),
         };
         setLeaveRequests((prev) => [created, ...prev.filter((r) => r.id !== created.id)]);
+        // Optimistically reduce balance on apply
+        const key = newLeave.leaveType.toLowerCase() as keyof typeof MOCK_LEAVE_BALANCES;
+        setLeaveBalances((prev) => ({
+          ...prev,
+          [key]: {
+            ...prev[key],
+            used: prev[key].used + newLeave.days,
+            remaining: Math.max(0, prev[key].remaining - newLeave.days),
+          },
+        }));
       }
     } catch (err) {
       console.error('Failed to submit leave request to database:', err);
@@ -519,17 +587,29 @@ export const HRMSProvider: React.FC<HRMSProviderProps> = ({ children, initialUse
   };
 
   const updateLeaveStatus = async (id: string, status: 'Approved' | 'Rejected') => {
+    const req = leaveRequests.find((r) => r.id === id);
     setLeaveRequests((prev) => prev.map((request) => request.id === id ? { ...request, status } : request));
+
+    // If rejecting a pending leave of current user, restore balance
+    if (req && status === 'Rejected' && req.status === 'Pending' && req.employeeId === currentUser.id) {
+      const key = req.leaveType.toLowerCase() as keyof typeof MOCK_LEAVE_BALANCES;
+      setLeaveBalances((prev) => ({
+        ...prev,
+        [key]: {
+          ...prev[key],
+          used: Math.max(0, prev[key].used - req.days),
+          remaining: prev[key].remaining + req.days,
+        },
+      }));
+    }
+
     try {
       await fetch('/api/leaves', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id,
-          status,
-          reviewerId: currentUser.id,
-        }),
+        body: JSON.stringify({ id, status, reviewerId: currentUser.id }),
       });
+      await refreshLeaveBalances(currentUser.id);
     } catch (err) {
       console.error('Failed to update leave status in database:', err);
     }
@@ -605,7 +685,8 @@ export const HRMSProvider: React.FC<HRMSProviderProps> = ({ children, initialUse
         employees,
         addEmployee,
         leaveRequests,
-        leaveBalances: MOCK_LEAVE_BALANCES,
+        leaveBalances,
+        setLeaveBalances,
         attendanceLogs,
         isClockedIn,
         clockInTime,

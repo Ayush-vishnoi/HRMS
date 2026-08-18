@@ -116,7 +116,7 @@ export async function PATCH(request: Request) {
     const { id, status } = body;
     const requestToReview = await db.leaveRequest.findUnique({
       where: { id },
-      select: { employeeId: true, employee: { select: { managerId: true } } },
+      select: { employeeId: true, days: true, leaveType: true, status: true, employee: { select: { managerId: true } } },
     });
 
     if (!requestToReview) {
@@ -135,11 +135,28 @@ export async function PATCH(request: Request) {
 
     const updated = await db.leaveRequest.update({
       where: { id },
-      data: {
-        status,
-        reviewerId: reviewer.id,
-      },
+      data: { status, reviewerId: reviewer.id },
     });
+
+    // Update leave balance in DB
+    const currentYear = new Date().getFullYear();
+    if (status === 'Approved' && requestToReview.status !== 'Approved') {
+      await db.leaveBalance.updateMany({
+        where: { employeeId: requestToReview.employeeId, leaveType: requestToReview.leaveType, year: currentYear },
+        data: {
+          used: { increment: requestToReview.days },
+          remaining: { decrement: requestToReview.days },
+        },
+      });
+    } else if (status === 'Rejected' && requestToReview.status === 'Approved') {
+      await db.leaveBalance.updateMany({
+        where: { employeeId: requestToReview.employeeId, leaveType: requestToReview.leaveType, year: currentYear },
+        data: {
+          used: { decrement: requestToReview.days },
+          remaining: { increment: requestToReview.days },
+        },
+      });
+    }
 
     // Notify the employee whose leave was reviewed
     await db.userNotification.create({

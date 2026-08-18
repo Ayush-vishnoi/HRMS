@@ -149,6 +149,7 @@ export const Header: React.FC<HeaderProps> = ({ onClockAction }) => {
       const response = await fetch('/api/auth/logout', { method: 'POST' });
       if (!response.ok) throw new Error('Logout request failed');
       logout();
+      window.localStorage.setItem('hrms_auth_event', `logout:${Date.now()}`);
       window.location.replace('/');
     } catch (error) {
       console.error('Failed to sign out:', error);

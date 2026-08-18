@@ -26,7 +26,7 @@ export async function GET() {
     }
 
     return NextResponse.json(
-      { authenticated: true },
+      { authenticated: true, user: { id: employee.id, name: employee.name, email: employee.email, userRole: employee.userRole } },
       { headers: noStoreHeaders },
     );
   } catch (error) {

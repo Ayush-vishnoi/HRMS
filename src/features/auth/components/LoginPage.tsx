@@ -170,6 +170,7 @@ export const LoginPage: React.FC = () => {
         return;
       }
 
+      window.localStorage.setItem('hrms_auth_event', `login:${Date.now()}`);
       window.location.replace('/');
     } catch {
       setError('Unable to sign in right now.');

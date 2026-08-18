@@ -10,7 +10,9 @@ import {
   Building2,
   ChevronRight,
   UserPlus,
-  ShieldCheck
+  ShieldCheck,
+  Mail,
+  UserCheck,
 } from 'lucide-react';
 import { useHRMS } from '@/shared/providers/HRMSContext';
 import type { Employee } from '@/features/employees/data/employees';
@@ -51,17 +53,7 @@ export default function EmployeesPage() {
     return matchesSearch && matchesDept;
   });
 
-  if (currentUser.userRole === 'employee') {
-    return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <div className="rounded-2xl border border-[#D9E5EE] bg-white p-8 text-center shadow-md">
-          <ShieldCheck className="mx-auto mb-4 h-12 w-12 rounded-full bg-[#EAF2F8] p-3 text-[#17324A]" />
-          <h2 className="text-lg font-bold text-[#17324A]">Manager or HR Admin access required</h2>
-          <p className="mt-2 text-sm text-[#55708A]">The employee directory is restricted to people managers and HR.</p>
-        </div>
-      </div>
-    );
-  }
+  const isEmployee = currentUser.userRole === 'employee';
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
@@ -80,14 +72,14 @@ export default function EmployeesPage() {
           </h1>
 
           <p className="text-xs text-[#667085]">
-            View team members, organization hierarchy, and contact profiles
+            {isEmployee ? 'Browse your colleagues — contact info, team, and location' : 'View team members, organization hierarchy, and contact profiles'}
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
 
           {/* Add Employee */}
-          {canAddEmployee && (
+          {canAddEmployee && !isEmployee && (
             <button
               onClick={() => setIsAddModalOpen(true)}
               className="px-4 py-2 rounded-md bg-[#17324A] hover:bg-[#17324A]/90 text-white text-xs font-semibold flex items-center gap-2 transition-colors"
@@ -144,7 +136,9 @@ export default function EmployeesPage() {
             </strong>
             .
 
-            {canAddEmployee
+            {isEmployee
+              ? ' You can view colleague profiles — name, designation, department, email, manager, location, and status.'
+              : canAddEmployee
               ? ' You have complete employee directory access, including compensation details and onboarding.'
               : ' You have view-only access to the employee directory.'}
           </span>
@@ -254,26 +248,37 @@ export default function EmployeesPage() {
                 <div className="pt-2 border-t border-[#E1E5EA] space-y-1.5 text-xs text-[#667085]">
 
                   <div className="flex items-center gap-2">
-                    <Building2 className="w-3.5 h-3.5 text-[#667085]" />
+                    <Building2 className="w-3.5 h-3.5 shrink-0" />
                     <span>{emp.department}</span>
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <MapPin className="w-3.5 h-3.5 text-[#667085]" />
+                    <MapPin className="w-3.5 h-3.5 shrink-0" />
                     <span>{emp.location}</span>
                   </div>
+
+                  <div className="flex items-center gap-2">
+                    <Mail className="w-3.5 h-3.5 shrink-0" />
+                    <span className="truncate">{emp.email}</span>
+                  </div>
+
+                  {emp.manager && (
+                    <div className="flex items-center gap-2">
+                      <UserCheck className="w-3.5 h-3.5 shrink-0" />
+                      <span className="truncate">Reports to: {emp.manager}</span>
+                    </div>
+                  )}
 
                 </div>
 
               </div>
 
+              {!isEmployee && (
               <div className="mt-4 pt-3 border-t border-[#E1E5EA] flex items-center justify-between text-xs text-[#17324A] font-semibold">
-
                 <span>View full profile</span>
-
                 <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
-
               </div>
+              )}
 
             </button>
 
@@ -302,17 +307,10 @@ export default function EmployeesPage() {
                     Department
                   </th>
 
-                  <th className="py-3 px-4">
-                    Email
-                  </th>
-
-                  <th className="py-3 px-4">
-                    Location
-                  </th>
-
-                  <th className="py-3 px-4">
-                    Status
-                  </th>
+                  <th className="py-3 px-4">Email</th>
+                  <th className="py-3 px-4">Manager</th>
+                  <th className="py-3 px-4">Location</th>
+                  <th className="py-3 px-4">Status</th>
 
                   <th className="py-3 px-4 text-right">
                     Action
@@ -362,13 +360,9 @@ export default function EmployeesPage() {
                       {emp.department}
                     </td>
 
-                    <td className="py-3 px-4 text-[#667085]">
-                      {emp.email}
-                    </td>
-
-                    <td className="py-3 px-4 text-[#667085]">
-                      {emp.location}
-                    </td>
+                    <td className="py-3 px-4 text-[#667085]">{emp.email}</td>
+                    <td className="py-3 px-4 text-[#667085]">{emp.manager || '—'}</td>
+                    <td className="py-3 px-4 text-[#667085]">{emp.location}</td>
 
                     <td className="py-3 px-4">
 

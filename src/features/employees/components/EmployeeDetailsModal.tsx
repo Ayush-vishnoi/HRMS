@@ -87,6 +87,7 @@ export const EmployeeDetailsModal: React.FC<EmployeeDetailsModalProps> = ({
               </div>
             </div>
 
+            {canViewCompensation && (
             <div className="flex items-center gap-3 rounded-xl border border-[#D9E5EE] bg-[#F5F9FC] p-3">
               <Phone className="h-4 w-4 shrink-0 text-[#6B879B]" />
               <div>
@@ -94,6 +95,7 @@ export const EmployeeDetailsModal: React.FC<EmployeeDetailsModalProps> = ({
                 <span className="text-xs font-semibold text-[#17324A]">{employee.phone}</span>
               </div>
             </div>
+            )}
 
             <div className="flex items-center gap-3 rounded-xl border border-[#D9E5EE] bg-[#F5F9FC] p-3">
               <MapPin className="h-4 w-4 shrink-0 text-[#6B879B]" />

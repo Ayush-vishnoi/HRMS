@@ -13,6 +13,7 @@ import {
   CreditCard,
   Download,
   Eye,
+  EyeOff,
   FileCheck,
   FileSpreadsheet,
   FileText,
@@ -63,6 +64,9 @@ export default function PayrollPage() {
 
   // View Mode: 'my' for personal employee view, 'all' for organization-wide admin view
   const [viewScope, setViewScope] = useState<'my' | 'all'>(isPrivileged ? 'all' : 'my');
+  const [showAmounts, setShowAmounts] = useState(false);
+  const formatAmount = (value: number | string | null | undefined) =>
+    showAmounts ? `₹${Number(value || 0).toLocaleString('en-IN')}` : '••••••';
   const [empSection, setEmpSection] = useState<EmployeeViewSection>('payslips');
   const [adminSection, setAdminSection] = useState<AdminViewSection>('overview');
 
@@ -492,6 +496,14 @@ export default function PayrollPage() {
 
         {/* Top Actions */}
         <div className="flex flex-wrap items-center gap-3">
+          {/* Show/Hide Amounts Toggle */}
+          <button
+            onClick={() => setShowAmounts((v) => !v)}
+            className="px-4 py-2.5 rounded-xl bg-white border border-[#D9E5EE] hover:bg-[#F5F9FC] text-[#17324A] text-xs font-semibold shadow-xs flex items-center gap-2 transition-all cursor-pointer"
+          >
+            {showAmounts ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            {showAmounts ? 'Hide Amounts' : 'Show Amounts'}
+          </button>
           {isPrivileged && (
             <>
               <a
@@ -575,7 +587,7 @@ export default function PayrollPage() {
                 TOTAL GROSS PAYROLL
               </span>
               <div className="text-3xl font-black text-[#17324A] tracking-tight">
-                ₹{Number(cycles[0]?.totalGross || 2450000).toLocaleString('en-IN')}
+                {formatAmount(cycles[0]?.totalGross || 2450000)}
               </div>
               <div className="pt-3 border-t border-[#F0F4F8] text-xs text-[#667085]">
                 Monthly CTC including employer statutory provisions
@@ -588,7 +600,7 @@ export default function PayrollPage() {
                 TOTAL NET TAKE-HOME
               </span>
               <div className="text-3xl font-black text-emerald-600 tracking-tight">
-                ₹{Number(cycles[0]?.totalNetPayable || totalDisbursed || 2165000).toLocaleString('en-IN')}
+                {formatAmount(cycles[0]?.totalNetPayable || totalDisbursed || 2165000)}
               </div>
               <div className="pt-3 border-t border-[#F0F4F8] text-xs text-[#667085]">
                 Directly transferred to verified bank accounts
@@ -608,19 +620,19 @@ export default function PayrollPage() {
                 </span>
               </div>
               <div className="text-3xl font-black text-[#17324A] tracking-tight">
-                ₹{Number(latestMyPayslip?.netPayable || 75833).toLocaleString('en-IN')}
+                {formatAmount(latestMyPayslip?.netPayable || 75833)}
               </div>
               <div className="pt-3 border-t border-[#F0F4F8] flex items-center justify-between text-xs">
                 <span className="text-[#667085]">
                   Gross:{' '}
                   <strong className="text-emerald-600 font-semibold ml-1">
-                    ₹{Number(latestMyPayslip?.grossEarnings || 95833).toLocaleString('en-IN')}
+                    {formatAmount(latestMyPayslip?.grossEarnings || 95833)}
                   </strong>
                 </span>
                 <span className="text-[#667085]">
                   Deductions:{' '}
                   <strong className="text-pink-600 font-semibold ml-1">
-                    ₹{Number(latestMyPayslip?.totalDeductions || 20000).toLocaleString('en-IN')}
+                    {formatAmount(latestMyPayslip?.totalDeductions || 20000)}
                   </strong>
                 </span>
               </div>
@@ -632,7 +644,7 @@ export default function PayrollPage() {
                 ANNUAL CTC
               </span>
               <div className="text-3xl font-black text-[#17324A] tracking-tight">
-                ₹{Number(annualCtc || 550000).toLocaleString('en-IN')}
+                {formatAmount(annualCtc || 550000)}
               </div>
               <div className="pt-3 border-t border-[#F0F4F8] text-xs text-[#667085]">
                 {currentUser.name} · {currentUser.userRole.toUpperCase()} Compensation Tier
@@ -645,11 +657,11 @@ export default function PayrollPage() {
                 YTD STATUTORY SUMMARY
               </span>
               <div className="text-3xl font-black text-[#17324A] tracking-tight">
-                ₹{Number(ytdSummary.ytdGross || 550000).toLocaleString('en-IN')}
+                {formatAmount(ytdSummary.ytdGross || 550000)}
               </div>
               <div className="pt-3 border-t border-[#F0F4F8] flex items-center justify-between text-xs text-[#667085]">
-                <span>YTD Tax (TDS): <strong className="text-pink-600">₹{ytdSummary.ytdTax.toLocaleString('en-IN')}</strong></span>
-                <span>YTD PF: <strong className="text-[#17324A]">₹{ytdSummary.ytdPf.toLocaleString('en-IN')}</strong></span>
+                <span>YTD Tax (TDS): <strong className="text-pink-600">{formatAmount(ytdSummary.ytdTax)}</strong></span>
+                <span>YTD PF: <strong className="text-[#17324A]">{formatAmount(ytdSummary.ytdPf)}</strong></span>
               </div>
             </div>
           </>
@@ -884,13 +896,13 @@ export default function PayrollPage() {
                     )}
                     <td className="py-4 px-4 font-bold text-[#17324A] text-xs">{slip.monthYear}</td>
                     <td className="py-4 px-4 font-semibold text-emerald-700">
-                      ₹{Number(slip.grossEarnings).toLocaleString('en-IN')}
+                      {formatAmount(slip.grossEarnings)}
                     </td>
                     <td className="py-4 px-4 font-semibold text-rose-700">
-                      ₹{Number(slip.totalDeductions).toLocaleString('en-IN')}
+                      {formatAmount(slip.totalDeductions)}
                     </td>
                     <td className="py-4 px-4 font-bold text-[#17324A]">
-                      ₹{Number(slip.netPayable).toLocaleString('en-IN')}
+                      {formatAmount(slip.netPayable)}
                     </td>
                     <td className="py-4 px-4">
                       <span className="px-2.5 py-0.5 rounded-md text-[10px] font-bold bg-[#EAF2F8] text-[#17324A] border border-[#B0D0EA]">
@@ -1063,14 +1075,14 @@ export default function PayrollPage() {
                           <span className="font-semibold text-emerald-700">{item.payableDays ?? 30}</span> /{' '}
                           <span className="text-rose-600 font-semibold">{item.lossOfPayDays ?? 0}</span>
                         </td>
-                        <td className="py-3 px-3 text-right">₹{item.basic?.toLocaleString('en-IN')}</td>
-                        <td className="py-3 px-3 text-right">₹{item.hra?.toLocaleString('en-IN')}</td>
-                        <td className="py-3 px-3 text-right">₹{item.specialAllowance?.toLocaleString('en-IN')}</td>
-                        <td className="py-3 px-3 text-right font-semibold text-emerald-700">₹{item.grossEarnings?.toLocaleString('en-IN')}</td>
-                        <td className="py-3 px-3 text-right text-rose-700">₹{item.pfEmployee?.toLocaleString('en-IN')}</td>
-                        <td className="py-3 px-3 text-right text-rose-700">₹{item.pt?.toLocaleString('en-IN')}</td>
-                        <td className="py-3 px-3 text-right font-semibold text-rose-700">₹{item.tds?.toLocaleString('en-IN')}</td>
-                        <td className="py-3 px-3 text-right font-bold text-[#17324A]">₹{item.netPayable?.toLocaleString('en-IN')}</td>
+                        <td className="py-3 px-3 text-right">{formatAmount(item.basic)}</td>
+                        <td className="py-3 px-3 text-right">{formatAmount(item.hra)}</td>
+                        <td className="py-3 px-3 text-right">{formatAmount(item.specialAllowance)}</td>
+                        <td className="py-3 px-3 text-right font-semibold text-emerald-700">{formatAmount(item.grossEarnings)}</td>
+                        <td className="py-3 px-3 text-right text-rose-700">{formatAmount(item.pfEmployee)}</td>
+                        <td className="py-3 px-3 text-right text-rose-700">{formatAmount(item.pt)}</td>
+                        <td className="py-3 px-3 text-right font-semibold text-rose-700">{formatAmount(item.tds)}</td>
+                        <td className="py-3 px-3 text-right font-bold text-[#17324A]">{formatAmount(item.netPayable)}</td>
                         <td className="py-3 px-3 text-center">
                           <button
                             onClick={() => alert(item.calculationSnapshotJson || 'Snapshot verified in database.')}
@@ -1131,19 +1143,19 @@ export default function PayrollPage() {
                       <p className="text-[10px] text-[#667085]">{s.employeeCode} · {s.department}</p>
                     </td>
                     <td className="py-3.5 px-4 text-right font-bold text-[#17324A]">
-                      ₹{Number(s.ctcAnnual).toLocaleString('en-IN')}
+                      {formatAmount(s.ctcAnnual)}
                     </td>
                     <td className="py-3.5 px-4 text-right font-medium">
-                      ₹{Number(s.basicMonthly).toLocaleString('en-IN')}
+                      {formatAmount(s.basicMonthly)}
                     </td>
                     <td className="py-3.5 px-4 text-right">
-                      ₹{Number(s.hraMonthly).toLocaleString('en-IN')}
+                      {formatAmount(s.hraMonthly)}
                     </td>
                     <td className="py-3.5 px-4 text-right">
-                      ₹{Number(s.specialAllowanceMonthly).toLocaleString('en-IN')}
+                      {formatAmount(s.specialAllowanceMonthly)}
                     </td>
                     <td className="py-3.5 px-4 text-right text-rose-700">
-                      ₹{Number(s.pfEmployeeMonthly).toLocaleString('en-IN')}
+                      {formatAmount(s.pfEmployeeMonthly)}
                     </td>
                     <td className="py-3.5 px-4 font-mono text-[11px] text-[#667085]">{s.effectiveFrom}</td>
                     <td className="py-3.5 px-4 text-right">
@@ -1302,9 +1314,9 @@ export default function PayrollPage() {
                           {decl.regime}
                         </span>
                       </td>
-                      <td className="py-3 px-3 text-right">₹{Number(decl.section80C).toLocaleString('en-IN')}</td>
-                      <td className="py-3 px-3 text-right">₹{Number(decl.section80D).toLocaleString('en-IN')}</td>
-                      <td className="py-3 px-3 text-right">₹{Number(decl.hraExemptionRent).toLocaleString('en-IN')}</td>
+                      <td className="py-3 px-3 text-right">{formatAmount(decl.section80C)}</td>
+                      <td className="py-3 px-3 text-right">{formatAmount(decl.section80D)}</td>
+                      <td className="py-3 px-3 text-right">{formatAmount(decl.hraExemptionRent)}</td>
                       <td className="py-3 px-3">
                         <span
                           className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
@@ -1365,11 +1377,11 @@ export default function PayrollPage() {
                 </div>
                 <div>
                   <div className="text-xs text-[#667085]">Principal Disbursed</div>
-                  <div className="text-xl font-black text-[#17324A]">₹{Number(loan.principalAmount).toLocaleString('en-IN')}</div>
+                  <div className="text-xl font-black text-[#17324A]">{formatAmount(loan.principalAmount)}</div>
                 </div>
                 <div className="grid grid-cols-2 gap-2 text-xs text-[#667085]">
-                  <div>Monthly EMI: <strong className="text-[#17324A]">₹{Number(loan.monthlyEmi).toLocaleString('en-IN')}</strong></div>
-                  <div>Remaining: <strong className="text-rose-600">₹{Number(loan.remainingBalance).toLocaleString('en-IN')}</strong></div>
+                  <div>Monthly EMI: <strong className="text-[#17324A]">{formatAmount(loan.monthlyEmi)}</strong></div>
+                  <div>Remaining: <strong className="text-rose-600">{formatAmount(loan.remainingBalance)}</strong></div>
                   <div>Tenure: {loan.paidInstallments}/{loan.totalInstallments} Months</div>
                   <div>Date: {loan.disbursedOn}</div>
                 </div>
@@ -1423,7 +1435,7 @@ export default function PayrollPage() {
                     <td className="py-3.5 px-4 font-bold">{vp.employeeId}</td>
                     <td className="py-3.5 px-4 font-semibold text-[#17324A]">{vp.payType}</td>
                     <td className="py-3.5 px-4 text-right font-bold text-emerald-700">
-                      ₹{Number(vp.amount).toLocaleString('en-IN')}
+                      {formatAmount(vp.amount)}
                     </td>
                     <td className="py-3.5 px-4">{vp.monthYear}</td>
                     <td className="py-3.5 px-4 text-[#667085]">{vp.reason}</td>
@@ -1546,15 +1558,15 @@ export default function PayrollPage() {
                 </div>
                 <div className="p-3.5 rounded-xl bg-[#F8FAFC] border border-[#D9E5EE]">
                   <div className="text-[#667085]">Gross Calculated</div>
-                  <div className="text-lg font-bold text-emerald-700">₹{reconciliation.totalGross?.toLocaleString('en-IN')}</div>
+                  <div className="text-lg font-bold text-emerald-700">{formatAmount(reconciliation.totalGross)}</div>
                 </div>
                 <div className="p-3.5 rounded-xl bg-[#F8FAFC] border border-[#D9E5EE]">
                   <div className="text-[#667085]">Total Deductions</div>
-                  <div className="text-lg font-bold text-rose-700">₹{reconciliation.totalDeductions?.toLocaleString('en-IN')}</div>
+                  <div className="text-lg font-bold text-rose-700">{formatAmount(reconciliation.totalDeductions)}</div>
                 </div>
                 <div className="p-3.5 rounded-xl bg-[#F8FAFC] border border-[#D9E5EE]">
                   <div className="text-[#667085]">Net Disbursable</div>
-                  <div className="text-lg font-bold text-[#17324A]">₹{reconciliation.totalNet?.toLocaleString('en-IN')}</div>
+                  <div className="text-lg font-bold text-[#17324A]">{formatAmount(reconciliation.totalNet)}</div>
                 </div>
               </div>
 
@@ -1652,13 +1664,13 @@ export default function PayrollPage() {
               <div className="space-y-2">
                 <div className="font-bold uppercase text-[#17324A]">Part B — Details of Salary Paid and Deductions</div>
                 <div className="p-4 rounded-xl bg-white border border-[#D9E5EE] space-y-2">
-                  <div className="flex justify-between"><span className="text-[#667085]">1. Gross Salary (Section 17(1))</span><span className="font-semibold text-[#17324A]">₹{form16Data.partB.grossSalary.totalGross.toLocaleString('en-IN')}</span></div>
-                  <div className="flex justify-between text-emerald-700"><span>2. Less: Section 10 Allowances / Std Deduction</span><span>- ₹{form16Data.partB.exemptionsUnderSection10.totalExemptions.toLocaleString('en-IN')}</span></div>
-                  <div className="flex justify-between"><span className="text-[#667085]">3. Total Salary after Exemptions</span><span className="font-semibold text-[#17324A]">₹{form16Data.partB.totalSalaryAfterExemptions.toLocaleString('en-IN')}</span></div>
-                  <div className="flex justify-between text-emerald-700"><span>4. Less: Chapter VI-A Deductions</span><span>- ₹{form16Data.partB.deductionsUnderChapterVIA.totalDeductions.toLocaleString('en-IN')}</span></div>
-                  <div className="flex justify-between font-bold text-sm border-t border-[#D9E5EE] pt-2"><span className="text-[#17324A]">5. TOTAL TAXABLE INCOME</span><span className="text-[#17324A]">₹{form16Data.partB.totalTaxableIncome.toLocaleString('en-IN')}</span></div>
-                  <div className="flex justify-between"><span className="text-[#667085]">6. Total Tax Payable (including Cess)</span><span className="font-bold text-rose-700">₹{form16Data.partB.netTaxPayable.toLocaleString('en-IN')}</span></div>
-                  <div className="flex justify-between"><span className="text-[#667085]">7. TDS Deducted & Deposited</span><span className="font-semibold text-[#17324A]">₹{form16Data.partB.taxDeductedAtSource.toLocaleString('en-IN')}</span></div>
+                  <div className="flex justify-between"><span className="text-[#667085]">1. Gross Salary (Section 17(1))</span><span className="font-semibold text-[#17324A]">{formatAmount(form16Data.partB.grossSalary.totalGross)}</span></div>
+                  <div className="flex justify-between text-emerald-700"><span>2. Less: Section 10 Allowances / Std Deduction</span><span>- {formatAmount(form16Data.partB.exemptionsUnderSection10.totalExemptions)}</span></div>
+                  <div className="flex justify-between"><span className="text-[#667085]">3. Total Salary after Exemptions</span><span className="font-semibold text-[#17324A]">{formatAmount(form16Data.partB.totalSalaryAfterExemptions)}</span></div>
+                  <div className="flex justify-between text-emerald-700"><span>4. Less: Chapter VI-A Deductions</span><span>- {formatAmount(form16Data.partB.deductionsUnderChapterVIA.totalDeductions)}</span></div>
+                  <div className="flex justify-between font-bold text-sm border-t border-[#D9E5EE] pt-2"><span className="text-[#17324A]">5. TOTAL TAXABLE INCOME</span><span className="text-[#17324A]">{formatAmount(form16Data.partB.totalTaxableIncome)}</span></div>
+                  <div className="flex justify-between"><span className="text-[#667085]">6. Total Tax Payable (including Cess)</span><span className="font-bold text-rose-700">{formatAmount(form16Data.partB.netTaxPayable)}</span></div>
+                  <div className="flex justify-between"><span className="text-[#667085]">7. TDS Deducted & Deposited</span><span className="font-semibold text-[#17324A]">{formatAmount(form16Data.partB.taxDeductedAtSource)}</span></div>
                 </div>
               </div>
             </div>
@@ -1710,7 +1722,7 @@ export default function PayrollPage() {
                     <tr key={idx} className="hover:bg-[#F8FAFC]">
                       {Object.values(row).map((val: any, cidx) => (
                         <td key={cidx} className="py-2.5 px-3.5 whitespace-nowrap">
-                          {typeof val === 'number' ? `₹${val.toLocaleString('en-IN')}` : String(val)}
+                          {typeof val === 'number' ? formatAmount(val) : String(val)}
                         </td>
                       ))}
                     </tr>
@@ -1958,9 +1970,9 @@ export default function PayrollPage() {
             <div className="space-y-2 text-xs text-[#17324A]">
               <div>Employee: <strong>{selectedDeclForReview.employeeId}</strong></div>
               <div>Regime: <strong className="text-emerald-700">{selectedDeclForReview.regime}</strong></div>
-              <div>Section 80C: ₹{Number(selectedDeclForReview.section80C).toLocaleString('en-IN')}</div>
-              <div>Section 80D: ₹{Number(selectedDeclForReview.section80D).toLocaleString('en-IN')}</div>
-              <div>HRA Rent: ₹{Number(selectedDeclForReview.hraExemptionRent).toLocaleString('en-IN')}</div>
+              <div>Section 80C: {formatAmount(selectedDeclForReview.section80C)}</div>
+              <div>Section 80D: {formatAmount(selectedDeclForReview.section80D)}</div>
+              <div>HRA Rent: {formatAmount(selectedDeclForReview.hraExemptionRent)}</div>
               {selectedDeclForReview.proofUrls?.length > 0 && (
                 <div>
                   Proof Attachment:{' '}
@@ -2005,7 +2017,11 @@ export default function PayrollPage() {
 
       {/* Payslip View Modal */}
       {selectedPayslip && (
-        <PayslipModal payslip={selectedPayslip} onClose={() => setSelectedPayslip(null)} />
+        <PayslipModal
+          payslip={selectedPayslip}
+          showAmounts={showAmounts}
+          onClose={() => setSelectedPayslip(null)}
+        />
       )}
     </div>
   );

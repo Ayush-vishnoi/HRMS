@@ -46,7 +46,6 @@ export default async function RootLayout({
         className={`${inter.className} antialiased selection:bg-[#B0D0EA] selection:text-[#17324A]`}
       >
         <HRMSProvider
-          key={initialUser?.id ?? 'anonymous'}
           initialUser={initialUser}
         >
           <MeetingsQueryProvider>
