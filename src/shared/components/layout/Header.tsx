@@ -17,12 +17,14 @@ import {
   Mail,
   MapPin,
   Phone,
+  MessageSquare,
   Sparkles,
   UserRound,
   UsersRound,
   X,
 } from 'lucide-react';
 import { useHRMS } from '@/shared/providers/HRMSContext';
+import { useChat } from '@/shared/providers/ChatContext';
 import { HRHelpDeskModal } from '@/features/help-desk/components/HRHelpDeskModal';
 import { MOCK_EMPLOYEES } from '@/features/employees/data/employees';
 import { getTimeGreeting } from '@/shared/lib/formatters';
@@ -50,6 +52,7 @@ export const Header: React.FC<HeaderProps> = ({ onClockAction }) => {
     helpDeskTickets,
     logout,
   } = useHRMS();
+  const { unreadCount, openChatWith, conversations } = useChat();
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [dismissedNotificationIds, setDismissedNotificationIds] = useState<string[]>([]);
@@ -236,6 +239,27 @@ export const Header: React.FC<HeaderProps> = ({ onClockAction }) => {
             <span className="hidden sm:inline">Ask HR</span>
           </button>
         )}
+
+        {/* Real-Time Internal Chat Button */}
+        <button
+          type="button"
+          onClick={() => {
+            setShowNotifications(false);
+            setShowProfile(false);
+            const targetId = conversations[0]?.employeeId || (currentUser.userRole === 'manager' ? 'EMP-003' : 'EMP-002');
+            void openChatWith(targetId);
+          }}
+          className="p-1.5 rounded-md bg-surface border border-border text-secondary hover:text-foreground hover:bg-surface-elevated relative transition-colors cursor-pointer"
+          aria-label="Open internal chat"
+          title="Open Internal Real-time Chat"
+        >
+          <MessageSquare className="w-4 h-4 text-[#17324A]" />
+          {unreadCount > 0 && (
+            <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#2d577b] px-1 text-[9px] font-black text-white ring-2 ring-white">
+              {unreadCount > 9 ? '9+' : unreadCount}
+            </span>
+          )}
+        </button>
 
         {/* Notifications Button */}
         <div className="relative">

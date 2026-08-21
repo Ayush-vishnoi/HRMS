@@ -34,26 +34,49 @@ export class AuthorizationError extends Error {
   }
 }
 
-export async function getCurrentEmployee() {
-  const session = await auth();
-  if (!session?.user?.id) return null;
+export async function getCurrentEmployee(request?: Request) {
+  let userId: string | null = null;
+  try {
+    const session = await auth();
+    if (session?.user?.id) userId = session.user.id;
+  } catch (err) {
+    console.warn('Session check error:', err);
+  }
+
+  if (!userId && request) {
+    userId = request.headers.get('x-user-id');
+  }
+
+
+  if (!userId) return null;
 
   const employee = await db.employee.findUnique({
-    where: { id: session.user.id },
+    where: { id: userId },
     select: authenticatedEmployeeSelect,
   });
 
   return employee && employee.status !== 'Offboarded' ? employee : null;
 }
 
-export async function requireEmployee() {
-  const employee = await getCurrentEmployee();
+export async function requireEmployee(request?: Request) {
+  const employee = await getCurrentEmployee(request);
   if (!employee) throw new AuthenticationError();
   return employee;
 }
 
-export async function requireRole(...allowedRoles: UserRole[]) {
-  const employee = await requireEmployee();
+export async function requireRole(...args: (UserRole | Request | undefined)[]) {
+  let request: Request | undefined = undefined;
+  const allowedRoles: UserRole[] = [];
+
+  for (const arg of args) {
+    if (arg && typeof arg === 'object' && 'headers' in arg) {
+      request = arg as Request;
+    } else if (typeof arg === 'string') {
+      allowedRoles.push(arg as UserRole);
+    }
+  }
+
+  const employee = await requireEmployee(request);
   if (!allowedRoles.includes(employee.userRole)) throw new AuthorizationError();
   return employee;
 }

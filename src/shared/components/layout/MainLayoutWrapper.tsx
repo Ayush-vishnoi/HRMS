@@ -7,6 +7,8 @@ import { Sidebar } from '@/shared/components/layout/Sidebar';
 import { Header } from '@/shared/components/layout/Header';
 import { LoginPage } from '@/features/auth/components/LoginPage';
 import { ClockInPermissionModal } from '@/features/attendance/components/ClockInPermissionModal';
+import { ChatModal } from '@/features/chat/components/ChatModal';
+import { ChatToastNotification } from '@/features/chat/components/ChatToastNotification';
 import { isRouteAllowedForRole } from '@/shared/lib/navigation';
 
 export const MainLayoutWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -73,6 +75,8 @@ export const MainLayoutWrapper: React.FC<{ children: React.ReactNode }> = ({ chi
       )}
       {notice && <div className="fixed bottom-5 right-5 z-50 rounded-xl border border-[#D9E5EE] bg-white px-4 py-3 text-xs font-semibold text-[#17324A] shadow-lg">{notice}</div>}
       <ClockInPermissionModal isOpen={isPermissionModalOpen} onClose={() => setIsPermissionModalOpen(false)} />
+      <ChatModal />
+      <ChatToastNotification />
     </div>
   );
 };

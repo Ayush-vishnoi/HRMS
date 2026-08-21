@@ -58,3 +58,5 @@ export interface EmployeeSearchResult extends MeetingPerson {
   email: string;
   role: string;
 }
+
+export type CalendarEvent = Meeting;

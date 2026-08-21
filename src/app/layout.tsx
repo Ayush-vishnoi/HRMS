@@ -6,6 +6,8 @@ import { MainLayoutWrapper } from '@/shared/components/layout/MainLayoutWrapper'
 import { MeetingsQueryProvider } from '@/shared/providers/MeetingsQueryProvider';
 import { getCurrentEmployee } from '@/lib/auth-session';
 
+import { ChatProvider } from '@/shared/providers/ChatContext';
+
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
@@ -48,9 +50,11 @@ export default async function RootLayout({
         <HRMSProvider
           initialUser={initialUser}
         >
-          <MeetingsQueryProvider>
-            <MainLayoutWrapper>{children}</MainLayoutWrapper>
-          </MeetingsQueryProvider>
+          <ChatProvider>
+            <MeetingsQueryProvider>
+              <MainLayoutWrapper>{children}</MainLayoutWrapper>
+            </MeetingsQueryProvider>
+          </ChatProvider>
         </HRMSProvider>
       </body>
     </html>

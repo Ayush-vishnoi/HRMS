@@ -1885,6 +1885,52 @@ async function main() {
     },
   });
 
+  // O. Initial 1-to-1 Conversations & Messages
+  console.log('Creating initial conversations & messages...');
+  const demoConv = await prisma.conversation.upsert({
+    where: {
+      participant1Id_participant2Id: {
+        participant1Id: 'EMP-002',
+        participant2Id: 'EMP-003',
+      },
+    },
+    update: {},
+    create: {
+      id: 'CONV-EMP-002-EMP-003',
+      participant1Id: 'EMP-002',
+      participant2Id: 'EMP-003',
+    },
+  });
+
+  const demoMessages = [
+    {
+      id: 'MSG-DEMO-001',
+      conversationId: demoConv.id,
+      senderId: 'EMP-003',
+      receiverId: 'EMP-002',
+      content: "Can we discuss today's task?",
+      status: 'SEEN' as const,
+      createdAt: new Date(Date.now() - 1000 * 60 * 30),
+    },
+    {
+      id: 'MSG-DEMO-002',
+      conversationId: demoConv.id,
+      senderId: 'EMP-002',
+      receiverId: 'EMP-003',
+      content: "Sure, let's discuss.",
+      status: 'SEEN' as const,
+      createdAt: new Date(Date.now() - 1000 * 60 * 25),
+    },
+  ];
+
+  for (const msg of demoMessages) {
+    await prisma.message.upsert({
+      where: { id: msg.id },
+      update: msg,
+      create: msg,
+    });
+  }
+
   console.log('✅ PostgreSQL Database seeding completed successfully with all enterprise modules!');
 }
 

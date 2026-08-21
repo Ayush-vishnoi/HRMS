@@ -1,4 +1,4 @@
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 
 type ExportCellValue = string | number | boolean | null | undefined;
 type WorksheetCellValue = Exclude<ExportCellValue, null | undefined>;
@@ -17,7 +17,7 @@ export interface ExportColumn<T> {
   key: keyof T | ((item: T) => ExportCellValue);
 }
 
-export function exportToExcel<T>(data: T[], columns: ExportColumn<T>[], filename: string, sheetName: string = 'Sheet1') {
+export async function exportToExcel<T>(data: T[], columns: ExportColumn<T>[], filename: string, sheetName: string = 'Sheet1') {
   if (!data || data.length === 0) {
     alert('No data currently available to export.');
     return;
@@ -35,13 +35,31 @@ export function exportToExcel<T>(data: T[], columns: ExportColumn<T>[], filename
     return row;
   });
 
-  const worksheet = XLSX.utils.json_to_sheet(rows);
-  const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+  const workbook = new ExcelJS.Workbook();
+  const worksheet = workbook.addWorksheet(sheetName);
+  worksheet.columns = columns.map((column) => ({
+    header: column.header,
+    key: column.header,
+    width: 18,
+  }));
+  worksheet.addRows(rows);
 
   // Auto-fit column widths
-  const max_width = rows.reduce((w, r) => Math.max(w, Object.keys(r).length), 10);
-  worksheet['!cols'] = Array(max_width).fill({ wch: 18 });
+  worksheet.columns.forEach((column) => {
+    const headerStr = column.header ? String(column.header) : '';
+    const values = [headerStr, ...rows.map((row) => (headerStr ? (row as Record<string, any>)[headerStr] : ''))];
+    const width = Math.max(...values.map((value) => String(value ?? '').length), 10);
+    column.width = Math.min(width + 2, 40);
+  });
 
-  XLSX.writeFile(workbook, filename);
+  const buffer = await workbook.xlsx.writeBuffer();
+  const blob = new Blob([buffer], {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
 }

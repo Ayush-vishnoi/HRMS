@@ -7,7 +7,7 @@ import {
   requireRole,
 } from '@/lib/auth-session';
 
-export async function GET(_request?: Request) {
+export async function GET(_request: Request) {
   try {
     const employee = await requireEmployee();
 

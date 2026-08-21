@@ -120,6 +120,10 @@ model Employee {
   recruiting_jobs                                                                              RecruitmentJob[]                     @relation("JobRecruiter")
   assigned_candidates                                                                          RecruitmentCandidate[]               @relation("CandidateAssignedRecruiter")
   candidate_stage_changes                                                                      candidate_stage_history[]            @relation("StageHistoryChangedBy")
+  conversationsAsP1                                                                            Conversation[]                       @relation("ConversationParticipant1")
+  conversationsAsP2                                                                            Conversation[]                       @relation("ConversationParticipant2")
+  sentMessages                                                                                 Message[]                            @relation("SentMessages")
+  receivedMessages                                                                             Message[]                            @relation("ReceivedMessages")
 
   @@index([department_id, designation_id])
   @@index([organization_id, business_unit_id])
@@ -1747,6 +1751,7 @@ enum LeaveRequestStatus {
 enum MeetingType {
   TEAM
   ORG_EVENT
+  ONE_TO_ONE
 }
 
 enum MeetingStatus {
@@ -2829,5 +2834,48 @@ model KnowledgeTransferTask {
   @@index([exitRequestId, status])
   @@map("knowledge_transfer_tasks")
 }
+
+model Conversation {
+  id             String   @id @default(cuid()) @db.VarChar(36)
+  participant1Id String   @map("participant_1_id") @db.VarChar(36)
+  participant2Id String   @map("participant_2_id") @db.VarChar(36)
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  participant1 Employee  @relation("ConversationParticipant1", fields: [participant1Id], references: [id], onDelete: Cascade)
+  participant2 Employee  @relation("ConversationParticipant2", fields: [participant2Id], references: [id], onDelete: Cascade)
+  messages     Message[]
+
+  @@unique([participant1Id, participant2Id], map: "uq_conversation_participants")
+  @@index([participant1Id])
+  @@index([participant2Id])
+  @@map("conversations")
+}
+
+enum MessageStatus {
+  SENT
+  DELIVERED
+  SEEN
+}
+
+model Message {
+  id             String        @id @default(cuid()) @db.VarChar(36)
+  conversationId String        @map("conversation_id") @db.VarChar(36)
+  senderId       String        @map("sender_id") @db.VarChar(36)
+  receiverId     String        @map("receiver_id") @db.VarChar(36)
+  content        String        @db.Text
+  status         MessageStatus @default(SENT)
+  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       Employee     @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver     Employee     @relation("ReceivedMessages", fields: [receiverId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+  @@index([receiverId, status])
+  @@map("messages")
+}
+
 
 
