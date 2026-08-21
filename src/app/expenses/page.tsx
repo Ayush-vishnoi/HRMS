@@ -62,6 +62,14 @@ const CATEGORIES: ExpenseCategory[] = [
   'Business',
 ];
 
+const MAX_RECEIPT_SIZE = 10 * 1024 * 1024;
+const ALLOWED_RECEIPT_TYPES = new Set([
+  'application/pdf',
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+]);
+
 export default function ExpensesPage() {
   const { currentUser, employees } = useHRMS();
   const isAdmin = currentUser.userRole === 'admin';
@@ -76,6 +84,8 @@ export default function ExpensesPage() {
   const [statusFilter, setStatusFilter] = useState<string>('All');
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [selectedClaim, setSelectedClaim] = useState<ExpenseClaim | null>(null);
+  const [receiptFile, setReceiptFile] = useState<File | null>(null);
+  const [receiptError, setReceiptError] = useState('');
 
   // Form State
   const [title, setTitle] = useState('');
@@ -112,12 +122,59 @@ export default function ExpensesPage() {
     fetchClaims();
   }, [activeTab, currentUser.id, currentUser.userRole]);
 
+  const closeSubmitModal = () => {
+    setShowSubmitModal(false);
+    setReceiptFile(null);
+    setReceiptError('');
+  };
+
+  const handleReceiptChange = (file: File | null) => {
+    setReceiptError('');
+
+    if (!file) {
+      setReceiptFile(null);
+      return;
+    }
+
+    if (!ALLOWED_RECEIPT_TYPES.has(file.type)) {
+      setReceiptFile(null);
+      setReceiptError('Only PDF, JPG, PNG, and WEBP receipts are supported.');
+      return;
+    }
+
+    if (file.size > MAX_RECEIPT_SIZE) {
+      setReceiptFile(null);
+      setReceiptError('Receipt must be 10 MB or smaller.');
+      return;
+    }
+
+    setReceiptFile(file);
+  };
+
   const handleSubmitClaim = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title || !amount || !merchantName) return;
+    if (activeTab !== 'my' || !title || !amount || !merchantName) return;
 
     try {
       setSubmitting(true);
+      setReceiptError('');
+      let receiptUrl: string | undefined;
+
+      if (receiptFile) {
+        const uploadData = new FormData();
+        uploadData.append('receipt', receiptFile);
+        const uploadRes = await fetch('/api/expenses/upload', {
+          method: 'POST',
+          body: uploadData,
+        });
+        const uploadJson = await uploadRes.json();
+        if (!uploadRes.ok || !uploadJson.success) {
+          setReceiptError(uploadJson.error || 'Receipt upload failed.');
+          return;
+        }
+        receiptUrl = uploadJson.data.receiptUrl;
+      }
+
       const res = await fetch('/api/expenses', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -128,20 +185,25 @@ export default function ExpensesPage() {
           amount: Number(amount),
           expenseDate,
           merchantName,
+          receiptUrl,
           description,
         }),
       });
 
       if (res.ok) {
-        setShowSubmitModal(false);
+        closeSubmitModal();
         setTitle('');
         setAmount('');
         setMerchantName('');
         setDescription('');
         await fetchClaims();
+      } else {
+        const json = await res.json().catch(() => null);
+        setReceiptError(json?.error || 'Failed to submit claim.');
       }
     } catch (err) {
       console.error('Failed to submit claim:', err);
+      setReceiptError('Failed to submit claim. Please try again.');
     } finally {
       setSubmitting(false);
     }
@@ -253,13 +315,18 @@ export default function ExpensesPage() {
             <Download className="w-4 h-4 text-[#17324A]" />
             Export Report
           </button>
-          <button
-            onClick={() => setShowSubmitModal(true)}
-            className="px-4 py-2.5 rounded-xl bg-[#17324A] hover:bg-[#244A68] text-white text-xs font-bold shadow-sm flex items-center gap-2 transition-all cursor-pointer"
-          >
-            <Plus className="w-4 h-4 text-white" />
-            File Expense Claim
-          </button>
+          {activeTab === 'my' && (
+            <button
+              onClick={() => {
+                setReceiptError('');
+                setShowSubmitModal(true);
+              }}
+              className="px-4 py-2.5 rounded-xl bg-[#17324A] hover:bg-[#244A68] text-white text-xs font-bold shadow-sm flex items-center gap-2 transition-all cursor-pointer"
+            >
+              <Plus className="w-4 h-4 text-white" />
+              File Expense Claim
+            </button>
+          )}
         </div>
       </div>
 
@@ -268,7 +335,10 @@ export default function ExpensesPage() {
         <div className="flex items-center gap-2 p-1.5 bg-[#EAF2F8] border border-[#B0D0EA] rounded-xl w-fit">
           <button
             type="button"
-            onClick={() => setActiveTab('all')}
+            onClick={() => {
+              setActiveTab('all');
+              closeSubmitModal();
+            }}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${
               activeTab === 'all'
                 ? 'bg-[#17324A] text-white shadow-sm'
@@ -496,13 +566,14 @@ export default function ExpensesPage() {
       </div>
 
       {/* Submit Claim Modal */}
-      {showSubmitModal && (
+      {activeTab === 'my' && showSubmitModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-xs">
           <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl border border-[#D9E5EE] space-y-4">
             <div className="flex items-center justify-between border-b border-[#EAF2F8] pb-3">
               <h3 className="text-base font-bold text-[#17324A]">Submit New Expense Claim</h3>
               <button
-                onClick={() => setShowSubmitModal(false)}
+                type="button"
+                onClick={closeSubmitModal}
                 className="rounded-lg p-1 text-[#667085] hover:bg-[#F5F9FC]"
               >
                 <X className="h-4 w-4" />
@@ -596,10 +667,28 @@ export default function ExpensesPage() {
                 />
               </div>
 
+              <div>
+                <label htmlFor="expense-receipt" className="block text-xs font-semibold text-[#17324A] mb-1">
+                  Receipt (optional)
+                </label>
+                <label htmlFor="expense-receipt" className="flex cursor-pointer items-center gap-2 rounded-lg border border-dashed border-[#9FC2DC] bg-[#F8FAFC] px-3 py-2.5 text-xs text-[#52677A] hover:bg-[#F5F9FC]">
+                  <Upload className="h-4 w-4 text-[#315B76]" />
+                  <span className="truncate">{receiptFile ? receiptFile.name : 'Add PDF, JPG, PNG, or WEBP receipt (max 10 MB)'}</span>
+                </label>
+                <input
+                  id="expense-receipt"
+                  type="file"
+                  accept="application/pdf,image/jpeg,image/png,image/webp"
+                  className="sr-only"
+                  onChange={(e) => handleReceiptChange(e.target.files?.[0] ?? null)}
+                />
+                {receiptError && <p className="mt-1 text-[11px] font-medium text-rose-600">{receiptError}</p>}
+              </div>
+
               <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-[#EAF2F8]">
                 <button
                   type="button"
-                  onClick={() => setShowSubmitModal(false)}
+                  onClick={closeSubmitModal}
                   className="px-4 py-2 rounded-lg text-xs font-semibold text-[#667085] hover:bg-[#F5F9FC]"
                 >
                   Cancel
@@ -652,6 +741,19 @@ export default function ExpensesPage() {
                   <span className="text-[#667085] block">Category:</span>
                   <span className="font-semibold text-[#17324A]">{selectedClaim.category}</span>
                 </div>
+                {selectedClaim.receiptUrl && (
+                  <div>
+                    <span className="text-[#667085] block">Receipt:</span>
+                    <a
+                      href={selectedClaim.receiptUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="font-semibold text-[#315B76] hover:underline"
+                    >
+                      Open Receipt
+                    </a>
+                  </div>
+                )}
                 <div>
                   <span className="text-[#667085] block">Date:</span>
                   <span className="font-semibold text-[#17324A]">{selectedClaim.expenseDate}</span>

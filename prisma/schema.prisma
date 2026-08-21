@@ -317,13 +317,14 @@ model Meeting {
 }
 
 model MeetingAttendee {
-  id         String     @id @default(cuid()) @db.VarChar(36)
-  meetingId  String     @map("meeting_id") @db.VarChar(36)
-  employeeId String     @map("employee_id") @db.VarChar(36)
-  rsvp       RsvpStatus @default(PENDING)
-  updatedAt  DateTime   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  employee   Employee   @relation(fields: [employeeId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  meeting    Meeting    @relation(fields: [meetingId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  id             String     @id @default(cuid()) @db.VarChar(36)
+  meetingId      String     @map("meeting_id") @db.VarChar(36)
+  employeeId     String     @map("employee_id") @db.VarChar(36)
+  rsvp           RsvpStatus @default(PENDING)
+  responseReason String?    @map("response_reason") @db.VarChar(500)
+  updatedAt      DateTime   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  employee       Employee   @relation(fields: [employeeId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  meeting        Meeting    @relation(fields: [meetingId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@unique([meetingId, employeeId], map: "uq_meeting_attendee")
   @@map("meeting_attendees")

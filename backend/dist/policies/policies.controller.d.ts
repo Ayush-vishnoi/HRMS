@@ -14,8 +14,8 @@ export declare class PoliciesController {
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        title: string;
         category: import("@prisma/client").$Enums.PolicyCategory;
+        title: string;
         summary: string;
         version: string;
         effectiveDate: string;
@@ -36,8 +36,8 @@ export declare class PoliciesController {
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        title: string;
         category: import("@prisma/client").$Enums.PolicyCategory;
+        title: string;
         summary: string;
         version: string;
         effectiveDate: string;

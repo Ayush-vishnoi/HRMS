@@ -483,7 +483,7 @@ export const EmployeeDashboard: React.FC = () => {
 
       <PayslipModal
         payslip={selectedPayslip}
-        showAmounts={false}
+        showAmounts={true}
         onClose={() => setSelectedPayslip(null)}
       />
 

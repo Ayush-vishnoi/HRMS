@@ -16,9 +16,8 @@ export declare class AssetsController {
         location: string;
         createdAt: Date;
         updatedAt: Date;
-        notes: string | null;
-        category: import("@prisma/client").$Enums.AssetCategory;
         assetTag: string;
+        category: import("@prisma/client").$Enums.AssetCategory;
         brand: string;
         model: string;
         serialNumber: string;
@@ -28,6 +27,7 @@ export declare class AssetsController {
         assignedToId: string | null;
         condition: import("@prisma/client").$Enums.AssetCondition;
         lastChecked: string;
+        notes: string | null;
     })[]>;
     create(body: any): Promise<{
         assignedTo: {
@@ -43,9 +43,8 @@ export declare class AssetsController {
         location: string;
         createdAt: Date;
         updatedAt: Date;
-        notes: string | null;
-        category: import("@prisma/client").$Enums.AssetCategory;
         assetTag: string;
+        category: import("@prisma/client").$Enums.AssetCategory;
         brand: string;
         model: string;
         serialNumber: string;
@@ -55,6 +54,7 @@ export declare class AssetsController {
         assignedToId: string | null;
         condition: import("@prisma/client").$Enums.AssetCondition;
         lastChecked: string;
+        notes: string | null;
     }>;
     update(body: any): Promise<{
         assignedTo: {
@@ -70,9 +70,8 @@ export declare class AssetsController {
         location: string;
         createdAt: Date;
         updatedAt: Date;
-        notes: string | null;
-        category: import("@prisma/client").$Enums.AssetCategory;
         assetTag: string;
+        category: import("@prisma/client").$Enums.AssetCategory;
         brand: string;
         model: string;
         serialNumber: string;
@@ -82,5 +81,6 @@ export declare class AssetsController {
         assignedToId: string | null;
         condition: import("@prisma/client").$Enums.AssetCondition;
         lastChecked: string;
+        notes: string | null;
     }>;
 }

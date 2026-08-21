@@ -10,13 +10,16 @@ import { ScheduleMeetingDrawer } from '@/features/meetings/ScheduleMeetingDrawer
 import { useMeeting, useMeetings } from '@/features/meetings/hooks/useMeetings';
 import type { Meeting } from '@/features/meetings/types/meeting';
 
+const pad = (value: number) => String(value).padStart(2, '0');
+const localDateKey = (date: Date) => `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+
 export function MeetingsPage({ mode = 'calendar', meetingId }: { mode?: 'calendar' | 'list'; meetingId?: string }) {
   const router = useRouter();
   const { currentUser } = useHRMS();
   const [selectedMeeting, setSelectedMeeting] = useState<Meeting | null>(null);
   const [editingMeeting, setEditingMeeting] = useState<Meeting | undefined>();
   const [scheduleOpen, setScheduleOpen] = useState(false);
-  const [scheduleDate, setScheduleDate] = useState('2026-08-08');
+  const [scheduleDate, setScheduleDate] = useState(() => localDateKey(new Date()));
   const meetings = useMeetings();
   const detail = useMeeting(meetingId ?? null);
 
@@ -24,8 +27,9 @@ export function MeetingsPage({ mode = 'calendar', meetingId }: { mode?: 'calenda
   const activeMeeting = selectedMeeting ?? detail.data ?? null;
   const openMeeting = (meeting: Meeting) => { setSelectedMeeting(meeting); router.replace(`/meetings/${meeting.id}`, { scroll: false }); };
   const closeDetail = () => { setSelectedMeeting(null); router.replace(mode === 'list' ? '/meetings/list' : '/meetings/calendar', { scroll: false }); };
-  const openSchedule = (date = '2026-08-08') => {
+  const openSchedule = (date = localDateKey(new Date())) => {
     if (!canManageMeetings) return;
+    setEditingMeeting(undefined);
     setScheduleDate(date);
     setScheduleOpen(true);
   };
@@ -37,6 +41,7 @@ export function MeetingsPage({ mode = 'calendar', meetingId }: { mode?: 'calenda
     <MeetingDetailDrawer meeting={activeMeeting} onClose={closeDetail} onEdit={(meeting) => {
       if (!canManageMeetings) return;
       setEditingMeeting(meeting);
+      setScheduleDate(localDateKey(new Date(meeting.startsAt)));
       setSelectedMeeting(null);
       setScheduleOpen(true);
     }} />

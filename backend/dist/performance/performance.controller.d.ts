@@ -17,11 +17,11 @@ export declare class PerformanceController {
             status: import("@prisma/client").$Enums.KraStatus;
             createdAt: Date;
             updatedAt: Date;
+            category: string;
+            assignedToId: string;
             title: string;
             description: string;
-            category: string;
             priority: import("@prisma/client").$Enums.KraPriority;
-            assignedToId: string;
             dueDate: string;
             progress: number;
             keyResult: string;
@@ -121,11 +121,11 @@ export declare class PerformanceController {
         status: import("@prisma/client").$Enums.KraStatus;
         createdAt: Date;
         updatedAt: Date;
+        category: string;
+        assignedToId: string;
         title: string;
         description: string;
-        category: string;
         priority: import("@prisma/client").$Enums.KraPriority;
-        assignedToId: string;
         dueDate: string;
         progress: number;
         keyResult: string;

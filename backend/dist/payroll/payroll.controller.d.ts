@@ -39,9 +39,8 @@ export declare class PayrollController {
             grossEarnings: number;
             totalDeductions: number;
             netPayable: number;
-            employeeName: string;
-            paymentStatus: string;
             cycleId: string;
+            employeeName: string;
             basic: number;
             medicalAllowance: number;
             lta: number;
@@ -68,6 +67,7 @@ export declare class PayrollController {
             bankAccountMasked: string | null;
             bankIfsc: string | null;
             panNumber: string | null;
+            paymentStatus: string;
         }[];
     } & {
         id: string;
@@ -116,6 +116,7 @@ export declare class PayrollController {
         status: string;
         createdAt: Date;
         updatedAt: Date;
+        notes: string | null;
         employeeId: string;
         approvedById: string | null;
         loanType: string;
@@ -127,7 +128,6 @@ export declare class PayrollController {
         remainingBalance: number;
         disbursedOn: string;
         pausedMonths: string[];
-        notes: string | null;
     }[]>;
     getTaxDeclarations(employeeId: string, userId: string): Promise<{
         id: string;

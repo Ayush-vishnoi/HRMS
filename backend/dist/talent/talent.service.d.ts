@@ -37,8 +37,8 @@ export declare class TalentService {
                 id: string;
                 name: string;
                 createdAt: Date;
-                description: string | null;
                 category: string;
+                description: string | null;
             };
         } & {
             id: string;
@@ -71,8 +71,8 @@ export declare class TalentService {
         id: string;
         name: string;
         organization_id: string;
-        description: string | null;
         category: string;
+        description: string | null;
         created_at: Date;
         updated_at: Date;
         is_confidential: boolean;

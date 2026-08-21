@@ -72,7 +72,7 @@ interface ChatContextType {
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
 
 export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { currentUser } = useHRMS();
+  const { currentUser, isAuthenticated } = useHRMS();
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [activeEmployee, setActiveEmployee] = useState<ChatEmployee | null>(null);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
@@ -126,17 +126,39 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [currentUser.id]);
 
-  // Initial fetch on mount
+  // Chat data is secondary to the dashboard shell, so hydrate it after paint.
   useEffect(() => {
-    refreshUnreadCount();
-    refreshConversations();
-  }, [refreshUnreadCount, refreshConversations]);
+    if (!isAuthenticated) return;
 
-  // Connect to SSE real-time event stream
+    let idleCallbackId: number | null = null;
+    let timeoutId: number | null = null;
+    const hydrateChat = () => {
+      void refreshUnreadCount();
+      void refreshConversations();
+    };
+
+    if (typeof window.requestIdleCallback === 'function') {
+      idleCallbackId = window.requestIdleCallback(hydrateChat, { timeout: 2000 });
+    } else {
+      timeoutId = window.setTimeout(hydrateChat, 700);
+    }
+
+    return () => {
+      if (idleCallbackId !== null) window.cancelIdleCallback(idleCallbackId);
+      if (timeoutId !== null) window.clearTimeout(timeoutId);
+    };
+  }, [isAuthenticated, refreshUnreadCount, refreshConversations]);
+
+  // Connect to realtime events after the initial dashboard work has settled.
   useEffect(() => {
+    if (!isAuthenticated) return;
+
     let eventSource: EventSource | null = null;
+    let reconnectTimeoutId: number | null = null;
+    let disposed = false;
 
     const connectSSE = () => {
+      if (disposed) return;
       eventSource = new EventSource('/api/chat/events');
 
       eventSource.addEventListener('message:new', (event: MessageEvent) => {
@@ -232,17 +254,22 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       eventSource.onerror = () => {
         eventSource?.close();
-        // Reconnect after 3 seconds on error
-        setTimeout(connectSSE, 3000);
+        eventSource = null;
+        if (!disposed) {
+          reconnectTimeoutId = window.setTimeout(connectSSE, 3000);
+        }
       };
     };
 
-    connectSSE();
+    const initialConnectionTimeoutId = window.setTimeout(connectSSE, 1500);
 
     return () => {
+      disposed = true;
+      window.clearTimeout(initialConnectionTimeoutId);
+      if (reconnectTimeoutId !== null) window.clearTimeout(reconnectTimeoutId);
       eventSource?.close();
     };
-  }, [refreshConversations, refreshUnreadCount]);
+  }, [isAuthenticated, refreshConversations, refreshUnreadCount]);
 
   // Open chat with a specific employee
   const openChatWith = useCallback(async (employeeId: string) => {
@@ -264,18 +291,20 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setActiveEmployee(json.data.targetEmployee);
         setMessages(json.data.messages || []);
 
-        // Mark messages as seen immediately
-        await fetch('/api/chat/messages/seen', {
+        // The conversation is usable now; marking it seen is background work.
+        void fetch('/api/chat/messages/seen', {
           method: 'PATCH',
           headers: {
             'Content-Type': 'application/json',
             'x-user-id': currentUser.id,
           },
           body: JSON.stringify({ conversationId: json.data.conversationId, senderId: employeeId }),
+        }).catch((error) => {
+          console.warn('Failed to mark conversation as seen:', error);
         });
 
-        refreshUnreadCount();
-        refreshConversations();
+        void refreshUnreadCount();
+        void refreshConversations();
       }
     } catch (err) {
       console.error('Failed to open chat:', err);

@@ -21,13 +21,14 @@ function meetingTone(meeting: Meeting) {
 }
 
 export function CalendarView({ onSelect, onSchedule, canSchedule }: { onSelect: (meeting: Meeting) => void; onSchedule: (date: string) => void; canSchedule: boolean }) {
-  const [cursor, setCursor] = useState(() => startOfMonth(new Date('2026-08-07T00:00:00')));
+  const [cursor, setCursor] = useState(() => startOfMonth(new Date()));
   const [view, setView] = useState<'month' | 'week' | 'day'>('month');
   const [type, setType] = useState<MeetingType | 'ALL'>('ALL');
   const [mine, setMine] = useState(false);
   const [department, setDepartment] = useState('ALL');
   const [showFilters, setShowFilters] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(dateKey(new Date('2026-08-07T00:00:00')));
+  const [selectedDate, setSelectedDate] = useState(() => dateKey(new Date()));
+  const [overflowDate, setOverflowDate] = useState<string | null>(null);
   const { currentUser } = useHRMS();
   const filters: MeetingFilters = useMemo(() => ({ type, mine, department }), [type, mine, department]);
   const { data: meetings = [], isLoading, isError, refetch } = useMeetings(filters);
@@ -47,13 +48,29 @@ export function CalendarView({ onSelect, onSchedule, canSchedule }: { onSelect: 
   const daysToRender = view === 'day' ? [selectedDay] : view === 'week' ? weekDays : days;
   const movePeriod = (direction: -1 | 1) => {
     if (view === 'month') {
-      setCursor((value) => new Date(value.getFullYear(), value.getMonth() + direction, 1));
+      setCursor((value) => {
+        const next = new Date(value.getFullYear(), value.getMonth() + direction, 1);
+        setSelectedDate(dateKey(next));
+        return next;
+      });
       return;
     }
     const next = new Date(selectedDay);
     next.setDate(selectedDay.getDate() + direction * (view === 'week' ? 7 : 1));
     setSelectedDate(dateKey(next));
     setCursor(startOfMonth(next));
+  };
+  const goToToday = () => {
+    const today = new Date();
+    setCursor(startOfMonth(today));
+    setSelectedDate(dateKey(today));
+  };
+  const selectDate = (day: Date) => {
+    setSelectedDate(dateKey(day));
+    setOverflowDate(null);
+    if (view === 'month' && day.getMonth() !== cursor.getMonth()) {
+      setCursor(startOfMonth(day));
+    }
   };
 
   return (
@@ -62,7 +79,7 @@ export function CalendarView({ onSelect, onSchedule, canSchedule }: { onSelect: 
         <div className="flex items-center gap-2">
           <button aria-label="Previous period" onClick={() => movePeriod(-1)} className="icon-button"><ChevronLeft className="h-4 w-4" /></button>
           <button aria-label="Next period" onClick={() => movePeriod(1)} className="icon-button"><ChevronRight className="h-4 w-4" /></button>
-          <button onClick={() => { setCursor(startOfMonth(new Date('2026-08-07T00:00:00'))); setSelectedDate('2026-08-07'); }} className="toolbar-button">Today</button>
+          <button onClick={goToToday} className="toolbar-button">Today</button>
           <h2 className="ml-2 text-lg font-bold text-[#17324A]">{view === 'day' ? new Intl.DateTimeFormat('en-IN', { dateStyle: 'full' }).format(new Date(`${selectedDate}T00:00:00`)) : formatMonth(cursor)}</h2>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -84,8 +101,88 @@ export function CalendarView({ onSelect, onSchedule, canSchedule }: { onSelect: 
       {isError ? <div className="empty-state"><RefreshCw className="h-5 w-5" /><p>Meetings could not be loaded.</p><button onClick={() => void refetch()} className="toolbar-button">Retry</button></div> : isLoading ? <div className="calendar-grid animate-pulse">{Array.from({ length: 42 }, (_, index) => <div key={index} className="min-h-24 border border-[#D9E5EE] bg-[#F8FAFC]" />)}</div> : <div className={`calendar-grid ${view === 'week' ? 'calendar-week' : ''} ${view === 'day' ? 'calendar-day' : ''}`}>
         {view !== 'day' && ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((label) => <div key={label} className="calendar-weekday">{label}</div>)}
         {daysToRender.map((day) => {
-          const key = dateKey(day); const dayMeetings = visibleMeetings.filter((meeting) => dateKey(new Date(meeting.startsAt)) === key); const isToday = key === '2026-08-07'; const isCurrentMonth = day.getMonth() === cursor.getMonth();
-          return <button key={key} onClick={() => setSelectedDate(key)} onDoubleClick={canSchedule ? () => onSchedule(key) : undefined} aria-label={`${new Intl.DateTimeFormat('en-IN', { dateStyle: 'full' }).format(day)}, ${dayMeetings.length} meetings`} className={`calendar-cell ${isToday ? 'ring-2 ring-inset ring-[#C96F58]' : ''} ${!isCurrentMonth && view === 'month' ? 'opacity-50' : ''} ${selectedDate === key ? 'bg-[#EAF2F8]' : ''}`}><span className={`date-number ${isToday ? 'bg-[#C96F58] text-white' : ''}`}>{day.getDate()}</span><div className="space-y-1 text-left">{dayMeetings.slice(0, 3).map((meeting) => <span key={meeting.id} onClick={(event) => { event.stopPropagation(); onSelect(meeting); }} className={`meeting-chip ${meetingTone(meeting)}`}><b>{meeting.allDay ? 'All day' : formatTime(meeting.startsAt)}</b> {meeting.title}</span>)}{dayMeetings.length > 3 && <span className="text-[10px] font-semibold text-[#667085]">+{dayMeetings.length - 3} more</span>}</div></button>;
+          const key = dateKey(day);
+          const dayMeetings = visibleMeetings.filter((meeting) => dateKey(new Date(meeting.startsAt)) === key);
+          const isToday = key === dateKey(new Date());
+          const isCurrentMonth = day.getMonth() === cursor.getMonth();
+          const hasOverflow = dayMeetings.length > 3;
+
+          return (
+            <div
+              key={key}
+              role="button"
+              tabIndex={0}
+              onClick={() => selectDate(day)}
+              onDoubleClick={canSchedule ? () => onSchedule(key) : undefined}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  selectDate(day);
+                }
+              }}
+              aria-label={`${new Intl.DateTimeFormat('en-IN', { dateStyle: 'full' }).format(day)}, ${dayMeetings.length} meetings`}
+              className={`calendar-cell ${isToday ? 'ring-2 ring-inset ring-[#C96F58]' : ''} ${!isCurrentMonth && view === 'month' ? 'opacity-50' : ''} ${selectedDate === key ? 'bg-[#EAF2F8]' : ''}`}
+            >
+              <span className={`date-number ${isToday ? 'bg-[#C96F58] text-white' : ''}`}>{day.getDate()}</span>
+              <div className="space-y-1 text-left">
+                {dayMeetings.slice(0, 3).map((meeting) => (
+                  <button
+                    type="button"
+                    key={meeting.id}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setOverflowDate(null);
+                      onSelect(meeting);
+                    }}
+                    className={`meeting-chip w-full text-left ${meetingTone(meeting)}`}
+                  >
+                    <b>{meeting.allDay ? 'All day' : formatTime(meeting.startsAt)}</b> {meeting.title}
+                  </button>
+                ))}
+                {hasOverflow && (
+                  <div className="relative">
+                    <button
+                      type="button"
+                      aria-haspopup="menu"
+                      aria-expanded={overflowDate === key}
+                      aria-label={`Show all ${dayMeetings.length} meetings for this date`}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setOverflowDate((value) => value === key ? null : key);
+                      }}
+                      className="w-full rounded px-1 text-left text-[10px] font-semibold text-[#397CA8] hover:bg-[#EAF2F8]"
+                    >
+                      +{dayMeetings.length - 3} more meetings
+                    </button>
+                    {overflowDate === key && (
+                      <div
+                        role="menu"
+                        aria-label={`Meetings on ${new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium' }).format(day)}`}
+                        className="absolute left-0 top-full z-20 mt-1 min-w-56 rounded-lg border border-[#BFD3E1] bg-white p-1.5 shadow-lg"
+                        onClick={(event) => event.stopPropagation()}
+                      >
+                        {dayMeetings.map((meeting) => (
+                          <button
+                            type="button"
+                            role="menuitem"
+                            key={meeting.id}
+                            onClick={() => {
+                              setOverflowDate(null);
+                              onSelect(meeting);
+                            }}
+                            className="block w-full rounded px-2 py-1.5 text-left text-xs text-[#17324A] hover:bg-[#EAF2F8]"
+                          >
+                            <span className="block font-semibold">{meeting.title}</span>
+                            <span className="text-[10px] text-[#667085]">{meeting.allDay ? 'All day' : formatTime(meeting.startsAt)}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
         })}
       </div>}
     </section>

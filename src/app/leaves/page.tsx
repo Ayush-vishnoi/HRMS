@@ -471,10 +471,12 @@ export default function LeavesPage() {
       </div>
 
       {/* Apply Leave Modal */}
-      <ApplyLeaveModal
-        isOpen={isApplyModalOpen}
-        onClose={() => setIsApplyModalOpen(false)}
-      />
+      {isApplyModalOpen && (
+        <ApplyLeaveModal
+          isOpen={isApplyModalOpen}
+          onClose={() => setIsApplyModalOpen(false)}
+        />
+      )}
 
     </div>
   );

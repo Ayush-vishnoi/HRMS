@@ -6,11 +6,12 @@ export declare class ExpensesController {
         id: string;
         createdAt: Date;
         updatedAt: Date;
+        category: string;
         employeeId: string;
         title: string;
         description: string;
         currency: string;
-        category: string;
+        paymentStatus: string;
         claimNumber: string;
         amount: number;
         expenseDate: string;
@@ -18,7 +19,6 @@ export declare class ExpensesController {
         receiptUrl: string | null;
         managerStatus: string;
         financeStatus: string;
-        paymentStatus: string;
         approvedAmount: number | null;
         settlementDate: string | null;
     }[]>;
@@ -26,11 +26,12 @@ export declare class ExpensesController {
         id: string;
         createdAt: Date;
         updatedAt: Date;
+        category: string;
         employeeId: string;
         title: string;
         description: string;
         currency: string;
-        category: string;
+        paymentStatus: string;
         claimNumber: string;
         amount: number;
         expenseDate: string;
@@ -38,7 +39,6 @@ export declare class ExpensesController {
         receiptUrl: string | null;
         managerStatus: string;
         financeStatus: string;
-        paymentStatus: string;
         approvedAmount: number | null;
         settlementDate: string | null;
     }>;
@@ -46,11 +46,12 @@ export declare class ExpensesController {
         id: string;
         createdAt: Date;
         updatedAt: Date;
+        category: string;
         employeeId: string;
         title: string;
         description: string;
         currency: string;
-        category: string;
+        paymentStatus: string;
         claimNumber: string;
         amount: number;
         expenseDate: string;
@@ -58,7 +59,6 @@ export declare class ExpensesController {
         receiptUrl: string | null;
         managerStatus: string;
         financeStatus: string;
-        paymentStatus: string;
         approvedAmount: number | null;
         settlementDate: string | null;
     }>;

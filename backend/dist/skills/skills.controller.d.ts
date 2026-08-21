@@ -7,16 +7,16 @@ export declare class SkillsController {
             id: string;
             name: string;
             createdAt: Date;
-            description: string | null;
             category: string;
+            description: string | null;
         }[];
         employeeSkills: ({
             skill: {
                 id: string;
                 name: string;
                 createdAt: Date;
-                description: string | null;
                 category: string;
+                description: string | null;
             };
         } & {
             id: string;
@@ -33,8 +33,8 @@ export declare class SkillsController {
             id: string;
             name: string;
             createdAt: Date;
-            description: string | null;
             category: string;
+            description: string | null;
         };
     } & {
         id: string;

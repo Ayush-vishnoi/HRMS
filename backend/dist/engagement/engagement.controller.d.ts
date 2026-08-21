@@ -56,10 +56,10 @@ export declare class EngagementController {
             id: string;
             status: string;
             createdAt: Date;
+            category: string;
             employeeId: string | null;
             title: string;
             description: string;
-            category: string;
             employeeName: string | null;
             upvotesCount: number;
             hrResponse: string | null;
@@ -94,10 +94,10 @@ export declare class EngagementController {
         id: string;
         status: string;
         createdAt: Date;
+        category: string;
         employeeId: string | null;
         title: string;
         description: string;
-        category: string;
         employeeName: string | null;
         upvotesCount: number;
         hrResponse: string | null;

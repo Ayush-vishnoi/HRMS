@@ -9,14 +9,30 @@ interface ApplyLeaveModalProps {
   onClose: () => void;
 }
 
+const formatLocalDate = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const getDefaultLeaveDates = () => {
+  const today = new Date();
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
+  return {
+    startDate: formatLocalDate(today),
+    endDate: formatLocalDate(tomorrow),
+  };
+};
+
 export const ApplyLeaveModal: React.FC<ApplyLeaveModalProps> = ({ isOpen, onClose }) => {
   const { addLeaveRequest, leaveBalances } = useHRMS();
+  const defaultDates = getDefaultLeaveDates();
   const [leaveType, setLeaveType] = useState<'Casual' | 'Sick' | 'Earned' | 'WFH'>('Casual');
-  const today = new Date();
-  const todayStr = today.toISOString().split('T')[0];
-  const tomorrowStr = new Date(today.getTime() + 86400000).toISOString().split('T')[0];
-  const [startDate, setStartDate] = useState<string>(todayStr);
-  const [endDate, setEndDate] = useState<string>(tomorrowStr);
+  const [startDate, setStartDate] = useState<string>(defaultDates.startDate);
+  const [endDate, setEndDate] = useState<string>(defaultDates.endDate);
   const [reason, setReason] = useState<string>('');
   const [submitted, setSubmitted] = useState<boolean>(false);
 
@@ -24,8 +40,8 @@ export const ApplyLeaveModal: React.FC<ApplyLeaveModalProps> = ({ isOpen, onClos
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const start = new Date(startDate);
-    const end = new Date(endDate);
+    const start = new Date(`${startDate}T00:00:00`);
+    const end = new Date(`${endDate}T00:00:00`);
     const diffTime = Math.abs(end.getTime() - start.getTime());
     const days = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
 

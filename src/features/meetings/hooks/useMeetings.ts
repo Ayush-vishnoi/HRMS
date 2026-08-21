@@ -44,5 +44,8 @@ export function useCancelMeeting() {
 
 export function useRsvpMeeting() {
   const queryClient = useQueryClient();
-  return useMutation({ mutationFn: ({ id, rsvp }: { id: string; rsvp: RSVP }) => updateRsvp(id, rsvp), onSuccess: (meeting) => invalidateMeetings(queryClient, meeting.id) });
+  return useMutation({
+    mutationFn: ({ id, rsvp, reason }: { id: string; rsvp: RSVP; reason?: string }) => updateRsvp(id, rsvp, reason),
+    onSuccess: (meeting) => invalidateMeetings(queryClient, meeting.id),
+  });
 }

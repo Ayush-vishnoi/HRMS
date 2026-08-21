@@ -234,14 +234,14 @@ export const HRMSProvider: React.FC<HRMSProviderProps> = ({ children, initialUse
 
   const lateClockInRequest = lateClockInRequests.find((request) => request.requesterId === currentUser.id) ?? null;
 
-  // Load non-auth application state from the API on mount.
+  // Load non-auth application state after the first paint. The mock state above
+  // keeps the shell responsive while the remote database hydrates the context.
   useEffect(() => {
     const storedLateRequests = window.localStorage.getItem(LATE_REQUEST_STORAGE_KEY);
     if (storedLateRequests) {
       setLateClockInRequests(JSON.parse(storedLateRequests) as LateClockInRequest[]);
     }
 
-    // Fetch live data from PostgreSQL via existing backend APIs
     const fetchData = async () => {
       try {
         const [empRes, leavesRes, ticketsRes, attRes] = await Promise.all([
@@ -290,7 +290,19 @@ export const HRMSProvider: React.FC<HRMSProviderProps> = ({ children, initialUse
       }
     };
 
-    fetchData();
+    let idleCallbackId: number | null = null;
+    let timeoutId: number | null = null;
+
+    if (typeof window.requestIdleCallback === 'function') {
+      idleCallbackId = window.requestIdleCallback(fetchData, { timeout: 1500 });
+    } else {
+      timeoutId = window.setTimeout(fetchData, 500);
+    }
+
+    return () => {
+      if (idleCallbackId !== null) window.cancelIdleCallback(idleCallbackId);
+      if (timeoutId !== null) window.clearTimeout(timeoutId);
+    };
   }, []);
 
   const persistLateClockInRequests = (requests: LateClockInRequest[]) => {
@@ -353,8 +365,11 @@ export const HRMSProvider: React.FC<HRMSProviderProps> = ({ children, initialUse
     if (!isAuthenticated) return;
 
     let activeController: AbortController | null = null;
+    let lastValidatedAt = 0;
 
     const validateSession = async () => {
+      if (Date.now() - lastValidatedAt < SESSION_STATUS_INTERVAL_MS) return;
+      lastValidatedAt = Date.now();
       if (activeController) return;
 
       const controller = new AbortController();
@@ -388,15 +403,10 @@ export const HRMSProvider: React.FC<HRMSProviderProps> = ({ children, initialUse
     };
 
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        void validateSession();
-      }
+      if (document.visibilityState === 'visible') void validateSession();
     };
 
-    const intervalId = window.setInterval(
-      () => void validateSession(),
-      SESSION_STATUS_INTERVAL_MS,
-    );
+    const intervalId = window.setInterval(() => void validateSession(), SESSION_STATUS_INTERVAL_MS);
     window.addEventListener('focus', validateSession);
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
@@ -406,8 +416,8 @@ export const HRMSProvider: React.FC<HRMSProviderProps> = ({ children, initialUse
     };
     window.addEventListener('storage', handleStorageEvent);
 
-    void validateSession();
-
+    // The server layout already resolved the initial session. The first client
+    // validation can wait for the normal interval or a meaningful tab change.
     return () => {
       activeController?.abort();
       window.clearInterval(intervalId);

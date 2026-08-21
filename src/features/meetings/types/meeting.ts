@@ -8,6 +8,7 @@ export interface MeetingPerson {
   name: string;
   avatarUrl?: string;
   rsvp?: RSVP;
+  responseReason?: string;
   department?: string;
 }
 
@@ -27,6 +28,18 @@ export interface Meeting {
   reminderMinutes?: number;
   status: MeetingStatus;
   department?: string;
+}
+
+export interface CalendarEvent {
+  id: string;
+  type: 'HOLIDAY' | 'LEAVE' | 'BIRTHDAY' | 'ANNIVERSARY';
+  title: string;
+  startsAt: string;
+  endsAt: string;
+  allDay: boolean;
+  optional?: boolean;
+  employeeName?: string;
+  employeeId?: string;
 }
 
 export interface MeetingFilters {
@@ -53,10 +66,7 @@ export interface CreateMeetingInput {
 }
 
 export type UpdateMeetingInput = Partial<CreateMeetingInput>;
-
 export interface EmployeeSearchResult extends MeetingPerson {
   email: string;
   role: string;
 }
-
-export type CalendarEvent = Meeting;

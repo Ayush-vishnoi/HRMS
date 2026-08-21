@@ -28,7 +28,12 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const employee = await getCurrentEmployee();
+  // Authentication depends on the remote database. A temporary database outage
+  // must not prevent the public/login shell from rendering.
+  const employee = await getCurrentEmployee().catch((error: unknown) => {
+    console.error('Unable to initialize the authenticated layout:', error);
+    return null;
+  });
   const initialUser = employee
     ? {
         id: employee.id,

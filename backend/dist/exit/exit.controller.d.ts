@@ -49,9 +49,9 @@ export declare class ExitController {
                 status: string;
                 createdAt: Date;
                 updatedAt: Date;
+                notes: string | null;
                 title: string;
                 description: string;
-                notes: string | null;
                 verifiedAt: Date | null;
                 dueDate: string;
                 exitRequestId: string;
@@ -96,8 +96,8 @@ export declare class ExitController {
             id: string;
             name: string;
             status: import("@prisma/client").$Enums.AssetStatus;
-            category: import("@prisma/client").$Enums.AssetCategory;
             assetTag: string;
+            category: import("@prisma/client").$Enums.AssetCategory;
             serialNumber: string;
         }[];
     }>;
@@ -145,9 +145,9 @@ export declare class ExitController {
             status: string;
             createdAt: Date;
             updatedAt: Date;
+            notes: string | null;
             title: string;
             description: string;
-            notes: string | null;
             verifiedAt: Date | null;
             dueDate: string;
             exitRequestId: string;

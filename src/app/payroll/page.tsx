@@ -71,6 +71,7 @@ export default function PayrollPage() {
   const [adminSection, setAdminSection] = useState<AdminViewSection>('overview');
 
   const [loading, setLoading] = useState(false);
+  const [dataLoadError, setDataLoadError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [monthFilter, setMonthFilter] = useState('All');
   const [financialYear, setFinancialYear] = useState('2026-27');
@@ -149,6 +150,10 @@ export default function PayrollPage() {
   const [reportType, setReportType] = useState('register');
   const [reportRows, setReportRows] = useState<any[]>([]);
 
+  const handleLoadFailure = () => {
+    setDataLoadError('Some payroll data could not be loaded. Existing information is still available.');
+  };
+
   // 1. Fetch Payslips
   const fetchPayslips = async () => {
     try {
@@ -167,8 +172,8 @@ export default function PayrollPage() {
           if (typeof json.data.totalDisbursed === 'number') setTotalDisbursed(json.data.totalDisbursed);
         }
       }
-    } catch (err) {
-      console.error('Error fetching payslips:', err);
+    } catch {
+      handleLoadFailure();
     } finally {
       setLoading(false);
     }
@@ -187,8 +192,8 @@ export default function PayrollPage() {
           }
         }
       }
-    } catch (err) {
-      console.error('Error fetching cycles:', err);
+    } catch {
+      handleLoadFailure();
     }
   };
 
@@ -203,8 +208,8 @@ export default function PayrollPage() {
           setRevisions(json.revisions || []);
         }
       }
-    } catch (err) {
-      console.error('Error fetching structures:', err);
+    } catch {
+      handleLoadFailure();
     }
   };
 
@@ -232,8 +237,8 @@ export default function PayrollPage() {
           setDeclHomeLoan(String(jsonMy.data.homeLoanInterest || 0));
         }
       }
-    } catch (err) {
-      console.error('Error fetching tax declarations:', err);
+    } catch {
+      handleLoadFailure();
     }
   };
 
@@ -248,8 +253,8 @@ export default function PayrollPage() {
           setLoans(json.data);
         }
       }
-    } catch (err) {
-      console.error('Error fetching loans:', err);
+    } catch {
+      handleLoadFailure();
     }
   };
 
@@ -264,8 +269,8 @@ export default function PayrollPage() {
           setVariablePays(json.data);
         }
       }
-    } catch (err) {
-      console.error('Error fetching variable pay:', err);
+    } catch {
+      handleLoadFailure();
     }
   };
 
@@ -280,8 +285,8 @@ export default function PayrollPage() {
           setSalaryComponents(json.data.salaryComponents || []);
         }
       }
-    } catch (err) {
-      console.error('Error fetching statutory rules:', err);
+    } catch {
+      handleLoadFailure();
     }
   };
 
@@ -295,8 +300,8 @@ export default function PayrollPage() {
           setForm16Data(json.data);
         }
       }
-    } catch (err) {
-      console.error('Error fetching Form 16:', err);
+    } catch {
+      handleLoadFailure();
     }
   };
 
@@ -310,22 +315,37 @@ export default function PayrollPage() {
           setReportRows(json.data);
         }
       }
-    } catch (err) {
-      console.error('Error fetching reports:', err);
+    } catch {
+      handleLoadFailure();
     }
   };
 
-  useEffect(() => {
-    fetchPayslips();
+  const refreshPayrollData = () => {
+    setDataLoadError(null);
+    void fetchPayslips();
     if (isPrivileged) {
-      fetchCycles();
-      fetchStructures();
-      fetchStatutoryRules();
+      void fetchCycles();
+      void fetchStructures();
+      void fetchStatutoryRules();
     }
-    fetchTaxDeclarations();
-    fetchLoans();
-    fetchVariablePay();
-    fetchForm16(form16EmpId);
+    void fetchTaxDeclarations();
+    void fetchLoans();
+    void fetchVariablePay();
+    void fetchForm16(form16EmpId);
+    if (adminSection === 'reports') void fetchReports(reportType);
+  };
+
+  useEffect(() => {
+    void fetchPayslips();
+    if (isPrivileged) {
+      void fetchCycles();
+      void fetchStructures();
+      void fetchStatutoryRules();
+    }
+    void fetchTaxDeclarations();
+    void fetchLoans();
+    void fetchVariablePay();
+    void fetchForm16(form16EmpId);
   }, [viewScope, currentUser.id, isPrivileged, financialYear]);
 
   useEffect(() => {
@@ -525,6 +545,27 @@ export default function PayrollPage() {
           )}
         </div>
       </div>
+
+      {dataLoadError && (
+        <div
+          role="status"
+          className="flex flex-col gap-3 border border-amber-200 bg-amber-50 px-4 py-3 text-amber-900 sm:flex-row sm:items-center sm:justify-between"
+        >
+          <div className="flex items-start gap-2 text-xs font-medium">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>{dataLoadError}</span>
+          </div>
+          <button
+            type="button"
+            onClick={refreshPayrollData}
+            disabled={loading}
+            className="flex items-center justify-center gap-2 self-start text-xs font-bold text-amber-950 hover:text-amber-700 disabled:cursor-not-allowed disabled:opacity-60 sm:self-auto"
+          >
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+            Retry
+          </button>
+        </div>
+      )}
 
       {/* 2. Primary Role/Scope Switcher */}
       {isPrivileged && (
@@ -2019,7 +2060,7 @@ export default function PayrollPage() {
       {selectedPayslip && (
         <PayslipModal
           payslip={selectedPayslip}
-          showAmounts={showAmounts}
+          showAmounts={true}
           onClose={() => setSelectedPayslip(null)}
         />
       )}

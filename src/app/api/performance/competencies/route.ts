@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import {
@@ -5,10 +6,9 @@ import {
   isAuthAccessError,
   requireEmployee,
   requireEmployeeAccess,
-  requireRole,
 } from '@/lib/auth-session';
 
-export const DEFAULT_COMPETENCIES = [
+const DEFAULT_COMPETENCIES = [
   {
     name: 'Technical Expertise & Craft',
     description: 'Demonstrates deep domain knowledge, quality execution, and adherence to technical standards.',
@@ -123,7 +123,7 @@ export async function GET(request: Request) {
             organization_id: orgId,
             name: c.name,
             description: c.description,
-            scale: c.scale as any,
+            scale: c.scale as Prisma.InputJsonValue,
             is_active: true,
           },
         });
