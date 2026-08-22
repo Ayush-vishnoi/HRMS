@@ -14,6 +14,7 @@ const authenticatedEmployeeSelect = {
   avatarUrl: true,
   status: true,
   managerId: true,
+  organization_id: true,
 } as const;
 
 export class AuthenticationError extends Error {

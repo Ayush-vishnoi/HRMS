@@ -1808,8 +1808,9 @@ enum DocumentStatus {
 
 enum DocumentRequestStatus {
   Pending
-  InReview  @map("In Review")
-  Completed
+  InProgress @map("In Progress")
+  Ready
+  Delivered
 }
 
 enum PolicyCategory {

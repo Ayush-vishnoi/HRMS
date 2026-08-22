@@ -77,7 +77,7 @@ CREATE TYPE "KraPriority" AS ENUM ('Critical', 'High', 'Medium', 'Low');
 CREATE TYPE "KraStatus" AS ENUM ('Not Started', 'In Progress', 'Under Review', 'Completed');
 CREATE TYPE "TeamRisk" AS ENUM ('On track', 'Needs attention', 'At risk');
 CREATE TYPE "DocumentStatus" AS ENUM ('Verified', 'Under Review', 'Action Required');
-CREATE TYPE "DocumentRequestStatus" AS ENUM ('Pending', 'In Review', 'Completed');
+CREATE TYPE "DocumentRequestStatus" AS ENUM ('Pending', 'In Progress', 'Ready', 'Delivered');
 CREATE TYPE "PolicyCategory" AS ENUM ('Code of Conduct', 'Leave & Attendance', 'Information Security', 'Workplace Safety', 'Anti-Harassment', 'Remote Work');
 CREATE TYPE "TicketCategory" AS ENUM ('Attendance', 'Leave', 'Payroll', 'Documents', 'Policy', 'Grievance / Complaint', 'Other');
 CREATE TYPE "TicketPriority" AS ENUM ('Low', 'Medium', 'High');

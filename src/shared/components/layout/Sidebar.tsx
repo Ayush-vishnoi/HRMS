@@ -43,7 +43,7 @@ export const Sidebar: React.FC = () => {
         <div className="absolute -right-7 -top-9 h-24 w-24 rounded-full bg-[#B0D0EA]/15" />
         <div className="absolute -bottom-8 right-12 h-16 w-16 rounded-full bg-white/5" />
         <div className="relative flex items-center gap-3">
-          <div className="flex h-11 w-12 shrink-0 items-center justify-center rounded-xl border border-white/20 bg-white p-1.5 shadow-sm">
+          <div className="flex h-11 w-12 shrink-0 items-center justify-center rounded-xl border border-white/20 p-1.5">
             <img
               src="/m360-logo.jpeg"
               alt="MYLOTIC GROUP Logo"

@@ -25,7 +25,7 @@ export async function GET() {
         where: { status: 'Pending' },
       }),
       db.documentRequest.count({
-        where: { status: { in: ['Pending', 'InReview'] } },
+        where: { status: { in: ['Pending', 'InProgress'] } },
       }),
       db.attendanceRecord.findMany({
         select: { date: true, status: true },
