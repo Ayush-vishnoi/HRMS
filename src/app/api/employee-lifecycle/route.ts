@@ -9,6 +9,10 @@ import {
 } from '@/lib/auth-session';
 import { hashCredentialPassword } from '@/lib/credentials';
 import { db } from '@/lib/db';
+import {
+  invalidateDashboardAnalytics,
+  invalidateEmployeeDirectory,
+} from '@/lib/redis';
 
 const DEFAULT_AVATAR_URL =
   'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80';
@@ -341,6 +345,11 @@ export async function POST(request: Request) {
         return { employee, onboarding, temporaryPassword: plainPassword };
       });
 
+      await Promise.all([
+        invalidateEmployeeDirectory(),
+        invalidateDashboardAnalytics(),
+      ]);
+
       return NextResponse.json({ success: true, data: result }, { status: 201 });
     }
 
@@ -506,6 +515,8 @@ export async function POST(request: Request) {
         },
       });
 
+      await invalidateEmployeeDirectory();
+
       return NextResponse.json({ success: true, data: changeReq }, { status: 201 });
     }
 
@@ -628,6 +639,8 @@ export async function POST(request: Request) {
 
         return revision;
       });
+
+      await invalidateEmployeeDirectory();
 
       return NextResponse.json({ success: true, data: result }, { status: 201 });
     }

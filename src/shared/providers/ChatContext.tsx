@@ -105,7 +105,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
     } catch (err) {
-      console.error('Failed to fetch unread count:', err);
+      console.warn('Chat unread count is temporarily unavailable:', err);
     }
   }, [currentUser.id]);
 
@@ -122,7 +122,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
     } catch (err) {
-      console.error('Failed to fetch conversations:', err);
+      console.warn('Chat conversations are temporarily unavailable:', err);
     }
   }, [currentUser.id]);
 

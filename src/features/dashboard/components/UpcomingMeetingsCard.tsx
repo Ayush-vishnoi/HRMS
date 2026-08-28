@@ -13,7 +13,9 @@ const formatMeetingTime = (value: string) =>
   }).format(new Date(value));
 
 export function UpcomingMeetingsCard() {
-  const { data: meetings = [], isLoading, isError } = useMeetings({ mine: true });
+  // No `mine` filter here: the API already scopes meetings to the signed-in
+  // employee (organizer, attendee, or company-wide event).
+  const { data: meetings = [], isLoading, isError } = useMeetings();
 
   const upcoming = meetings
     .filter(

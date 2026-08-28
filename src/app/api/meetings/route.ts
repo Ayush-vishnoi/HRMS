@@ -144,6 +144,16 @@ export async function GET(request: Request) {
 
       if (!meeting) return NextResponse.json({ success: false, error: 'Meeting not found' }, { status: 404 });
 
+      // Attendee-scoped visibility: a meeting can only be fetched by id when the
+      // caller organizes it, is invited to it, or it is a company-wide event
+      // (no individual invitation list).
+      const isVisible = meeting.organizerId === employee.id
+        || meeting.attendees.length === 0
+        || meeting.attendees.some((attendee) => attendee.employeeId === employee.id);
+      if (!isVisible) {
+        return NextResponse.json({ success: false, error: 'Meeting not found' }, { status: 404 });
+      }
+
       return NextResponse.json({ success: true, data: formatMeeting(meeting) });
     }
 
@@ -153,24 +163,27 @@ export async function GET(request: Request) {
     const department = searchParams.get('department');
     const mine = searchParams.get('mine') === 'true';
 
+    const filters: Prisma.MeetingWhereInput[] = [];
+    if (type && type !== 'ALL' && isMeetingType(type)) filters.push({ type });
+    if (department && department !== 'ALL') {
+      filters.push({ OR: [{ department }, { type: 'ORG_EVENT' }] });
+    }
+    if (to) filters.push({ startsAt: { lte: new Date(to) } });
+    if (from) filters.push({ endsAt: { gte: new Date(from) } });
+
+    // Attendee-scoped visibility: meetings are only returned to the organizer and
+    // the employees invited to them. Company-wide events (no invitation list) stay
+    // visible to everyone unless the caller asks for "mine" meetings only.
+    filters.push({
+      OR: [
+        { organizerId: employee.id },
+        { attendees: { some: { employeeId: employee.id } } },
+        ...(mine ? [] : [{ attendees: { none: {} } }]),
+      ],
+    });
+
     const meetings = await db.meeting.findMany({
-      where: {
-        ...(type && type !== 'ALL' && isMeetingType(type) ? { type } : {}),
-        ...(department && department !== 'ALL' ? {
-          OR: [
-            { department },
-            { type: 'ORG_EVENT' },
-          ],
-        } : {}),
-        ...(to ? { startsAt: { lte: new Date(to) } } : {}),
-        ...(from ? { endsAt: { gte: new Date(from) } } : {}),
-        ...(mine ? {
-          OR: [
-            { organizerId: employee.id },
-            { attendees: { some: { employeeId: employee.id } } },
-          ],
-        } : {}),
-      },
+      where: { AND: filters },
       orderBy: { startsAt: 'asc' },
       include: meetingInclude,
     });
@@ -196,7 +209,7 @@ export async function POST(request: Request) {
     const organizerId = organizer.id;
 
     const attendeeIds = Array.isArray(body.attendeeIds)
-      ? body.attendeeIds.filter((value): value is string => typeof value === 'string' && value !== organizerId)
+      ? [...new Set(body.attendeeIds.filter((value): value is string => typeof value === 'string' && value !== organizerId))]
       : [];
     const newMeeting = await db.meeting.create({
       data: {

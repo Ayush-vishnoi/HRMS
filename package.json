@@ -25,6 +25,7 @@
     "argon2": "^0.45.1",
     "axios": "^1.19.0",
     "exceljs": "^4.4.0",
+    "ioredis": "^6.0.0",
     "lucide-react": "^1.29.0",
     "mammoth": "^1.12.1",
     "next": "16.3.0",

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { invalidateEmployeeDirectory } from '@/lib/redis';
 import {
   authAccessErrorResponse,
   isAuthAccessError,
@@ -387,6 +388,8 @@ export async function POST(request: Request) {
           details: JSON.stringify({ recommendationId, newRoleTitle: proposedRole }),
         },
       });
+
+      await invalidateEmployeeDirectory();
 
       return NextResponse.json({ success: true, message: 'Promotion approved and applied successfully' });
     }

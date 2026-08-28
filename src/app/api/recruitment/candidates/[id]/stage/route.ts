@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { authAccessErrorResponse, isAuthAccessError } from '@/lib/auth-session';
+import { invalidateDashboardAnalytics } from '@/lib/redis';
 import { requireRecruitmentUser } from '@/lib/recruitment/rbac-service';
 import { transitionCandidateStage } from '@/lib/recruitment/candidate-service';
 import type { CandidateStage } from '@prisma/client';
@@ -16,6 +17,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     }
 
     const updated = await transitionCandidateStage(id, stage as CandidateStage, user, note);
+    await invalidateDashboardAnalytics();
     return NextResponse.json({ success: true, data: updated });
   } catch (error) {
     if (isAuthAccessError(error)) return authAccessErrorResponse(error);

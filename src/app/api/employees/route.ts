@@ -6,6 +6,13 @@ import {
   requireEmployee,
   requireRole,
 } from '@/lib/auth-session';
+import {
+  CACHE_TTL_SECONDS,
+  cacheKeys,
+  getCached,
+  invalidateEmployeeDirectory,
+  setCached,
+} from '@/lib/redis';
 
 const employeeDirectorySelect = {
   id: true,
@@ -26,10 +33,17 @@ const employeeDirectorySelect = {
 export async function GET() {
   try {
     await requireEmployee();
+
+    const cached = await getCached<unknown[]>(cacheKeys.employeesDirectory);
+    if (cached) {
+      return NextResponse.json({ success: true, data: cached });
+    }
+
     const employees = await db.employee.findMany({
       select: employeeDirectorySelect,
       orderBy: { id: 'asc' },
     });
+    await setCached(cacheKeys.employeesDirectory, employees, CACHE_TTL_SECONDS.employeeDirectory);
     return NextResponse.json({ success: true, data: employees });
   } catch (error) {
     if (isAuthAccessError(error)) return authAccessErrorResponse(error);
@@ -65,6 +79,8 @@ export async function POST(request: Request) {
         managerId: body.managerId || null,
       },
     });
+
+    await invalidateEmployeeDirectory();
 
     return NextResponse.json({ success: true, data: newEmployee });
   } catch (error) {

@@ -32,8 +32,8 @@ export declare class LeavesService {
         updatedAt: Date;
         days: number;
         employeeId: string;
-        leaveType: import("@prisma/client").$Enums.LeaveType;
         reason: string;
+        leaveType: import("@prisma/client").$Enums.LeaveType;
         startDate: string;
         endDate: string;
         appliedOn: string;
@@ -53,8 +53,8 @@ export declare class LeavesService {
         updatedAt: Date;
         days: number;
         employeeId: string;
-        leaveType: import("@prisma/client").$Enums.LeaveType;
         reason: string;
+        leaveType: import("@prisma/client").$Enums.LeaveType;
         startDate: string;
         endDate: string;
         appliedOn: string;
@@ -67,8 +67,8 @@ export declare class LeavesService {
         updatedAt: Date;
         days: number;
         employeeId: string;
-        leaveType: import("@prisma/client").$Enums.LeaveType;
         reason: string;
+        leaveType: import("@prisma/client").$Enums.LeaveType;
         startDate: string;
         endDate: string;
         appliedOn: string;

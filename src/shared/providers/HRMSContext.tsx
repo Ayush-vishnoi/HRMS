@@ -242,13 +242,35 @@ export const HRMSProvider: React.FC<HRMSProviderProps> = ({ children, initialUse
       setLateClockInRequests(JSON.parse(storedLateRequests) as LateClockInRequest[]);
     }
 
+    // Fetch with a hard timeout and a single retry on network-level failures
+    // so a cold-starting or reconnecting database degrades gracefully
+    // instead of hanging hydration (`TypeError: Failed to fetch`).
+    const fetchJson = async (url: string, timeoutMs = 20_000): Promise<any | null> => {
+      for (let attempt = 0; ; attempt++) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), timeoutMs);
+        try {
+          const res = await fetch(url, { signal: controller.signal });
+          return res.ok ? await res.json() : null;
+        } catch (err) {
+          if (attempt > 0) {
+            console.error(`Error fetching ${url}:`, err);
+            return null;
+          }
+          await new Promise((resolve) => setTimeout(resolve, 1500));
+        } finally {
+          clearTimeout(timer);
+        }
+      }
+    };
+
     const fetchData = async () => {
       try {
         const [empRes, leavesRes, ticketsRes, attRes] = await Promise.all([
-          fetch('/api/employees').then((r) => r.ok ? r.json() : null),
-          fetch('/api/leaves').then((r) => r.ok ? r.json() : null),
-          fetch('/api/help-desk').then((r) => r.ok ? r.json() : null),
-          fetch('/api/attendance').then((r) => r.ok ? r.json() : null),
+          fetchJson('/api/employees'),
+          fetchJson('/api/leaves'),
+          fetchJson('/api/help-desk'),
+          fetchJson('/api/attendance'),
         ]);
 
         if (empRes?.success && Array.isArray(empRes.data) && empRes.data.length > 0) {

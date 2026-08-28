@@ -6,12 +6,11 @@ export declare class ExpensesService {
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        category: string;
         employeeId: string;
         title: string;
         description: string;
         currency: string;
-        paymentStatus: string;
+        category: string;
         claimNumber: string;
         amount: number;
         expenseDate: string;
@@ -19,6 +18,7 @@ export declare class ExpensesService {
         receiptUrl: string | null;
         managerStatus: string;
         financeStatus: string;
+        paymentStatus: string;
         approvedAmount: number | null;
         settlementDate: string | null;
     }[]>;
@@ -26,12 +26,11 @@ export declare class ExpensesService {
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        category: string;
         employeeId: string;
         title: string;
         description: string;
         currency: string;
-        paymentStatus: string;
+        category: string;
         claimNumber: string;
         amount: number;
         expenseDate: string;
@@ -39,6 +38,7 @@ export declare class ExpensesService {
         receiptUrl: string | null;
         managerStatus: string;
         financeStatus: string;
+        paymentStatus: string;
         approvedAmount: number | null;
         settlementDate: string | null;
     }>;
@@ -46,12 +46,11 @@ export declare class ExpensesService {
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        category: string;
         employeeId: string;
         title: string;
         description: string;
         currency: string;
-        paymentStatus: string;
+        category: string;
         claimNumber: string;
         amount: number;
         expenseDate: string;
@@ -59,6 +58,7 @@ export declare class ExpensesService {
         receiptUrl: string | null;
         managerStatus: string;
         financeStatus: string;
+        paymentStatus: string;
         approvedAmount: number | null;
         settlementDate: string | null;
     }>;

@@ -4,6 +4,7 @@ import path from 'node:path';
 import { NextResponse } from 'next/server';
 import { DocumentRequestStatus, DocumentStatus, Prisma } from '@prisma/client';
 import { db } from '@/lib/db';
+import { invalidateDashboardAnalytics } from '@/lib/redis';
 import {
   AuthorizationError,
   authAccessErrorResponse,
@@ -182,6 +183,7 @@ export async function GET(request: Request) {
       templates: templates.map((template) => ({ id: template.id, name: template.name, type: template.type, version: template.version, variables: extractVariablesFromTemplate(template.content) })),
       categories: categories.map((category) => ({ id: category.id, name: category.name, code: category.code, requiresExpiry: category.requires_expiry })),
     } });
+    await invalidateDashboardAnalytics();
   } catch (error) {
     if (isAuthAccessError(error)) return authAccessErrorResponse(error);
     console.error('Error fetching documents data:', error);
@@ -219,6 +221,7 @@ export async function POST(request: Request) {
         note: String(body.note || 'Uploaded by employee and queued for HR verification.'), uploadedOn: String(body.uploadedOn || displayDate()),
         category_id: category?.id, storage_provider: file ? 'local-private' : null, storage_key: storageKey, mime_type: file?.type || null, size_bytes: file?.size || null, checksum,
       }, include: { employee: { select: { id: true, name: true, employeeCode: true, department: true } }, document_categories: true } });
+      await invalidateDashboardAnalytics();
       return NextResponse.json({ success: true, data: formatDocument(doc), type: 'document' });
     }
 
@@ -228,6 +231,7 @@ export async function POST(request: Request) {
       if (!documentType || !reason) return NextResponse.json({ success: false, error: 'Document type and reason are required.' }, { status: 400 });
       const id = `REQ-${Date.now()}`;
       const req = await db.documentRequest.create({ data: { id, employeeId: employee.id, documentType, reason, status: DocumentRequestStatus.Pending, requestedOn: String(body.requestedOn || displayDate()) }, include: { employee: { select: { id: true, name: true, employeeCode: true, department: true } } } });
+      await invalidateDashboardAnalytics();
       return NextResponse.json({ success: true, data: formatRequest(req), type: 'request' });
     }
 
@@ -241,11 +245,13 @@ export async function POST(request: Request) {
         if (!reason) return NextResponse.json({ success: false, error: 'A rejection reason is required.' }, { status: 400 });
         const updated = await db.employeeDocument.update({ where: { id: documentId }, data: { status: DocumentStatus.ActionRequired, note: reason }, include: { employee: { select: { id: true, name: true, employeeCode: true, department: true } }, document_categories: true } });
         await notifyEmployee(document.employeeId, 'Document action required', `${document.name} was rejected by HR. Reason: ${reason}`);
+        await invalidateDashboardAnalytics();
         return NextResponse.json({ success: true, data: formatDocument(updated) });
       }
       if (document.document_categories?.requires_expiry && !body.expiresAt) return NextResponse.json({ success: false, error: 'An expiry date is required for this document category.' }, { status: 400 });
       const updated = await db.employeeDocument.update({ where: { id: documentId }, data: { status: DocumentStatus.Verified, expires_at: body.expiresAt ? new Date(String(body.expiresAt)) : null, note: String(body.note || 'Verified by HR.') }, include: { employee: { select: { id: true, name: true, employeeCode: true, department: true } }, document_categories: true } });
       await notifyEmployee(document.employeeId, 'Document verified', `${document.name} has been verified by HR.`);
+      await invalidateDashboardAnalytics();
       return NextResponse.json({ success: true, data: formatDocument(updated) });
     }
 
@@ -255,6 +261,7 @@ export async function POST(request: Request) {
       const existing = await db.documentRequest.findUnique({ where: { id: requestId }, include: { employee: true } });
       if (!existing) return NextResponse.json({ success: false, error: 'Request not found.' }, { status: 404 });
       const updated = await db.documentRequest.update({ where: { id: requestId }, data: { status }, include: { employee: { select: { id: true, name: true, employeeCode: true, department: true } } } });
+      await invalidateDashboardAnalytics();
       return NextResponse.json({ success: true, data: formatRequest(updated) });
     }
 
@@ -278,6 +285,7 @@ export async function POST(request: Request) {
         return doc;
       });
       await notifyEmployee(existing.employeeId, 'Document ready', `${template.name} is ready to download from your Documents page.`);
+      await invalidateDashboardAnalytics();
       return NextResponse.json({ success: true, data: formatDocument(generated), requestId: existing.id });
     }
 

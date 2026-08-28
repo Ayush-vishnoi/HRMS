@@ -17,9 +17,9 @@ export declare class HelpDeskService {
         id: string;
         status: import("@prisma/client").$Enums.TicketStatus;
         createdAt: string;
-        category: import("@prisma/client").$Enums.TicketCategory;
         employeeId: string;
         description: string;
+        category: import("@prisma/client").$Enums.TicketCategory;
         priority: import("@prisma/client").$Enums.TicketPriority;
         subject: string;
         resolution: string | null;
@@ -30,9 +30,9 @@ export declare class HelpDeskService {
         id: string;
         status: import("@prisma/client").$Enums.TicketStatus;
         createdAt: string;
-        category: import("@prisma/client").$Enums.TicketCategory;
         employeeId: string;
         description: string;
+        category: import("@prisma/client").$Enums.TicketCategory;
         priority: import("@prisma/client").$Enums.TicketPriority;
         subject: string;
         resolution: string | null;
@@ -43,9 +43,9 @@ export declare class HelpDeskService {
         id: string;
         status: import("@prisma/client").$Enums.TicketStatus;
         createdAt: string;
-        category: import("@prisma/client").$Enums.TicketCategory;
         employeeId: string;
         description: string;
+        category: import("@prisma/client").$Enums.TicketCategory;
         priority: import("@prisma/client").$Enums.TicketPriority;
         subject: string;
         resolution: string | null;

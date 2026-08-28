@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { authAccessErrorResponse, isAuthAccessError } from '@/lib/auth-session';
+import { invalidateDashboardAnalytics } from '@/lib/redis';
 import { requireRecruitmentUser, getCandidateFilterForUser } from '@/lib/recruitment/rbac-service';
 import { createCandidate } from '@/lib/recruitment/candidate-service';
 import type { CandidateStage, Prisma } from '@prisma/client';
@@ -64,6 +65,7 @@ export async function POST(request: Request) {
     const user = await requireRecruitmentUser();
     const body = await request.json();
     const candidate = await createCandidate(body, user);
+    await invalidateDashboardAnalytics();
     return NextResponse.json({ success: true, data: candidate });
   } catch (error) {
     if (isAuthAccessError(error)) return authAccessErrorResponse(error);

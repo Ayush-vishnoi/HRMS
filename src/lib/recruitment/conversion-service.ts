@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import { db } from '@/lib/db';
 import { type RecruitmentUser } from '@/lib/recruitment/rbac-service';
 import { hashCredentialPassword } from '@/lib/credentials';
+import { invalidateDashboardAnalytics, invalidateEmployeeDirectory } from '@/lib/redis';
 import { sendEmail } from '@/lib/notifications/email-service';
 
 /* ==========================================================================
@@ -798,6 +799,11 @@ export async function convertCandidateToEmployee(
       employeeCode: result.newEmployee.employeeCode,
     },
   }).catch(() => null);
+
+  await Promise.all([
+    invalidateEmployeeDirectory(),
+    invalidateDashboardAnalytics(),
+  ]);
 
   return {
     success: true,

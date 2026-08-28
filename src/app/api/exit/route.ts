@@ -1,6 +1,10 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import {
+  invalidateDashboardAnalytics,
+  invalidateEmployeeDirectory,
+} from '@/lib/redis';
+import {
   authAccessErrorResponse,
   getCurrentEmployee,
   isAuthAccessError,
@@ -264,6 +268,8 @@ export async function POST(request: Request) {
         });
       }
 
+      await invalidateDashboardAnalytics();
+      await invalidateEmployeeDirectory();
       return NextResponse.json({ success: true, message: 'Employee exit completed, sessions revoked, and archived to Alumni.' });
     }
 

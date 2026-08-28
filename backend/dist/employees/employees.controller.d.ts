@@ -41,8 +41,9 @@ export declare class EmployeesController {
             location: string;
             createdAt: Date;
             updatedAt: Date;
-            assetTag: string;
+            notes: string | null;
             category: import("@prisma/client").$Enums.AssetCategory;
+            assetTag: string;
             brand: string;
             model: string;
             serialNumber: string;
@@ -52,7 +53,6 @@ export declare class EmployeesController {
             assignedToId: string | null;
             condition: import("@prisma/client").$Enums.AssetCondition;
             lastChecked: string;
-            notes: string | null;
         }[];
         manager: {
             id: string;

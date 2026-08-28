@@ -5,10 +5,29 @@ import {
   isAuthAccessError,
   requireRole,
 } from '@/lib/auth-session';
+import {
+  cacheKeys,
+  CACHE_TTL_SECONDS,
+  getCached,
+  setCached,
+} from '@/lib/redis';
+
+type AnalyticsSummary = {
+  totalHeadcount: number;
+  openHrActions: number;
+  attendanceRate: string;
+  recruitmentPipeline: { stage: string; candidates: number }[];
+  attendanceTrends: { day: string; onTime: number; late: number }[];
+};
 
 export async function GET() {
   try {
     await requireRole('admin');
+    const cachedSummary = await getCached<AnalyticsSummary>(cacheKeys.dashboardAnalytics);
+    if (cachedSummary) {
+      return NextResponse.json({ success: true, data: cachedSummary });
+    }
+
     const [
       totalHeadcount,
       openTicketsCount,
@@ -84,16 +103,16 @@ export async function GET() {
       { day: 'Fri', onTime: Math.min(100, Math.max(80, avgOnTime - 5)), late: Math.max(7, avgLate + 4) },
     ];
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        totalHeadcount,
-        openHrActions,
-        attendanceRate: `${attendanceRate}%`,
-        recruitmentPipeline,
-        attendanceTrends,
-      },
-    });
+    const summary: AnalyticsSummary = {
+      totalHeadcount,
+      openHrActions,
+      attendanceRate: `${attendanceRate}%`,
+      recruitmentPipeline,
+      attendanceTrends,
+    };
+    await setCached(cacheKeys.dashboardAnalytics, summary, CACHE_TTL_SECONDS.dashboardAnalytics);
+
+    return NextResponse.json({ success: true, data: summary });
   } catch (error) {
     if (isAuthAccessError(error)) return authAccessErrorResponse(error);
     console.error('Error computing analytics metrics:', error);
