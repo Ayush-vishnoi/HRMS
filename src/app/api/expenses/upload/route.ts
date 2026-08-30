@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
-import fs from 'fs/promises';
 import path from 'path';
 import { requireEmployee, isAuthAccessError, authAccessErrorResponse } from '@/lib/auth-session';
+import { saveDocumentBlob } from '@/lib/documents/db-storage';
 
 const MAX_RECEIPT_SIZE = 10 * 1024 * 1024;
 const ALLOWED_TYPES = new Set(['application/pdf', 'image/jpeg', 'image/png', 'image/webp']);
@@ -33,9 +33,13 @@ export async function POST(request: Request) {
     }
 
     const filename = `${employee.id}-${Date.now()}-${crypto.randomUUID()}.${extension}`;
-    const receiptsDirectory = path.join(process.cwd(), 'uploads', 'expenses');
-    await fs.mkdir(receiptsDirectory, { recursive: true });
-    await fs.writeFile(path.join(receiptsDirectory, filename), Buffer.from(await file.arrayBuffer()));
+    // Store receipt bytes inside PostgreSQL (document_blobs) instead of local disk.
+    await saveDocumentBlob({
+      key: filename,
+      category: 'expenses',
+      data: Buffer.from(await file.arrayBuffer()),
+      mimeType: file.type,
+    });
 
     return NextResponse.json({
       success: true,

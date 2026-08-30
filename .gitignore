@@ -25,6 +25,9 @@
 .DS_Store
 *.pem
 
+# private uploaded/generated documents (employee letters, offers, resumes, receipts)
+/uploads/
+
 # debug
 npm-debug.log*
 yarn-debug.log*

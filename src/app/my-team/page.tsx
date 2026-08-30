@@ -1327,6 +1327,7 @@ export default function MyTeamPage() {
         <EmployeeDetailsModal
           employee={selectedEmployee}
           canViewCompensation={false}
+          canViewFullProfile
           onClose={() => setSelectedEmployee(null)}
         />
       )}

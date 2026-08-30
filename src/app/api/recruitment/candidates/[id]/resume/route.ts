@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
-import fs from 'fs/promises';
 import path from 'path';
 import { db } from '@/lib/db';
+import { readDocumentBlobWithDiskFallback } from '@/lib/documents/db-storage';
 import { requireRecruitmentUser, canUserAccessJob } from '@/lib/recruitment/rbac-service';
 import { extractResumeText } from '@/lib/recruitment/intelligence/extractor';
 import { parseResumeContent } from '@/lib/recruitment/intelligence/parser';
@@ -34,25 +34,24 @@ export async function GET(request: Request, context: RouteContext) {
       return NextResponse.json({ error: 'No resume uploaded for this candidate.' }, { status: 404 });
     }
 
-    const fullPath = path.join(process.cwd(), 'uploads', 'resumes', path.basename(candidate.resumeDocument.storagePath));
-    try {
-      const fileBuffer = await fs.readFile(fullPath);
-      const mimeTypes: Record<string, string> = {
-        pdf: 'application/pdf',
-        docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        txt: 'text/plain',
-      };
-      const contentType = mimeTypes[candidate.resumeDocument.fileType] || 'application/octet-stream';
-
-      return new NextResponse(fileBuffer, {
-        headers: {
-          'Content-Type': contentType,
-          'Content-Disposition': `inline; filename="${candidate.resumeDocument.fileName}"`,
-        },
-      });
-    } catch (readErr) {
-      return NextResponse.json({ error: 'Resume file could not be read from disk.' }, { status: 404 });
+    const storageKey = path.basename(candidate.resumeDocument.storagePath);
+    const fileBuffer = await readDocumentBlobWithDiskFallback(storageKey, path.join(process.cwd(), 'uploads', 'resumes'));
+    if (!fileBuffer) {
+      return NextResponse.json({ error: 'Resume file could not be found.' }, { status: 404 });
     }
+    const mimeTypes: Record<string, string> = {
+      pdf: 'application/pdf',
+      docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      txt: 'text/plain',
+    };
+    const contentType = mimeTypes[candidate.resumeDocument.fileType] || 'application/octet-stream';
+
+    return new NextResponse(fileBuffer as unknown as BodyInit, {
+      headers: {
+        'Content-Type': contentType,
+        'Content-Disposition': `inline; filename="${candidate.resumeDocument.fileName}"`,
+      },
+    });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }

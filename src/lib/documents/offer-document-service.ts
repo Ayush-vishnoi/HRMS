@@ -4,7 +4,6 @@
  */
 
 import path from 'path';
-import fs from 'fs/promises';
 import { db } from '@/lib/db';
 import { type DocumentTemplateType } from '@prisma/client';
 import { type RecruitmentUser } from '@/lib/recruitment/rbac-service';
@@ -23,8 +22,9 @@ import {
   type RenderedDocumentResult,
 } from './template-engine';
 import { generateServerSidePdfBuffer } from './pdf-generator';
+import { readDocumentBlobWithDiskFallback, saveDocumentBlob } from './db-storage';
 
-const SECURE_DOCS_DIR = path.join(process.cwd(), 'uploads', 'documents', 'offers');
+const LEGACY_OFFER_DOCS_DIR = path.join(process.cwd(), 'uploads', 'documents', 'offers');
 
 export interface GeneratedDocumentMetadata {
   id: string;
@@ -51,16 +51,12 @@ export interface GenerateDocumentInput {
 }
 
 /**
- * Ensures the secure offer documents directory exists
+ * Ensures the secure offer documents directory exists (legacy — bytes now live
+ * in PostgreSQL document_blobs; kept as no-op for call-site compatibility)
  */
 async function ensureDocsDirectory(): Promise<void> {
-  try {
-    await fs.mkdir(SECURE_DOCS_DIR, { recursive: true });
-  } catch {
-    // Already exists
-  }
+  // No-op: offer documents are stored in PostgreSQL (document_blobs).
 }
-
 /**
  * Retrieves all available active DocumentTemplates for offer workflows
  */
@@ -374,11 +370,11 @@ export async function generateOfferDocument(
     renderedHtml: rendered.html,
   });
 
-  // 6. Secure Storage
+  // 6. Secure Storage — bytes go into PostgreSQL (document_blobs)
   const docId = `DOC-${offer.id}-v${offer.version}-${input.documentType.toUpperCase()}-${Date.now()}`;
   const secureFileName = `${docId}.pdf`;
-  const storageFilePath = path.join(SECURE_DOCS_DIR, secureFileName);
-  await fs.writeFile(storageFilePath, pdfBuffer);
+  await saveDocumentBlob({ key: secureFileName, category: 'offers', data: pdfBuffer, mimeType: 'application/pdf' });
+  const storageFilePath = path.join(LEGACY_OFFER_DOCS_DIR, secureFileName);
 
   const documentMeta: GeneratedDocumentMetadata = {
     id: docId,
@@ -544,19 +540,16 @@ export async function getDocumentFile(
   }
 
   const safeFileName = path.basename(docMeta.storagePath);
-  const fullPath = path.join(process.cwd(), 'uploads', 'documents', 'offers', safeFileName);
-  let fileBuffer: Buffer;
-  try {
-    fileBuffer = await fs.readFile(fullPath);
-  } catch {
-    // If file on disk was cleared, dynamically regenerate PDF buffer
+  let fileBuffer = await readDocumentBlobWithDiskFallback(safeFileName, LEGACY_OFFER_DOCS_DIR);
+  if (!fileBuffer) {
+    // If the stored bytes are unavailable, dynamically regenerate the PDF
     const { contextData } = await buildDocumentContextData(offerId, user);
     fileBuffer = generateServerSidePdfBuffer({
       title: docMeta.templateName,
       documentType: docMeta.documentType,
       context: contextData,
     });
-    await fs.writeFile(fullPath, fileBuffer);
+    await saveDocumentBlob({ key: safeFileName, category: 'offers', data: fileBuffer, mimeType: 'application/pdf' });
   }
 
   // Audit Log download event

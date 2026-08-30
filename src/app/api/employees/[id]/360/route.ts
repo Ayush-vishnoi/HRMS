@@ -15,12 +15,18 @@ export async function GET(
     let currentUser;
     try {
       currentUser = await requireEmployee();
-    } catch {
-      // Fallback for dev environment parameter
+    } catch (error) {
+      // Query-parameter identity is a development-only convenience.
+      // Production must always resolve identity from a real session.
+      if (process.env.NODE_ENV === 'production') throw error;
       const url = new URL(request.url);
-      const role = url.searchParams.get('role') || 'admin';
+      const roleParam = url.searchParams.get('role');
+      const role: 'employee' | 'manager' | 'admin' =
+        roleParam === 'employee' || roleParam === 'manager' || roleParam === 'admin'
+          ? roleParam
+          : 'admin';
       const fallbackId = url.searchParams.get('currentUserId') || 'EMP-001';
-      currentUser = { id: fallbackId, userRole: role as any, name: 'User' };
+      currentUser = { id: fallbackId, userRole: role, name: 'User' };
     }
 
     // Role-based access check: Employee can only see their own 360, Managers can see reports, Admins see all

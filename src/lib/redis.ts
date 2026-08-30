@@ -22,6 +22,12 @@ let redis: Redis | null = null;
 let warnedMissingUrl = false;
 let warnedInvalidUrl = false;
 
+// ioredis emits an 'error' event on every failed (re)connect attempt. During
+// a network blip this produced dozens of identical warnings per minute; log
+// at most once every 5 minutes so real errors stay readable.
+let lastRedisErrorLoggedAt = 0;
+const REDIS_ERROR_LOG_INTERVAL_MS = 5 * 60_000;
+
 function getRedis(): Redis | null {
   const url = process.env.REDIS_URL?.trim();
   if (!url) {
@@ -49,7 +55,14 @@ function getRedis(): Redis | null {
         keepAlive: 30_000,
       });
       redis.on('error', (error) => {
-        console.warn('[redis] Redis unavailable; falling back to database queries.', error.message);
+        const now = Date.now();
+        if (now - lastRedisErrorLoggedAt > REDIS_ERROR_LOG_INTERVAL_MS) {
+          lastRedisErrorLoggedAt = now;
+          console.warn(
+            '[redis] Redis unavailable; falling back to database queries.',
+            error.message,
+          );
+        }
       });
     } catch (error) {
       if (!warnedInvalidUrl) {

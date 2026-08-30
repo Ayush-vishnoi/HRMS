@@ -7,12 +7,14 @@ import type { Employee } from '@/features/employees/data/employees';
 interface EmployeeDetailsModalProps {
   employee: Employee | null;
   canViewCompensation: boolean;
+  canViewFullProfile: boolean;
   onClose: () => void;
 }
 
 export const EmployeeDetailsModal: React.FC<EmployeeDetailsModalProps> = ({
   employee,
   canViewCompensation,
+  canViewFullProfile,
   onClose,
 }) => {
   if (!employee) return null;
@@ -146,12 +148,14 @@ export const EmployeeDetailsModal: React.FC<EmployeeDetailsModalProps> = ({
             >
               Close
             </button>
-            <a
-              href={`/employees/${employee.id}`}
-              className="px-4 py-2 bg-[#17324A] hover:bg-[#244A68] text-white text-xs font-bold rounded-lg shadow-sm flex items-center gap-1.5 transition-all"
-            >
-              Open Full 360° Profile →
-            </a>
+            {canViewFullProfile && (
+              <a
+                href={`/employees/${employee.id}`}
+                className="px-4 py-2 bg-[#17324A] hover:bg-[#244A68] text-white text-xs font-bold rounded-lg shadow-sm flex items-center gap-1.5 transition-all"
+              >
+                Open Full 360° Profile →
+              </a>
+            )}
           </div>
         </div>
       </div>

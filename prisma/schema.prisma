@@ -42,6 +42,7 @@ model Employee {
   publishedPolicies                                                                            CompanyPolicy[]                      @relation("PolicyPublisher")
   departments_departments_head_employee_idToemployees                                          departments[]                        @relation("departments_head_employee_idToemployees")
   documentRequests                                                                             DocumentRequest[]
+  document_request_attachments_added_by_idToemployees                                          DocumentRequestAttachment[]             @relation("document_request_attachments_added_by_idToemployees")
   document_signatures                                                                          document_signatures[]
   document_templates_document_templates_created_by_idToemployees                               DocumentTemplate[]                   @relation("document_templates_created_by_idToemployees")
   document_templates_document_templates_updated_by_idToemployees                               DocumentTemplate[]                   @relation("document_templates_updated_by_idToemployees")
@@ -770,7 +771,12 @@ model EmployeeDocument {
   expiry_reminder_at  DateTime?               @db.Date
   signature_status    DocumentSignatureStatus @default(Not_Required)
   signed_at           DateTime?
-  document_signatures document_signatures[]
+  locked_until        DateTime?               @db.Timestamptz(6)
+  downloaded_at       DateTime?               @db.Timestamptz(6)
+  shared_by_hr        Boolean                 @default(false)
+  shared_at           DateTime?               @db.Timestamptz(6)
+  document_signatures                     document_signatures[]
+  document_request_attachments            DocumentRequestAttachment[]
   document_categories document_categories?    @relation(fields: [category_id], references: [id])
   employee            Employee                @relation(fields: [employeeId], references: [id], onDelete: Cascade, onUpdate: NoAction)
   document_templates  DocumentTemplate?       @relation(fields: [template_id], references: [id])
@@ -782,19 +788,56 @@ model EmployeeDocument {
   @@map("employee_documents")
 }
 
+/// Binary document storage inside PostgreSQL (BYTEA). Replaces local-disk
+/// uploads/ storage so files live with the data, survive redeploys, and stay
+/// private behind authenticated API routes.
+model DocumentBlob {
+  id         String   @id @db.VarChar(255) // storage key (filename)
+  category   String   @db.VarChar(30) // 'employee' | 'offers' | 'resumes' | 'expenses'
+  mime_type  String?  @map("mime_type") @db.VarChar(120)
+  size_bytes Int      @map("size_bytes")
+  data       Bytes
+  created_at DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([category], map: "idx_document_blobs_category")
+  @@map("document_blobs")
+}
+
 model DocumentRequest {
-  id           String                @id @db.VarChar(36)
-  employeeId   String                @map("employee_id") @db.VarChar(36)
-  documentType String                @map("document_type") @db.VarChar(100)
+  id           String                       @id @db.VarChar(36)
+  employeeId   String                       @map("employee_id") @db.VarChar(36)
+  documentType String                       @map("document_type") @db.VarChar(100)
   reason       String
-  status       DocumentRequestStatus @default(Pending)
-  requestedOn  String                @map("requested_on") @db.VarChar(30)
-  createdAt    DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt    DateTime              @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  employee     Employee              @relation(fields: [employeeId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  status       DocumentRequestStatus        @default(Requested)
+  requestedOn  String                       @map("requested_on") @db.VarChar(30)
+  sentAt       DateTime?                    @map("sent_at") @db.Timestamptz(6)
+  downloadedAt DateTime?                    @map("downloaded_at") @db.Timestamptz(6)
+  createdAt    DateTime                     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime                     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  employee     Employee                     @relation(fields: [employeeId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  attachments  DocumentRequestAttachment[]
 
   @@index([employeeId, status], map: "idx_doc_requests_status")
   @@map("document_requests")
+}
+
+/// Files HR attaches to a DocumentRequest when fulfilling it. Each attachment
+/// references an existing EmployeeDocument row (uploaded file or a PDF generated
+/// from a DocumentTemplate), so binary storage is never duplicated.
+model DocumentRequestAttachment {
+  id         String           @id @db.VarChar(36)
+  requestId  String           @map("request_id") @db.VarChar(36)
+  documentId String           @map("document_id") @db.VarChar(36)
+  source     String           @default("upload") @db.VarChar(20) // 'upload' | 'template'
+  addedById  String           @map("added_by_id") @db.VarChar(36)
+  addedAt    DateTime         @default(now()) @map("added_at") @db.Timestamptz(6)
+  request    DocumentRequest  @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  document   EmployeeDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  addedBy    Employee         @relation("document_request_attachments_added_by_idToemployees", fields: [addedById], references: [id], onDelete: Cascade)
+
+  @@index([requestId])
+  @@index([documentId])
+  @@map("document_request_attachments")
 }
 
 model CompanyPolicy {
@@ -1720,6 +1763,7 @@ enum EmploymentStatus {
   OnLeave    @map("On Leave")
   Remote
   Offboarded
+  Exited
 }
 
 enum AttendanceStatus {
@@ -1811,6 +1855,9 @@ enum DocumentRequestStatus {
   InProgress @map("In Progress")
   Ready
   Delivered
+  Requested
+  Sent
+  Downloaded
 }
 
 enum PolicyCategory {
@@ -2666,6 +2713,10 @@ model ExitRequest {
   reasonDetails          String    @map("reason_details")
   managerApproval        String    @default("Pending") @map("manager_approval")
   hrApproval             String    @default("Pending") @map("hr_approval")
+  managerApprovedAt      DateTime? @map("manager_approved_at")
+  hrApprovedAt           DateTime? @map("hr_approved_at")
+  rejectionReason        String?   @map("rejection_reason")
+  workflowStage          String    @default("Pending Manager Approval") @map("workflow_stage")
   noticePeriodDays       Int       @default(60) @map("notice_period_days")
   status                 String    @default("Submitted")
   createdAt              DateTime  @default(now()) @map("created_at")

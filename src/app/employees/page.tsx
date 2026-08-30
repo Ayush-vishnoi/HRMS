@@ -413,6 +413,7 @@ export default function EmployeesPage() {
       <EmployeeDetailsModal
         employee={activeEmployee}
         canViewCompensation={currentUser.userRole === 'admin'}
+        canViewFullProfile={!isEmployee}
         onClose={() => setActiveEmployee(null)}
       />
 

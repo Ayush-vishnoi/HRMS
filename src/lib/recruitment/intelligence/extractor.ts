@@ -1,7 +1,8 @@
 import crypto from 'crypto';
-import fs from 'fs/promises';
 import path from 'path';
 import mammoth from 'mammoth';
+
+import { saveDocumentBlob } from '@/lib/documents/db-storage';
 
 export interface ExtractedDocument {
   text: string;
@@ -44,7 +45,7 @@ async function parsePdfBuffer(buffer: Buffer): Promise<string> {
 
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
 const ALLOWED_EXTENSIONS = ['.pdf', '.docx', '.txt'];
-const STORAGE_DIR = path.join(process.cwd(), 'uploads', 'resumes');
+const STORAGE_DIR = path.join(process.cwd(), 'uploads', 'resumes'); // legacy disk fallback path
 
 /**
  * Validates untrusted file buffers and file names
@@ -131,11 +132,10 @@ export async function extractResumeText(
     throw new Error('Extracted document text contains insufficient content for parsing.');
   }
 
-  // Ensure storage directory exists and store securely
-  await fs.mkdir(STORAGE_DIR, { recursive: true });
+  // Store the resume bytes securely inside PostgreSQL (document_blobs)
   const secureFileName = `${candidateId}-${fileHash.slice(0, 12)}${ext}`;
   const storagePath = path.join(STORAGE_DIR, secureFileName);
-  await fs.writeFile(storagePath, buffer);
+  await saveDocumentBlob({ key: secureFileName, category: 'resumes', data: buffer });
 
   return {
     text: normalizedText,

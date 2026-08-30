@@ -114,20 +114,23 @@ export async function GET(request: Request) {
       where: { organization_id: orgId, is_active: true },
     });
 
-    // Auto-seed if empty
+    // Auto-seed if empty. skipDuplicates makes this idempotent and safe under
+    // concurrency: two simultaneous requests (or a pre-existing row from
+    // another org with the same deterministic id) previously crashed the
+    // endpoint with P2002 unique-constraint violations. createMany also
+    // replaces a sequential await loop with a single round trip.
     if (competencies.length === 0) {
-      for (const c of DEFAULT_COMPETENCIES) {
-        await db.performance_competencies.create({
-          data: {
-            id: `COMP-${c.name.toLowerCase().replace(/[^a-z0-9]/g, '-').slice(0, 30)}`,
-            organization_id: orgId,
-            name: c.name,
-            description: c.description,
-            scale: c.scale as Prisma.InputJsonValue,
-            is_active: true,
-          },
-        });
-      }
+      await db.performance_competencies.createMany({
+        data: DEFAULT_COMPETENCIES.map((c) => ({
+          id: `COMP-${c.name.toLowerCase().replace(/[^a-z0-9]/g, '-').slice(0, 30)}`,
+          organization_id: orgId,
+          name: c.name,
+          description: c.description,
+          scale: c.scale as Prisma.InputJsonValue,
+          is_active: true,
+        })),
+        skipDuplicates: true,
+      });
       competencies = await db.performance_competencies.findMany({
         where: { organization_id: orgId, is_active: true },
       });

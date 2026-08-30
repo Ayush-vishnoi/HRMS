@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
-import fs from 'fs/promises';
 import path from 'path';
 import { db } from '@/lib/db';
+import { readDocumentBlobWithDiskFallback } from '@/lib/documents/db-storage';
 import { requireRecruitmentUser, canUserAccessJob } from '@/lib/recruitment/rbac-service';
 import { extractResumeText } from '@/lib/recruitment/intelligence/extractor';
 import { parseResumeContent } from '@/lib/recruitment/intelligence/parser';
@@ -82,8 +82,14 @@ export async function POST(request: Request, context: RouteContext) {
       return NextResponse.json({ error: 'No uploaded resume document exists for this candidate to re-parse.' }, { status: 400 });
     }
 
-    const fullPath = path.join(process.cwd(), 'uploads', 'resumes', path.basename(candidate.resumeDocument.storagePath));
-    const buffer = await fs.readFile(fullPath);
+    // Bytes live in PostgreSQL (document_blobs); legacy resumes fall back to disk.
+    const buffer = await readDocumentBlobWithDiskFallback(
+      path.basename(candidate.resumeDocument.storagePath),
+      path.join(process.cwd(), 'uploads', 'resumes'),
+    );
+    if (!buffer) {
+      return NextResponse.json({ error: 'Stored resume file could not be found.' }, { status: 404 });
+    }
     const extracted = await extractResumeText(candidate.resumeDocument.fileName, buffer, candidate.id);
     const parsedData = await parseResumeContent(extracted.text, candidate.id);
 
