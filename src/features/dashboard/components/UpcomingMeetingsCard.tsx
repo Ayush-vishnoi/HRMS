@@ -17,10 +17,15 @@ export function UpcomingMeetingsCard() {
   // employee (organizer, attendee, or company-wide event).
   const { data: meetings = [], isLoading, isError } = useMeetings();
 
+  // The stored `status` never auto-updates once a meeting's time passes, so
+  // "upcoming" is decided by the actual start time: only meetings that begin
+  // after the current moment are shown (cancelled ones stay excluded).
+  const now = Date.now();
   const upcoming = meetings
     .filter(
       (meeting) =>
-        meeting.status === 'UPCOMING' || meeting.status === 'ONGOING'
+        (meeting.status === 'UPCOMING' || meeting.status === 'ONGOING') &&
+        new Date(meeting.startsAt).getTime() > now
     )
     .sort(
       (left, right) =>
@@ -32,15 +37,15 @@ export function UpcomingMeetingsCard() {
   return (
     <section className="p-6 rounded-2xl bg-white border border-[#E1E5EA] shadow-md space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-bold text-[#1F2933] flex items-center gap-2">
-          <CalendarDays className="w-4 h-4 text-[#8B3A4A]" />
-          Upcoming Meetings
+      <div className="flex items-center justify-between gap-3">
+        <h3 className="min-w-0 flex items-center gap-2 text-sm font-bold text-[#1F2933]">
+          <CalendarDays className="w-4 h-4 shrink-0 text-[#8B3A4A]" />
+          <span className="truncate">Upcoming Meetings</span>
         </h3>
 
         <Link
           href="/meetings"
-          className="text-[10px] font-semibold text-[#667085] hover:text-[#8B3A4A] transition-colors"
+          className="shrink-0 whitespace-nowrap text-[10px] font-semibold text-[#667085] hover:text-[#8B3A4A] transition-colors"
         >
           View All
         </Link>

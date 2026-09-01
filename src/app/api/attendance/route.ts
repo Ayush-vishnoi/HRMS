@@ -6,6 +6,7 @@ import {
   requireEmployee,
   requireEmployeeAccess,
 } from '@/lib/auth-session';
+import { notifyManagerOf } from '@/lib/notifications/notify';
 
 export async function GET(request: Request) {
   try {
@@ -73,6 +74,15 @@ export async function POST(request: Request) {
         location: body.location || 'Office - HQ',
       },
     });
+
+    if (newRecord.status === 'Late' || newRecord.status === 'HalfDay') {
+      await notifyManagerOf(employee.id, {
+        title: 'Attendance Alert',
+        message: `${employee.name} checked in with ${newRecord.status} status on ${newRecord.date}.`,
+        type: 'Attendance',
+        linkUrl: '/attendance',
+      });
+    }
 
     return NextResponse.json({ success: true, data: newRecord });
   } catch (error) {

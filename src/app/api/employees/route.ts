@@ -6,6 +6,7 @@ import {
   requireEmployee,
   requireRole,
 } from '@/lib/auth-session';
+import { notifyAdmins, notifyUser } from '@/lib/notifications/notify';
 import {
   CACHE_TTL_SECONDS,
   cacheKeys,
@@ -81,6 +82,21 @@ export async function POST(request: Request) {
     });
 
     await invalidateEmployeeDirectory();
+
+    await notifyUser({
+      userId: newEmployee.id,
+      title: 'Welcome to MYLOTIC GROUP',
+      message: `Welcome aboard, ${newEmployee.name}! Your employee account has been created. Explore your dashboard to get started.`,
+      type: 'Employee',
+      linkUrl: '/dashboard',
+    });
+
+    await notifyAdmins({
+      title: 'New Employee Added',
+      message: `${newEmployee.name} (${newEmployee.roleTitle || 'New Hire'}) joined the ${newEmployee.department || 'company'} directory.`,
+      type: 'Employee',
+      linkUrl: '/employees',
+    });
 
     return NextResponse.json({ success: true, data: newEmployee });
   } catch (error) {

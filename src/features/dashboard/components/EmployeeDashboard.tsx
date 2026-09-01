@@ -2,14 +2,13 @@
 'use client';
 
 import React, { useState } from 'react';
+import Link from 'next/link';
 import { ClockInPermissionModal } from '@/features/attendance/components/ClockInPermissionModal';
 import {
   CalendarDays,
   Clock,
   PlusCircle,
   FileText,
-  Megaphone,
-  ShieldAlert,
   Sparkles
 } from 'lucide-react';
 import { useHRMS } from '@/shared/providers/HRMSContext';
@@ -18,6 +17,19 @@ import { PayslipModal } from '@/features/payroll/components/PayslipModal';
 import { MOCK_PAYSLIPS } from '@/features/payroll/data/payroll';
 import type { Payslip } from '@/features/payroll/data/payroll';
 import { UpcomingMeetingsCard } from '@/features/dashboard/components/UpcomingMeetingsCard';
+import { TasksSummaryCard } from '@/features/dashboard/components/TasksSummaryCard';
+import { CompanyAnnouncementsCard } from '@/features/announcements/components/CompanyAnnouncementsCard';
+
+// Compact "20 Jul" / "20 Jul – 24 Jul" range for the half-width leave card.
+const formatLeaveDate = (value: string) =>
+  new Intl.DateTimeFormat('en-IN', {
+    day: 'numeric',
+    month: 'short',
+    timeZone: 'UTC',
+  }).format(new Date(`${value}T00:00:00.000Z`));
+
+const formatLeaveRange = (start: string, end: string) =>
+  start === end ? formatLeaveDate(start) : `${formatLeaveDate(start)} – ${formatLeaveDate(end)}`;
 
 export const EmployeeDashboard: React.FC = () => {
   const {
@@ -49,6 +61,11 @@ export const EmployeeDashboard: React.FC = () => {
   const pendingLeaves = leaveRequests.filter(
     (r) => r.employeeId === currentUser.id
   );
+
+  // Newest first, capped at 5 so the half-width summary card stays compact.
+  const recentLeaves = [...pendingLeaves]
+    .sort((a, b) => b.appliedOn.localeCompare(a.appliedOn))
+    .slice(0, 5);
 
   return (
     <div className="space-y-6">
@@ -303,164 +320,101 @@ export const EmployeeDashboard: React.FC = () => {
 
         </div>
 
-        {/* Company Announcements */}
-        <div className="p-6 rounded-2xl bg-[#FFFFFF] border border-[#D9E5EE] shadow-sm space-y-4">
-
-          <div className="flex items-center justify-between">
-
-            <h3 className="text-sm font-bold text-[#17324A] flex items-center gap-2">
-              <Megaphone className="w-4 h-4 text-amber-500" />
-              Company Announcements & Updates
-            </h3>
-
-            <span className="text-xs text-[#5F7180] font-semibold cursor-pointer hover:text-[#17324A]">
-              View All
-            </span>
-
-          </div>
-
-          <div className="space-y-3">
-
-            <div className="p-3.5 rounded-xl bg-[#EAF2F8] border border-[#D9E5EE] flex items-start gap-3">
-
-              <div className="p-2 rounded-lg bg-[#B0D0EA] border border-[#9FC5E2] text-[#17324A] shrink-0">
-                <Sparkles className="w-4 h-4" />
-              </div>
-
-              <div className="space-y-1">
-
-                <div className="flex items-center gap-2">
-
-                  <h4 className="text-xs font-bold text-[#17324A]">
-                    Independence Day Celebration 2026
-                  </h4>
-
-                  <span className="text-[9px] px-2 py-0.5 rounded bg-[#B0D0EA] text-[#17324A] border border-[#9FC5E2] font-semibold">
-                    Event
-                  </span>
-
-                </div>
-
-                <p className="text-xs text-[#5F7180]">
-                  Join us for the flag-hoisting ceremony, cultural performances,
-                  and breakfast on August 15 at 9:00 AM in the office courtyard.
-                </p>
-
-                <span className="text-[10px] text-[#98A2B3]">
-                  Posted by People & Culture • Today
-                </span>
-
-              </div>
-            </div>
-
-            <div className="p-3.5 rounded-xl bg-[#EAF2F8] border border-[#D9E5EE] flex items-start gap-3">
-
-              <div className="p-2 rounded-lg bg-amber-500/10 text-amber-600 shrink-0">
-                <ShieldAlert className="w-4 h-4" />
-              </div>
-
-              <div className="space-y-1">
-
-                <h4 className="text-xs font-bold text-[#17324A]">
-                  Upcoming Holiday: Independence Day Weekend
-                </h4>
-
-                <p className="text-xs text-[#5F7180]">
-                  Office will remain closed on Friday, August 15th.
-                  Have a great long weekend!
-                </p>
-
-                <span className="text-[10px] text-[#98A2B3]">
-                  Posted by Facilities • 4 days ago
-                </span>
-
-              </div>
-            </div>
-
-          </div>
-        </div>
+        {/* Company Announcements (live from /api/announcements) */}
+        <CompanyAnnouncementsCard />
 
         <UpcomingMeetingsCard />
 
       </div>
 
-      {/* Applied Leave History Table */}
-      <div className="p-6 rounded-2xl bg-[#FFFFFF] border border-[#D9E5EE] shadow-sm space-y-4">
+      {/* Bottom row — My Tasks and My Recent Leave Requests share one
+          2-column row, continuing the grid rhythm of the row above.
+          Days / Reason / Applied On now live on the full Leaves page. */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-        <h3 className="text-sm font-bold text-[#17324A] flex items-center gap-2">
-          <CalendarDays className="w-4 h-4 text-[#17324A]" />
-          My Recent Leave Requests
-        </h3>
+        <TasksSummaryCard />
 
-        <div className="overflow-x-auto">
+        <section className="p-6 rounded-2xl bg-[#FFFFFF] border border-[#E1E5EA] shadow-md space-y-4">
 
-          <table className="w-full text-left text-xs border-collapse">
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="min-w-0 flex items-center gap-2 text-sm font-bold text-[#1F2933]">
+              <CalendarDays className="w-4 h-4 shrink-0 text-[#8B3A4A]" />
+              <span className="truncate">My Recent Leave Requests</span>
+            </h3>
 
-            <thead>
-              <tr className="border-b border-[#D9E5EE] text-[#5F7180] font-semibold bg-[#EAF2F8]">
-                <th className="py-3 px-4">Leave Type</th>
-                <th className="py-3 px-4">Duration</th>
-                <th className="py-3 px-4">Days</th>
-                <th className="py-3 px-4">Reason</th>
-                <th className="py-3 px-4">Applied On</th>
-                <th className="py-3 px-4 text-right">Status</th>
-              </tr>
-            </thead>
+            <Link
+              href="/leaves"
+              className="shrink-0 whitespace-nowrap text-[10px] font-semibold text-[#667085] hover:text-[#8B3A4A] transition-colors"
+            >
+              View All
+            </Link>
+          </div>
 
-            <tbody className="divide-y divide-[#D9E5EE] text-[#17324A]">
+          {recentLeaves.length === 0 ? (
+            <div className="min-h-32 flex flex-col items-center justify-center gap-2 border border-dashed border-[#E1E5EA] rounded-xl text-center bg-[#F7F8FA]">
+              <CalendarDays className="h-5 w-5 text-[#98A2B3]" />
 
-              {pendingLeaves.map((req) => (
+              <p className="text-xs text-[#667085]">No leave requests yet.</p>
+            </div>
+          ) : (
+            <div className="max-h-80 overflow-y-auto rounded-xl border border-[#E1E5EA]">
 
-                <tr
-                  key={req.id}
-                  className="hover:bg-[#F5F9FC] transition-colors"
-                >
+              <table className="w-full text-left text-xs border-collapse bg-white">
 
-                  <td className="py-3 px-4 font-semibold text-[#17324A]">
-                    {req.leaveType} Leave
-                  </td>
+                <thead>
+                  <tr className="border-b border-[#E1E5EA] text-[#667085] font-semibold bg-[#F7F8FA]">
+                    <th className="py-2.5 px-3">Leave Type</th>
+                    <th className="py-2.5 px-3">Duration</th>
+                    <th className="py-2.5 px-3 text-right">Status</th>
+                  </tr>
+                </thead>
 
-                  <td className="py-3 px-4 text-[#5F7180]">
-                    {req.startDate} to {req.endDate}
-                  </td>
+                <tbody className="divide-y divide-[#E1E5EA] text-[#1F2933]">
 
-                  <td className="py-3 px-4 font-semibold text-[#17324A]">
-                    {req.days} Day(s)
-                  </td>
+                  {recentLeaves.map((req) => (
 
-                  <td className="py-3 px-4 text-[#5F7180] max-w-xs truncate">
-                    {req.reason}
-                  </td>
-
-                  <td className="py-3 px-4 text-[#5F7180]">
-                    {req.appliedOn}
-                  </td>
-
-                  <td className="py-3 px-4 text-right">
-
-                    <span
-                      className={`px-2.5 py-1 rounded-full text-[11px] font-bold ${
-                        req.status === 'Approved'
-                          ? 'bg-[#238636]/10 text-[#238636] border border-[#238636]/20'
-                          : req.status === 'Pending'
-                          ? 'bg-[#9e6a03]/10 text-[#9e6a03] border border-[#9e6a03]/20'
-                          : 'bg-[#da3633]/10 text-[#da3633] border border-[#da3633]/20'
-                      }`}
+                    <tr
+                      key={req.id}
+                      className="hover:bg-[#F7F8FA] transition-colors"
                     >
-                      {req.status}
-                    </span>
 
-                  </td>
+                      <td className="py-2.5 px-3 font-semibold whitespace-nowrap">
+                        {req.leaveType} Leave
+                      </td>
 
-                </tr>
+                      <td className="py-2.5 px-3 text-[#667085] whitespace-nowrap">
+                        {formatLeaveRange(req.startDate, req.endDate)}
+                        <span className="text-[#98A2B3]"> · {req.days}d</span>
+                      </td>
 
-              ))}
+                      <td className="py-2.5 px-3 text-right">
 
-            </tbody>
+                        <span
+                          className={`px-2.5 py-1 rounded-full text-[11px] font-bold ${
+                            req.status === 'Approved'
+                              ? 'bg-[#238636]/10 text-[#238636] border border-[#238636]/20'
+                              : req.status === 'Pending'
+                              ? 'bg-[#9e6a03]/10 text-[#9e6a03] border border-[#9e6a03]/20'
+                              : 'bg-[#da3633]/10 text-[#da3633] border border-[#da3633]/20'
+                          }`}
+                        >
+                          {req.status}
+                        </span>
 
-          </table>
+                      </td>
 
-        </div>
+                    </tr>
+
+                  ))}
+
+                </tbody>
+
+              </table>
+
+            </div>
+          )}
+        </section>
+
       </div>
 
       {clockNotice && (

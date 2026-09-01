@@ -1,6 +1,7 @@
 import type { LucideIcon } from 'lucide-react';
 import {
   Archive,
+  Backpack,
   BarChart3,
   BookOpenCheck,
   CalendarDays,
@@ -15,6 +16,7 @@ import {
   Heart,
   HeartHandshake,
   LayoutDashboard,
+  ListTodo,
   Receipt,
   ScanSearch,
   ShieldAlert,
@@ -47,9 +49,11 @@ export const NAV_ITEMS: readonly NavigationItem[] = [
   { name: 'Attendance & Time', href: '/attendance', icon: Clock, section: 'My Work', roles: ALL_ROLES },
   { name: 'Leave Management', href: '/leaves', icon: CalendarDays, section: 'My Work', roles: ALL_ROLES },
   { name: 'Meetings & Calendar', href: '/meetings/calendar', routePrefix: '/meetings', icon: CalendarRange, section: 'My Work', roles: ALL_ROLES },
+  { name: 'Tasks', href: '/tasks', icon: ListTodo, section: 'My Work', roles: ALL_ROLES },
   { name: 'Payroll & Payslips', href: '/payroll', icon: CreditCard, section: 'My Work', roles: ALL_ROLES },
   { name: 'Expenses & Claims', href: '/expenses', icon: Receipt, section: 'My Work', roles: ALL_ROLES },
   { name: 'Benefits & Insurance', href: '/benefits', icon: HeartHandshake, section: 'My Work', roles: ALL_ROLES },
+  { name: 'My Assets', href: '/my-assets', icon: Backpack, section: 'My Work', roles: ALL_ROLES },
 
   // Growth & Talent
   { name: 'Performance & OKR', href: '/performance', icon: Target, section: 'Growth & Talent', roles: ALL_ROLES },
@@ -59,14 +63,14 @@ export const NAV_ITEMS: readonly NavigationItem[] = [
   { name: 'Employee Engagement', href: '/engagement', icon: Heart, section: 'Growth & Talent', roles: ALL_ROLES },
 
   // HR Operations
-  { name: 'Recruitment ATS', href: '/recruitment', icon: ScanSearch, section: 'HR Operations', roles: ['admin', 'manager'] },
-  { name: 'Onboarding & BGV', href: '/employee-lifecycle', icon: UserPlus, section: 'HR Operations', roles: ['admin', 'manager'] },
+  { name: 'Recruitment ATS', href: '/recruitment', icon: ScanSearch, section: 'HR Operations', roles: ['admin'] },
+  { name: 'Onboarding & BGV', href: '/employee-lifecycle', icon: UserPlus, section: 'HR Operations', roles: ['admin'] },
   { name: 'Exit & Clearance', href: '/exit', icon: DoorOpen, section: 'HR Operations', roles: ALL_ROLES },
   { name: 'Documents', href: '/documents', icon: FileText, section: 'HR Operations', roles: ALL_ROLES },
-  { name: 'Asset & Inventory', href: '/assets', icon: Archive, section: 'HR Operations', roles: ['admin', 'manager'] },
+  { name: 'Asset & Inventory', href: '/assets', icon: Archive, section: 'HR Operations', roles: ['admin'] },
   { name: 'Policy Center', href: '/policies', icon: BookOpenCheck, section: 'HR Operations', roles: ALL_ROLES },
-  { name: 'Grievance / Complaint', href: '/grievances', icon: ShieldAlert, section: 'HR Operations', roles: ['employee'] },
-  { name: 'People Analytics', href: '/analytics', icon: BarChart3, section: 'HR Operations', roles: ['admin', 'manager'] },
+  { name: 'Grievance / Complaint', href: '/grievances', icon: ShieldAlert, section: 'HR Operations', roles: ['employee', 'manager'] },
+  { name: 'People Analytics', href: '/analytics', icon: BarChart3, section: 'HR Operations', roles: ['admin'] },
 ];
 
 const matchesRoute = (pathname: string, item: NavigationItem) => {

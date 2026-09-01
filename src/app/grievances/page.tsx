@@ -52,12 +52,12 @@ export default function GrievancesPage() {
     setDescription('');
   };
 
-  if (currentUser.userRole !== 'employee') {
+  if (currentUser.userRole === 'admin') {
     return (
       <div className="mx-auto max-w-3xl rounded-2xl border border-rose-200 bg-rose-50 p-8 text-center">
         <ShieldAlert className="mx-auto h-10 w-10 text-rose-600" />
         <h1 className="mt-3 text-xl font-black text-[#17324A]">Employee Grievance Box</h1>
-        <p className="mt-2 text-sm text-rose-700">This confidential submission workspace is available only to employees.</p>
+        <p className="mt-2 text-sm text-rose-700">This confidential submission workspace is available only to employees and managers. HR reviews grievances from the Help Desk.</p>
       </div>
     );
   }

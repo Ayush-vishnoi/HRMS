@@ -17,6 +17,7 @@ import {
   X,
 } from 'lucide-react';
 import { useHRMS } from '@/shared/providers/HRMSContext';
+import { AnnouncementsAdminPanel } from '@/features/announcements/components/AnnouncementsAdminPanel';
 
 type PolicyCategory =
   | 'Code of Conduct'
@@ -224,6 +225,10 @@ export default function PoliciesPage() {
         </div>
         <div className="mt-4 overflow-x-auto"><table className="w-full min-w-[760px] text-left text-xs"><thead><tr className="border-b border-[#D9E5EE] bg-[#EAF2F8] text-[#667085]"><th className="px-4 py-3">Policy</th><th className="px-4 py-3">Category</th><th className="px-4 py-3">Version</th><th className="px-4 py-3">Effective</th><th className="px-4 py-3">Status</th><th className="px-4 py-3 text-right">Action</th></tr></thead><tbody className="divide-y divide-[#D9E5EE]">{filteredPolicies.map((policy) => <tr key={policy.id} className="hover:bg-[#F5F9FC]"><td className="px-4 py-3"><button onClick={() => setSelectedPolicy(policy)} className="text-left font-bold text-[#17324A] hover:text-[#5B91B5]">{policy.title}<p className="mt-1 text-[10px] font-normal text-[#667085]">{policy.id} · Updated {policy.updatedOn}</p></button></td><td className="px-4 py-3 text-[#667085]"><span className="flex items-center gap-1"><Tag className="h-3 w-3" />{policy.category}</span></td><td className="px-4 py-3 font-bold text-[#17324A]">{policy.version}</td><td className="px-4 py-3 text-[#667085]">{policy.effectiveDate}</td><td className="px-4 py-3"><span className={`rounded-full border px-2.5 py-1 text-[10px] font-bold ${policy.acknowledged ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : policy.acknowledgementRequired ? 'border-amber-200 bg-amber-50 text-amber-700' : 'border-slate-200 bg-slate-50 text-slate-600'}`}>{policy.acknowledged ? 'Acknowledged' : policy.acknowledgementRequired ? 'Pending review' : 'Informational'}</span></td><td className="px-4 py-3 text-right"><button onClick={() => setSelectedPolicy(policy)} className="rounded-lg border border-[#9FC2DC] bg-[#EAF2F8] px-3.5 py-1.5 text-[11px] font-bold text-[#17324A] hover:bg-[#B0D0EA] transition-colors">View policy</button></td></tr>)}</tbody></table>{filteredPolicies.length === 0 && <div className="flex flex-col items-center gap-2 py-10 text-center text-xs text-[#667085]"><Filter className="h-5 w-5" />No policies found in database.</div>}</div>
       </section>
+
+      {isHR && (
+        <AnnouncementsAdminPanel currentUserDepartment={currentUser.department} />
+      )}
 
       {/* Centered Policy Reading Section / Modal */}
       {selectedPolicy && (

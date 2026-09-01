@@ -6,7 +6,6 @@ import {
   Bell,
   CalendarDays,
   CheckCircle2,
-  Trash2,
   ChevronDown,
   Clock3,
   FileText,
@@ -19,6 +18,7 @@ import {
   Phone,
   MessageSquare,
   Sparkles,
+  Trash2,
   UserRound,
   UsersRound,
   X,
@@ -33,14 +33,69 @@ interface HeaderProps {
   onClockAction: () => void;
 }
 
-interface AssignedAssetNotification {
+interface UserNotificationItem {
   id: string;
-  assetTag: string;
-  brand: string;
-  name: string;
-  lastChecked: string | null;
-  serialNumber: string | null;
+  title: string;
+  message: string;
+  type: string;
+  linkUrl: string | null;
+  isRead: boolean;
+  createdAt: string;
 }
+
+const getNotificationIcon = (type: string): { Icon: typeof Bell; className: string } => {
+  switch (type) {
+    case 'Leave':
+    case 'Approval':
+      return { Icon: CalendarDays, className: 'bg-amber-50 text-amber-700' };
+    case 'HelpDesk':
+      return { Icon: Headset, className: 'bg-sky-50 text-sky-700' };
+    case 'Meeting':
+      return { Icon: UsersRound, className: 'bg-indigo-50 text-indigo-700' };
+    case 'Asset':
+      return { Icon: Laptop, className: 'bg-[#EAF2F8] text-[#17324A]' };
+    case 'Attendance':
+      return { Icon: Clock3, className: 'bg-emerald-50 text-emerald-700' };
+    case 'Expense':
+    case 'Payroll':
+    case 'Policy':
+    case 'Document':
+    case 'Documents':
+    case 'Exit':
+      return { Icon: FileText, className: 'bg-rose-50 text-rose-700' };
+    case 'Performance':
+    case 'TaskAssignment':
+      return { Icon: Sparkles, className: 'bg-violet-50 text-violet-700' };
+    case 'Recruitment':
+    case 'Employee':
+    case 'Onboarding':
+      return { Icon: UserRound, className: 'bg-teal-50 text-teal-700' };
+    case 'Success':
+    case 'Celebration':
+      return { Icon: CheckCircle2, className: 'bg-emerald-50 text-emerald-700' };
+    case 'Warning':
+    case 'Alert':
+      return { Icon: Bell, className: 'bg-orange-50 text-orange-700' };
+    case 'Announcement':
+      return { Icon: MessageSquare, className: 'bg-blue-50 text-blue-700' };
+    default:
+      return { Icon: Bell, className: 'bg-[#EAF2F8] text-[#49758F]' };
+  }
+};
+
+const formatNotificationTime = (createdAt: string) => {
+  const date = new Date(createdAt);
+  if (Number.isNaN(date.getTime())) return '';
+  const diffMs = Date.now() - date.getTime();
+  const minutes = Math.floor(diffMs / 60_000);
+  if (minutes < 1) return 'Just now';
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  return date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
+};
 
 export const Header: React.FC<HeaderProps> = ({ onClockAction }) => {
   const {
@@ -48,14 +103,14 @@ export const Header: React.FC<HeaderProps> = ({ onClockAction }) => {
     isClockedIn,
     clockInTime,
     lateClockInRequest,
-    leaveRequests,
-    helpDeskTickets,
     logout,
   } = useHRMS();
   const { unreadCount, openChatWith, conversations } = useChat();
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
-  const [dismissedNotificationIds, setDismissedNotificationIds] = useState<string[]>([]);
+  const [notifications, setNotifications] = useState<UserNotificationItem[]>([]);
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
+  const [isLoadingNotifications, setIsLoadingNotifications] = useState(true);
   const [greeting, setGreeting] = useState('Good Morning');
   const [isGreetingReady, setIsGreetingReady] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement>(null);
@@ -94,36 +149,98 @@ export const Header: React.FC<HeaderProps> = ({ onClockAction }) => {
     return () => window.clearInterval(intervalId);
   }, []);
   const [isHelpDeskOpen, setIsHelpDeskOpen] = useState(false);
-  const notificationStorageKey = `hrms-dismissed-notifications-${currentUser.id}`;
-  const staticNotificationId = 'leave-approved-july-20-21';
 
   useEffect(() => {
-    const hydrateDismissedNotifications = window.setTimeout(() => {
+    if (!currentUser?.id) return;
+
+    let isMounted = true;
+    const loadNotifications = async () => {
       try {
-        const storedNotifications = window.localStorage.getItem(notificationStorageKey);
-        setDismissedNotificationIds(storedNotifications ? JSON.parse(storedNotifications) as string[] : []);
-      } catch {
-        setDismissedNotificationIds([]);
+        const response = await fetch('/api/notifications?limit=20', { cache: 'no-store' });
+        if (!response.ok) return;
+        const json = await response.json();
+        if (isMounted && json?.success && Array.isArray(json.data)) {
+          setNotifications(json.data);
+          setUnreadNotificationCount(typeof json.unreadCount === 'number' ? json.unreadCount : 0);
+        }
+      } catch (error) {
+        console.error('Failed to fetch notifications:', error);
+      } finally {
+        if (isMounted) setIsLoadingNotifications(false);
       }
-    }, 0);
+    };
 
-    return () => window.clearTimeout(hydrateDismissedNotifications);
-  }, [notificationStorageKey]);
+    void loadNotifications();
+    const intervalId = window.setInterval(loadNotifications, 60_000);
 
-  const [userAssignedAssets, setUserAssignedAssets] = useState<AssignedAssetNotification[]>([]);
-
-  useEffect(() => {
-    if (currentUser?.id) {
-      fetch(`/api/assets?employeeId=${encodeURIComponent(currentUser.id)}`)
-        .then((res) => (res.ok ? res.json() : null))
-        .then((json) => {
-          if (json?.success && Array.isArray(json.data)) {
-            setUserAssignedAssets(json.data);
-          }
-        })
-        .catch((err) => console.error('Failed to fetch assigned assets for notifications:', err));
-    }
+    return () => {
+      isMounted = false;
+      window.clearInterval(intervalId);
+    };
   }, [currentUser.id]);
+
+  const refreshNotifications = async () => {
+    try {
+      const response = await fetch('/api/notifications?limit=20', { cache: 'no-store' });
+      if (!response.ok) return;
+      const json = await response.json();
+      if (json?.success && Array.isArray(json.data)) {
+        setNotifications(json.data);
+        setUnreadNotificationCount(typeof json.unreadCount === 'number' ? json.unreadCount : 0);
+      }
+    } catch (error) {
+      console.error('Failed to refresh notifications:', error);
+    }
+  };
+
+  const markNotificationRead = async (notificationId: string) => {
+    const target = notifications.find((notification) => notification.id === notificationId);
+    if (!target || target.isRead) return;
+
+    setNotifications((prev) =>
+      prev.map((notification) =>
+        notification.id === notificationId ? { ...notification, isRead: true } : notification,
+      ),
+    );
+    setUnreadNotificationCount((prev) => Math.max(0, prev - 1));
+
+    try {
+      await fetch('/api/notifications', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: notificationId }),
+      });
+    } catch (error) {
+      console.error('Failed to mark notification as read:', error);
+    }
+  };
+
+  const clearNotification = async (notificationId: string) => {
+    const target = notifications.find((notification) => notification.id === notificationId);
+    if (!target) return;
+
+    setNotifications((prev) => prev.filter((notification) => notification.id !== notificationId));
+    if (!target.isRead) {
+      setUnreadNotificationCount((prev) => Math.max(0, prev - 1));
+    }
+
+    try {
+      await fetch(`/api/notifications?id=${encodeURIComponent(notificationId)}`, { method: 'DELETE' });
+    } catch (error) {
+      console.error('Failed to clear notification:', error);
+    }
+  };
+
+  const clearAllNotifications = async () => {
+    setNotifications([]);
+    setUnreadNotificationCount(0);
+
+    try {
+      await fetch('/api/notifications', { method: 'DELETE' });
+    } catch (error) {
+      console.error('Failed to clear all notifications:', error);
+    }
+  };
 
   useEffect(() => {
     if (!showProfile) return;
@@ -157,49 +274,6 @@ export const Header: React.FC<HeaderProps> = ({ onClockAction }) => {
     } catch (error) {
       console.error('Failed to sign out:', error);
     }
-  };
-
-  const pendingLeaveRequests = leaveRequests.filter(
-    (request) => request.status === 'Pending'
-  );
-  const visibleLeaveNotifications = pendingLeaveRequests.filter(
-    (request) => !dismissedNotificationIds.includes(`leave-${request.id}`)
-  );
-  const activeHelpDeskTickets = helpDeskTickets.filter(
-    (ticket) => ticket.status !== 'Resolved'
-  );
-  const visibleHelpDeskNotifications = activeHelpDeskTickets.filter(
-    (ticket) => !dismissedNotificationIds.includes(`help-desk-${ticket.id}`)
-  );
-  const visibleAssetNotifications = userAssignedAssets.filter(
-    (asset) => !dismissedNotificationIds.includes(`asset-${asset.id}`)
-  );
-  const hasStaticNotification = !dismissedNotificationIds.includes(staticNotificationId);
-  const notificationCount = currentUser.userRole === 'admin'
-    ? visibleLeaveNotifications.length + visibleHelpDeskNotifications.length
-    : (hasStaticNotification ? 1 : 0) + visibleAssetNotifications.length;
-
-  const dismissNotification = (notificationId: string) => {
-    const nextIds = dismissedNotificationIds.includes(notificationId)
-      ? dismissedNotificationIds
-      : [...dismissedNotificationIds, notificationId];
-    setDismissedNotificationIds(nextIds);
-    window.localStorage.setItem(notificationStorageKey, JSON.stringify(nextIds));
-  };
-
-  const clearNotifications = () => {
-    const idsToDismiss = currentUser.userRole === 'admin'
-      ? [
-          ...visibleLeaveNotifications.map((request) => `leave-${request.id}`),
-          ...visibleHelpDeskNotifications.map((ticket) => `help-desk-${ticket.id}`),
-        ]
-      : [
-          ...(hasStaticNotification ? [staticNotificationId] : []),
-          ...visibleAssetNotifications.map((asset) => `asset-${asset.id}`),
-        ];
-    const nextIds = Array.from(new Set([...dismissedNotificationIds, ...idsToDismiss]));
-    setDismissedNotificationIds(nextIds);
-    window.localStorage.setItem(notificationStorageKey, JSON.stringify(nextIds));
   };
 
   return (
@@ -266,17 +340,19 @@ export const Header: React.FC<HeaderProps> = ({ onClockAction }) => {
           <button
             type="button"
             onClick={() => {
-              setShowNotifications(!showNotifications);
+              const opening = !showNotifications;
+              setShowNotifications(opening);
               setShowProfile(false);
+              if (opening) void refreshNotifications();
             }}
             className="p-1.5 rounded-md bg-surface border border-border text-secondary hover:text-foreground hover:bg-surface-elevated relative transition-colors"
             aria-label="Open notifications"
             aria-expanded={showNotifications}
           >
             <Bell className="w-4 h-4" />
-            {notificationCount > 0 && (
+            {unreadNotificationCount > 0 && (
               <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#8B3A4A] px-1 text-[9px] font-black text-white ring-2 ring-white">
-                {notificationCount > 9 ? '9+' : notificationCount}
+                {unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}
               </span>
             )}
           </button>
@@ -287,10 +363,13 @@ export const Header: React.FC<HeaderProps> = ({ onClockAction }) => {
                 <h4 className="text-xs font-semibold text-foreground flex items-center gap-1.5">
                   <Bell className="w-3.5 h-3.5 text-accent" />
                   Notifications
+                  {unreadNotificationCount > 0 && (
+                    <span className="rounded-full bg-[#8B3A4A] px-1.5 py-0.5 text-[9px] font-black text-white">+{unreadNotificationCount}</span>
+                  )}
                 </h4>
                 <div className="flex items-center gap-2">
-                  {notificationCount > 0 && (
-                    <button type="button" onClick={clearNotifications} className="text-[10px] font-semibold text-[#8B3A4A] hover:underline">
+                  {notifications.length > 0 && (
+                    <button type="button" onClick={clearAllNotifications} className="text-[10px] font-semibold text-rose-600 hover:underline">
                       Clear all
                     </button>
                   )}
@@ -300,109 +379,66 @@ export const Header: React.FC<HeaderProps> = ({ onClockAction }) => {
                 </div>
               </div>
               <div className="py-2 space-y-2 max-h-60 overflow-y-auto">
-                {currentUser.userRole === 'admin' ? (
-                  visibleLeaveNotifications.length > 0 || visibleHelpDeskNotifications.length > 0 ? (
-                    <>
-                      {visibleLeaveNotifications.map((request) => {
-                        const notificationId = `leave-${request.id}`;
-                        return (
-                          <div key={notificationId} className="flex gap-2 rounded bg-amber-50 p-2 transition-colors hover:bg-amber-100">
-                            <Link
-                              href="/leaves"
-                              onClick={() => {
-                                dismissNotification(notificationId);
-                                setShowNotifications(false);
-                              }}
-                              className="flex min-w-0 flex-1 gap-2"
-                            >
-                              <CalendarDays className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
-                              <span>
-                                <span className="block text-xs font-medium text-[#17324A]">Leave Approval Required</span>
-                                <span className="mt-0.5 block text-[11px] text-[#52677A]">{request.employeeName} submitted {request.leaveType.toLowerCase()} leave for {request.days} day(s).</span>
-                                <span className="mt-0.5 block text-[10px] text-[#667085]">Applied {request.appliedOn} · Review request</span>
-                              </span>
-                            </Link>
-                            <button type="button" onClick={() => dismissNotification(notificationId)} className="h-fit shrink-0 rounded p-1 text-[#8B3A4A] hover:bg-white" aria-label={`Remove notification for ${request.employeeName}`}>
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
-                          </div>
-                        );
-                      })}
-                      {visibleHelpDeskNotifications.map((ticket) => {
-                        const notificationId = `help-desk-${ticket.id}`;
-                        const isComplaint = ticket.category === 'Grievance / Complaint';
-                        return (
-                          <div key={notificationId} className={`flex gap-2 rounded p-2 transition-colors ${isComplaint ? 'bg-rose-50 hover:bg-rose-100' : 'bg-sky-50 hover:bg-sky-100'}`}>
-                            <Link
-                              href="/help-desk"
-                              onClick={() => {
-                                dismissNotification(notificationId);
-                                setShowNotifications(false);
-                              }}
-                              className="flex min-w-0 flex-1 gap-2"
-                            >
-                              <Headset className={`mt-0.5 h-4 w-4 shrink-0 ${isComplaint ? 'text-rose-700' : 'text-sky-700'}`} />
-                              <span className="min-w-0">
-                                <span className="block text-xs font-medium text-[#17324A]">{isComplaint ? 'New Employee Complaint' : 'New Ask HR Request'}</span>
-                                <span className="mt-0.5 block break-words text-[11px] text-[#52677A]">{ticket.employeeName}: {ticket.subject}</span>
-                                <span className="mt-0.5 block text-[10px] text-[#667085]">{ticket.priority} priority · {ticket.createdAt} · Review ticket</span>
-                              </span>
-                            </Link>
-                            <button type="button" onClick={() => dismissNotification(notificationId)} className="h-fit shrink-0 rounded p-1 text-[#8B3A4A] hover:bg-white" aria-label={`Remove notification for ticket ${ticket.id}`}>
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
-                          </div>
-                        );
-                      })}
-                    </>
-                  ) : (
-                    <p className="px-2 py-4 text-center text-[11px] text-secondary">No notifications.</p>
-                  )
-                ) : (visibleAssetNotifications.length > 0 || hasStaticNotification) ? (
-                  <>
-                    {visibleAssetNotifications.map((asset) => {
-                      const notificationId = `asset-${asset.id}`;
-                      return (
-                        <div key={notificationId} className="flex gap-2 rounded bg-[#EAF2F8] p-2 transition-colors hover:bg-[#D9E5EE]">
-                          <div className="flex min-w-0 flex-1 gap-2 text-left">
-                            <Laptop className="mt-0.5 h-4 w-4 shrink-0 text-[#17324A]" />
-                            <span>
-                              <span className="block text-xs font-semibold text-[#17324A]">Asset Assigned</span>
-                              <span className="mt-0.5 block text-[11px] text-[#52677A]">
-                                A {asset.brand} {asset.name} ({asset.assetTag}) has been assigned to you by HR.
-                              </span>
-                              <span className="mt-0.5 block text-[10px] text-[#667085]">Assigned on {asset.lastChecked || 'today'} · Serial: {asset.serialNumber || '—'}</span>
-                            </span>
-                          </div>
+                {isLoadingNotifications ? (
+                  <p className="px-2 py-4 text-center text-[11px] text-secondary">Loading notifications…</p>
+                ) : notifications.length === 0 ? (
+                  <p className="px-2 py-4 text-center text-[11px] text-secondary">No notifications yet. Updates across HRMS will appear here.</p>
+                ) : (
+                  notifications.map((notification) => {
+                    const { Icon, className } = getNotificationIcon(notification.type);
+                    const rowClass = notification.isRead
+                      ? 'bg-surface-elevated hover:bg-[#E8F2FA]'
+                      : 'bg-[#EAF2F8] hover:bg-[#D9E5EE]';
+                    const content = (
+                      <>
+                        <span className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded ${className}`}>
+                          <Icon className="h-3.5 w-3.5" />
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="flex items-center gap-1.5">
+                            <span className="truncate text-xs font-medium text-[#17324A]">{notification.title}</span>
+                            {!notification.isRead && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#8B3A4A]" aria-label="Unread" />}
+                          </span>
+                          <span className="mt-0.5 block break-words text-[11px] text-[#52677A]">{notification.message}</span>
+                          <span className="mt-0.5 block text-[10px] text-[#667085]">{formatNotificationTime(notification.createdAt)}</span>
+                        </span>
+                      </>
+                    );
+
+                    return (
+                      <div key={notification.id} className={`flex items-start gap-1 rounded p-2 transition-colors ${rowClass}`}>
+                        {notification.linkUrl ? (
+                          <Link
+                            href={notification.linkUrl}
+                            onClick={() => {
+                              void markNotificationRead(notification.id);
+                              setShowNotifications(false);
+                            }}
+                            className="flex min-w-0 flex-1 gap-2 text-left"
+                          >
+                            {content}
+                          </Link>
+                        ) : (
                           <button
                             type="button"
-                            onClick={() => dismissNotification(notificationId)}
-                            className="h-fit shrink-0 rounded p-1 text-[#8B3A4A] hover:bg-white"
-                            aria-label={`Remove notification for asset ${asset.assetTag}`}
+                            onClick={() => void markNotificationRead(notification.id)}
+                            className="flex w-full min-w-0 flex-1 gap-2 text-left"
                           >
-                            <Trash2 className="h-3.5 w-3.5" />
+                            {content}
                           </button>
-                        </div>
-                      );
-                    })}
-                    {hasStaticNotification && (
-                      <div className="flex gap-2 rounded bg-surface-elevated p-2">
-                        <button type="button" onClick={() => dismissNotification(staticNotificationId)} className="flex min-w-0 flex-1 gap-2 text-left">
-                          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success" />
-                          <span>
-                            <span className="block text-xs font-medium text-foreground">Leave Request Approved</span>
-                            <span className="mt-0.5 block text-[11px] text-secondary">Casual Leave for July 20-21 was approved by Arjun Mehta.</span>
-                            <span className="mt-0.5 block text-[10px] text-muted">2 hours ago</span>
-                          </span>
-                        </button>
-                        <button type="button" onClick={() => dismissNotification(staticNotificationId)} className="h-fit shrink-0 rounded p-1 text-[#8B3A4A] hover:bg-white" aria-label="Remove notification">
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => void clearNotification(notification.id)}
+                          className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded text-[#8CA2B3] transition-colors hover:bg-rose-50 hover:text-rose-600"
+                          aria-label="Clear notification"
+                          title="Clear notification"
+                        >
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
                       </div>
-                    )}
-                  </>
-                ) : (
-                  <p className="px-2 py-4 text-center text-[11px] text-secondary">No notifications.</p>
+                    );
+                  })
                 )}
               </div>
             </div>

@@ -6,6 +6,7 @@ import {
   requireEmployee,
   requireRole,
 } from '@/lib/auth-session';
+import { notifyAdmins, notifyUser } from '@/lib/notifications/notify';
 
 const mapTicketCategory = (cat?: string): 'Attendance' | 'Leave' | 'Payroll' | 'Documents' | 'Policy' | 'GrievanceOrComplaint' | 'Other' => {
   if (!cat) return 'Other';
@@ -64,6 +65,13 @@ export async function POST(request: Request) {
       },
     });
 
+    await notifyAdmins({
+      title: 'New Help Desk Ticket',
+      message: `${employee.name} raised a ${body.priority || 'Medium'} priority ticket "${body.subject}" (${id}).`,
+      type: 'HelpDesk',
+      linkUrl: '/help-desk',
+    });
+
     return NextResponse.json({ success: true, data: newTicket });
   } catch (error) {
     if (isAuthAccessError(error)) return authAccessErrorResponse(error);
@@ -87,6 +95,14 @@ export async function PATCH(request: Request) {
         resolvedById: resolver.id,
         ...(status === 'Resolved' ? { resolvedAt: new Date().toLocaleString('en-IN') } : {}),
       },
+    });
+
+    await notifyUser({
+      userId: updated.employeeId,
+      title: `Ticket ${status === 'Resolved' ? 'Resolved' : 'Updated'}`,
+      message: `Your ticket "${updated.subject}" (${id}) is now ${status}.${resolution ? ` Resolution: ${resolution}` : ''}`,
+      type: 'HelpDesk',
+      linkUrl: '/help-desk',
     });
 
     return NextResponse.json({ success: true, data: updated });

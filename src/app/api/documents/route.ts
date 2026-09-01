@@ -40,6 +40,9 @@ const mapPrismaReqStatusToDisplay = (status: DocumentRequestStatus) => {
   if (status === DocumentRequestStatus.Sent) return 'Sent';
   if (status === DocumentRequestStatus.Downloaded) return 'Downloaded';
   if (status === DocumentRequestStatus.Requested) return 'Requested';
+  if (status === DocumentRequestStatus.Submitted) return 'Submitted';
+  if (status === DocumentRequestStatus.Verified) return 'Verified';
+  if (status === DocumentRequestStatus.Rejected) return 'Rejected';
   return 'Pending';
 };
 
@@ -109,6 +112,7 @@ const formatDocument = (doc: DocumentWithRelations, viewer: 'admin' | 'employee'
     isLocked,
     downloadedAt: doc.downloaded_at ? doc.downloaded_at.toISOString().slice(0, 10) : null,
     sharedByHr,
+    uploadedByEmployee: Boolean(doc.uploaded_by_employee),
     sharedAt: doc.shared_at ? doc.shared_at.toISOString().slice(0, 10) : null,
     // Employees may only download documents HR has explicitly shared with them;
     // admins can always fetch files they can see.
@@ -241,6 +245,13 @@ export async function POST(request: Request) {
     if (action === 'upload') {
       const file = isMultipart && body.file instanceof File ? body.file : null;
       if (file && (file.size > MAX_UPLOAD_BYTES || !ALLOWED_MIME_TYPES.has(file.type))) return NextResponse.json({ success: false, error: 'Unsupported file or file exceeds 10 MB.' }, { status: 400 });
+      // When responding to an HR-initiated (HRR-) request, the document type is
+      // fixed by the request — the client cannot override it.
+      const requestId = String(body.requestId || '').trim();
+      const linkedRequest = requestId
+        ? await db.documentRequest.findFirst({ where: { id: requestId, employeeId: employee.id } })
+        : null;
+      if (requestId && !linkedRequest) return NextResponse.json({ success: false, error: 'The linked document request was not found.' }, { status: 404 });
       const id = `DOC-${Date.now()}`;
       let storageKey: string | null = null;
       let checksum: string | null = null;
@@ -252,11 +263,18 @@ export async function POST(request: Request) {
       }
       const category = body.categoryId ? await db.document_categories.findFirst({ where: { id: String(body.categoryId), organization_id: employee.organization_id || '', is_active: true } }) : null;
       const doc = await db.employeeDocument.create({ data: {
-        id, employeeId: employee.id, name: String(body.name || (file?.name || 'Uploaded document')), type: String(body.type || category?.name || 'Other'),
+        id, employeeId: employee.id, name: String(body.name || (file?.name || 'Uploaded document')), type: linkedRequest ? linkedRequest.documentType : String(body.type || category?.name || 'Other'),
         size: file ? `${(file.size / 1024 / 1024).toFixed(1)} MB` : String(body.size || '1.0 MB'), status: DocumentStatus.UnderReview,
-        note: String(body.note || 'Uploaded by employee and queued for HR verification.'), uploadedOn: String(body.uploadedOn || displayDate()),
+        note: String(body.note || (linkedRequest ? `Submitted in response to ${linkedRequest.id}.` : 'Uploaded by employee and queued for HR verification.')), uploadedOn: String(body.uploadedOn || displayDate()),
         category_id: category?.id, storage_provider: file ? 'db' : null, storage_key: storageKey, mime_type: file?.type || null, size_bytes: file?.size || null, checksum,
+        uploaded_by_employee: true,
       }, include: { employee: { select: { id: true, name: true, employeeCode: true, department: true } }, document_categories: true } });
+      if (linkedRequest) {
+        // Link the submission back to the HR request and mark it Submitted so
+        // HR sees the response; the document itself enters the normal
+        // Pending Verification queue (Under Review) for approve/reject.
+        await db.documentRequest.update({ where: { id: linkedRequest.id }, data: { status: DocumentRequestStatus.Submitted, submittedDocumentId: doc.id } });
+      }
       await invalidateDashboardAnalytics();
       return NextResponse.json({ success: true, data: formatDocument(doc, employee.userRole === 'admin' ? 'admin' : 'employee'), type: 'document' });
     }
@@ -281,6 +299,8 @@ export async function POST(request: Request) {
         const reason = String(body.reason || '').trim();
         if (!reason) return NextResponse.json({ success: false, error: 'A rejection reason is required.' }, { status: 400 });
         const updated = await db.employeeDocument.update({ where: { id: documentId }, data: { status: DocumentStatus.ActionRequired, note: reason }, include: { employee: { select: { id: true, name: true, employeeCode: true, department: true } }, document_categories: true } });
+        // Keep any HR request this document was submitted against in sync.
+        await db.documentRequest.updateMany({ where: { submittedDocumentId: documentId }, data: { status: DocumentRequestStatus.Rejected } });
         await notifyEmployee(document.employeeId, 'Document action required', `${document.name} was rejected by HR. Reason: ${reason}`);
         await invalidateDashboardAnalytics();
         return NextResponse.json({ success: true, data: formatDocument(updated, 'admin') });
@@ -290,6 +310,7 @@ export async function POST(request: Request) {
       // NOT shared yet — HR shares it explicitly via the Send/share action when
       // the employee should be able to download it.
       const updated = await db.employeeDocument.update({ where: { id: documentId }, data: { status: DocumentStatus.Verified, expires_at: body.expiresAt ? new Date(String(body.expiresAt)) : null, note: String(body.note || 'Verified by HR.') }, include: { employee: { select: { id: true, name: true, employeeCode: true, department: true } }, document_categories: true } });
+      await db.documentRequest.updateMany({ where: { submittedDocumentId: documentId }, data: { status: DocumentRequestStatus.Verified } });
       await notifyEmployee(document.employeeId, 'Document verified', `${document.name} has been verified by HR and saved to your record.`);
       await invalidateDashboardAnalytics();
       return NextResponse.json({ success: true, data: formatDocument(updated, 'admin') });

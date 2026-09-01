@@ -8,6 +8,7 @@ import {
   isAuthAccessError,
   requireEmployee,
 } from '@/lib/auth-session';
+import { notifyUsers } from '@/lib/notifications/notify';
 
 const meetingInclude = {
   organizer: {
@@ -239,6 +240,13 @@ export async function POST(request: Request) {
     const populatedMeeting = await db.meeting.findUnique({ where: { id: newMeeting.id }, include: meetingInclude });
     if (!populatedMeeting) throw new Error('Created meeting could not be loaded');
 
+    await notifyUsers(attendeeIds, {
+      title: 'Meeting Invitation',
+      message: `${organizer.name} invited you to "${newMeeting.title}" on ${newMeeting.startsAt.toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}.`,
+      type: 'Meeting',
+      linkUrl: '/meetings',
+    });
+
     return NextResponse.json({ success: true, data: formatMeeting(populatedMeeting) });
   } catch (error) {
     if (isAuthAccessError(error)) return authAccessErrorResponse(error);
@@ -270,12 +278,23 @@ export async function PATCH(request: Request) {
     }
 
     if (action === 'cancel') {
-      await db.meeting.update({
+      const cancelledMeeting = await db.meeting.update({
         where: { id },
         data: { status: MeetingStatus.CANCELLED },
       });
       const cancelled = await db.meeting.findUnique({ where: { id }, include: meetingInclude });
       if (!cancelled) throw new Error('Cancelled meeting could not be loaded');
+
+      await notifyUsers(
+        existing.attendees.map((attendee) => attendee.employeeId).filter((attendeeId) => attendeeId !== employee.id),
+        {
+          title: 'Meeting Cancelled',
+          message: `${employee.name} cancelled "${cancelledMeeting.title}".`,
+          type: 'Meeting',
+          linkUrl: '/meetings',
+        },
+      );
+
       return NextResponse.json({ success: true, data: formatMeeting(cancelled) });
     }
 
@@ -309,6 +328,16 @@ export async function PATCH(request: Request) {
       });
       const respondedMeeting = await db.meeting.findUnique({ where: { id }, include: meetingInclude });
       if (!respondedMeeting) throw new Error('Updated meeting could not be loaded');
+
+      if (rsvp === RsvpStatus.DECLINED) {
+        await notifyUsers([existing.organizerId], {
+          title: 'Meeting Declined',
+          message: `${employee.name} declined "${respondedMeeting.title}"${trimmedReason ? `: ${trimmedReason}` : '.'}`,
+          type: 'Meeting',
+          linkUrl: '/meetings',
+        });
+      }
+
       return NextResponse.json({ success: true, data: formatMeeting(respondedMeeting) });
     }
 

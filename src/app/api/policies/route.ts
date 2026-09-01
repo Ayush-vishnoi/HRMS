@@ -6,6 +6,7 @@ import {
   requireEmployee,
   requireRole,
 } from '@/lib/auth-session';
+import { notifyAllActiveEmployees } from '@/lib/notifications/notify';
 
 export async function GET(_request: Request) {
   try {
@@ -85,6 +86,13 @@ export async function POST(request: Request) {
         fileName: body.fileName || 'policy-document.pdf',
         fileSize: body.fileSize || '1.0 MB',
       },
+    });
+
+    await notifyAllActiveEmployees({
+      title: 'New Company Policy',
+      message: `A new policy "${newPolicy.title}" (${newPolicy.version}) is now effective. Please review and acknowledge it.`,
+      type: 'Policy',
+      linkUrl: '/policies',
     });
 
     return NextResponse.json({ success: true, data: newPolicy });

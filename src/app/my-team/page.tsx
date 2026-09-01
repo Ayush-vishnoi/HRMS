@@ -8,6 +8,7 @@ import {
   CheckCircle2,
   ChevronDown,
   FileText,
+  ListTodo,
   Mail,
   MessageSquare,
   Phone,
@@ -22,7 +23,10 @@ import {
   X,
 } from 'lucide-react';
 
+import Link from 'next/link';
+
 import { EmployeeDetailsModal } from '@/features/employees/components/EmployeeDetailsModal';
+import { useDirectReports, useTeamTasks } from '@/features/tasks/hooks/useTasks';
 import type { Employee } from '@/features/employees/data/employees';
 import type { TeamMemberMetadata } from '@/features/teams/data/teams';
 import { useHRMS } from '@/shared/providers/HRMSContext';
@@ -110,6 +114,26 @@ const getMemberConflictForDept = (
 export default function MyTeamPage() {
   const { currentUser, employees: directoryEmployees } = useHRMS();
   const { openChatWith } = useChat();
+
+  // Task assignment is restricted to direct reports at the API level; mirror
+  // that scoping here so quick actions only appear for assignable members.
+  const isManagerOrAdmin = currentUser.userRole === 'manager' || currentUser.userRole === 'admin';
+  const directReportsQuery = useDirectReports(isManagerOrAdmin);
+  const teamTasksQuery = useTeamTasks({}, isManagerOrAdmin);
+
+  const assignableMemberIds = useMemo(
+    () => new Set((directReportsQuery.data ?? []).map((report) => report.id)),
+    [directReportsQuery.data],
+  );
+
+  const openTaskCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const task of teamTasksQuery.data?.tasks ?? []) {
+      if (task.status === 'Done') continue;
+      counts[task.assignedTo.id] = (counts[task.assignedTo.id] ?? 0) + 1;
+    }
+    return counts;
+  }, [teamTasksQuery.data]);
 
   const [teams, setTeams] = useState<FormattedTeam[]>([]);
   const [query, setQuery] = useState('');
@@ -649,31 +673,54 @@ export default function MyTeamPage() {
                       <ChevronDown className="h-4 w-4" />
                     </summary>
                     <div className="space-y-2 border-t border-[#D9E5EE] p-3">
-                      {team.members.map(({ employee, metadata: memberMetadata }) => (
-                        <div key={employee.id} className="flex items-center justify-between gap-3 rounded-lg border border-[#D9E5EE] bg-white p-3">
-                          <button type="button" onClick={() => setSelectedEmployee(employee)} className="flex min-w-0 items-center gap-3 text-left">
-                            <img src={employee.avatar} alt="" className="h-9 w-9 rounded-full border border-[#B0D0EA] object-cover" />
-                            <span className="min-w-0">
-                              <span className="block truncate text-xs font-bold text-[#17324A]">{employee.name}</span>
-                              <span className="block truncate text-[10px] text-[#55708A]">{employee.role}</span>
-                            </span>
-                          </button>
-                          <div className="flex items-center gap-2">
-                            <div className="shrink-0 text-right">
-                              <span className={`inline-flex rounded-full border px-2 py-0.5 text-[9px] font-semibold ${getStatusClasses(employee.status)}`}>{employee.status}</span>
-                              <p className="mt-1 text-[9px] font-medium text-[#55708A]">Goal {memberMetadata.goalProgress}%</p>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => setRemovingMember({ team, member: employee })}
-                              className="rounded-lg p-1.5 text-red-500 hover:bg-red-50 hover:text-red-700"
-                              title="Remove from team"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
+                      {team.members.map(({ employee, metadata: memberMetadata }) => {
+                        const openTaskCount = openTaskCounts[employee.id] ?? 0;
+                        const canAssignTask = assignableMemberIds.has(employee.id);
+                        return (
+                          <div key={employee.id} className="flex items-center justify-between gap-3 rounded-lg border border-[#D9E5EE] bg-white p-3">
+                            <button type="button" onClick={() => setSelectedEmployee(employee)} className="flex min-w-0 items-center gap-3 text-left">
+                              <img src={employee.avatar} alt="" className="h-9 w-9 rounded-full border border-[#B0D0EA] object-cover" />
+                              <span className="min-w-0">
+                                <span className="block truncate text-xs font-bold text-[#17324A]">{employee.name}</span>
+                                <span className="block truncate text-[10px] text-[#55708A]">{employee.role}</span>
+                              </span>
                             </button>
+                            <div className="flex items-center gap-2">
+                              <div className="shrink-0 text-right">
+                                <span className={`inline-flex rounded-full border px-2 py-0.5 text-[9px] font-semibold ${getStatusClasses(employee.status)}`}>{employee.status}</span>
+                                <p className="mt-1 text-[9px] font-medium text-[#55708A]">Goal {memberMetadata.goalProgress}%</p>
+                                {openTaskCount > 0 && (
+                                  <Link
+                                    href={`/tasks?tab=team&assignee=${employee.id}`}
+                                    className="mt-1 inline-flex items-center gap-1 rounded-full border border-[#9FC4E1] bg-[#EAF2F8] px-2 py-0.5 text-[9px] font-bold text-[#17324A] transition hover:bg-[#B0D0EA]"
+                                    title={`View ${employee.name}'s tasks`}
+                                  >
+                                    <ListTodo className="h-3 w-3" />
+                                    {openTaskCount} open task{openTaskCount === 1 ? '' : 's'}
+                                  </Link>
+                                )}
+                              </div>
+                              {canAssignTask && (
+                                <Link
+                                  href={`/tasks?tab=team&assignee=${employee.id}&assign=1`}
+                                  className="rounded-lg p-1.5 text-[#17324A] transition hover:bg-[#EAF2F8]"
+                                  title={`Assign task to ${employee.name}`}
+                                >
+                                  <ListTodo className="h-3.5 w-3.5" />
+                                </Link>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => setRemovingMember({ team, member: employee })}
+                                className="rounded-lg p-1.5 text-red-500 hover:bg-red-50 hover:text-red-700"
+                                title="Remove from team"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
 
                       <button
                         type="button"

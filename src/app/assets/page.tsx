@@ -2,15 +2,19 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import {
+  AlertTriangle,
   Archive,
   CheckCircle2,
+  ClipboardCheck,
   ClipboardList,
   Laptop,
   Plus,
   Search,
   ShieldCheck,
+  Undo2,
   UserCheck,
   UserRound,
+  Wrench,
   X,
 } from 'lucide-react';
 import { useHRMS } from '@/shared/providers/HRMSContext';
@@ -44,6 +48,50 @@ const statusStyles: Record<AssetStatus, string> = {
   Available: 'border-emerald-200 bg-emerald-50 text-emerald-700',
   Repair: 'border-amber-200 bg-amber-50 text-amber-700',
   Retired: 'border-slate-200 bg-slate-100 text-slate-600',
+};
+
+type AssetRequestType = 'New Asset' | 'Issue Report' | 'Return';
+type AssetRequestStatus = 'Pending' | 'Approved' | 'Rejected';
+
+type AssetRequestRow = {
+  id: string;
+  type: AssetRequestType;
+  status: AssetRequestStatus;
+  requestedBy: { id: string; name: string; employeeCode: string; department: string; email: string };
+  asset: { id: string; name: string; assetTag: string; serialNumber: string; status: string } | null;
+  category: string | null;
+  reason: string;
+  urgency: 'Low' | 'Medium' | 'High' | null;
+  reviewedBy: { id: string; name: string } | null;
+  reviewedAt: string | null;
+  reviewNote: string | null;
+  createdAt: string;
+};
+
+const requestStatusStyles: Record<AssetRequestStatus, string> = {
+  Pending: 'border-amber-200 bg-amber-50 text-amber-700',
+  Approved: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+  Rejected: 'border-rose-200 bg-rose-50 text-rose-700',
+};
+
+const requestTypeStyles: Record<AssetRequestType, string> = {
+  'New Asset': 'border-blue-200 bg-blue-50 text-blue-700',
+  'Issue Report': 'border-orange-200 bg-orange-50 text-orange-700',
+  Return: 'border-violet-200 bg-violet-50 text-violet-700',
+};
+
+const urgencyStyles: Record<'Low' | 'Medium' | 'High', string> = {
+  Low: 'border-slate-200 bg-slate-100 text-slate-600',
+  Medium: 'border-amber-200 bg-amber-50 text-amber-700',
+  High: 'border-rose-200 bg-rose-50 text-rose-700',
+};
+
+const requestStatusOrder: Record<AssetRequestStatus, number> = { Pending: 0, Approved: 1, Rejected: 2 };
+
+const formatRequestDate = (value: string | null) => {
+  if (!value) return '—';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 };
 
 const formatDbAsset = (a: any): Asset => ({
@@ -81,6 +129,17 @@ export default function AssetsPage() {
   const [preselectedAssetId, setPreselectedAssetId] = useState<string>('');
   const [notice, setNotice] = useState('');
 
+  // Asset Requests tab
+  const [activeTab, setActiveTab] = useState<'assets' | 'requests'>('assets');
+  const [requests, setRequests] = useState<AssetRequestRow[]>([]);
+  const [reqQuery, setReqQuery] = useState('');
+  const [reqStatus, setReqStatus] = useState<'All' | AssetRequestStatus>('All');
+  const [reqType, setReqType] = useState<'All' | AssetRequestType>('All');
+  const [reviewRequest, setReviewRequest] = useState<AssetRequestRow | null>(null);
+  const [reviewNote, setReviewNote] = useState('');
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
+  const [reviewError, setReviewError] = useState('');
+
   // Add Asset Form
   const [form, setForm] = useState({
     name: '',
@@ -112,8 +171,27 @@ export default function AssetsPage() {
     }
   };
 
+  const fetchRequests = async () => {
+    try {
+      const res = await fetch('/api/asset-requests');
+      if (res.ok) {
+        const json = await res.json();
+        if (json?.success && Array.isArray(json.data?.requests)) {
+          setRequests(json.data.requests);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load asset requests from database:', err);
+    }
+  };
+
   useEffect(() => {
     fetchAssets();
+    fetchRequests();
+    // Deep-link support: /assets?tab=requests (used by admin notifications)
+    if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('tab') === 'requests') {
+      setActiveTab('requests');
+    }
   }, []);
 
   const isAdmin = currentUser.userRole === 'admin';
@@ -122,6 +200,16 @@ export default function AssetsPage() {
     const text = `${asset.assetTag} ${asset.name} ${asset.brand} ${asset.model} ${asset.serialNumber} ${asset.assignedTo}`.toLowerCase();
     return (!query || text.includes(query.toLowerCase())) && (status === 'All' || asset.status === status) && (category === 'All' || asset.category === category);
   }), [assets, category, query, status]);
+
+  const pendingRequestCount = useMemo(() => requests.filter((r) => r.status === 'Pending').length, [requests]);
+
+  const filteredRequests = useMemo(() => requests
+    .filter((req) => {
+      const text = `${req.id} ${req.type} ${req.requestedBy.name} ${req.requestedBy.employeeCode} ${req.requestedBy.department} ${req.asset?.name ?? ''} ${req.asset?.assetTag ?? ''} ${req.category ?? ''} ${req.reason}`.toLowerCase();
+      return (!reqQuery || text.includes(reqQuery.toLowerCase())) && (reqStatus === 'All' || req.status === reqStatus) && (reqType === 'All' || req.type === reqType);
+    })
+    .sort((a, b) => requestStatusOrder[a.status] - requestStatusOrder[b.status] || new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
+  [requests, reqQuery, reqStatus, reqType]);
 
   const selectedAsset = assets.find((asset) => asset.id === selectedId);
 
@@ -226,6 +314,35 @@ export default function AssetsPage() {
     setNotice('New asset stored in database successfully.');
   };
 
+  const submitReview = async (decision: 'Approved' | 'Rejected') => {
+    if (!reviewRequest || reviewSubmitting) return;
+    setReviewSubmitting(true);
+    setReviewError('');
+    try {
+      const res = await fetch('/api/asset-requests', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: reviewRequest.id, decision, reviewNote: reviewNote.trim() || undefined }),
+      });
+      const json = await res.json();
+      if (res.ok && json.success && json.data) {
+        const updated = json.data as AssetRequestRow;
+        setRequests((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
+        setNotice(`Request ${updated.id} ${updated.status.toLowerCase()} — ${updated.requestedBy.name} has been notified.`);
+        setReviewRequest(null);
+        setReviewNote('');
+        fetchAssets(); // Approvals can change asset status (Repair / Available)
+      } else {
+        setReviewError(json.error || 'Failed to review request. Please try again.');
+      }
+    } catch (err) {
+      console.error('Failed to review asset request:', err);
+      setReviewError('Failed to review request. Please try again.');
+    } finally {
+      setReviewSubmitting(false);
+    }
+  };
+
   if (!isAdmin) return <div className="rounded-2xl border border-rose-200 bg-rose-50 p-8 text-center"><Archive className="mx-auto h-10 w-10 text-rose-600" /><h1 className="mt-3 text-xl font-black text-[#17324A]">Asset & Inventory</h1><p className="mt-2 text-sm text-rose-700">This workspace is available only to HR Admin users.</p></div>;
 
   return (
@@ -256,6 +373,29 @@ export default function AssetsPage() {
 
       {notice && <div className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs font-semibold text-emerald-700"><CheckCircle2 className="h-4 w-4" /> {notice}</div>}
 
+      <div className="flex w-fit gap-1.5 rounded-xl border border-[#D9E5EE] bg-white p-1.5 shadow-sm">
+        <button
+          type="button"
+          onClick={() => setActiveTab('assets')}
+          className={`flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-bold transition ${activeTab === 'assets' ? 'bg-[#17324A] text-white' : 'text-[#52677A] hover:bg-[#EAF2F8]'}`}
+        >
+          <Archive className="h-4 w-4" /> Assets
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('requests')}
+          className={`flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-bold transition ${activeTab === 'requests' ? 'bg-[#17324A] text-white' : 'text-[#52677A] hover:bg-[#EAF2F8]'}`}
+        >
+          <ClipboardCheck className="h-4 w-4" /> Asset Requests
+          {pendingRequestCount > 0 && (
+            <span className={`rounded-full px-2 py-0.5 text-[10px] font-black ${activeTab === 'requests' ? 'bg-white text-[#17324A]' : 'bg-amber-100 text-amber-700'}`}>
+              {pendingRequestCount}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {activeTab === 'assets' && (<>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Stat label="Total Assets" value={String(assets.length)} detail="Registered in database" icon={Archive} />
         <Stat label="Assigned" value={String(assets.filter((a) => a.status === 'Assigned').length)} detail="In active employee use" icon={UserRound} />
@@ -358,6 +498,117 @@ export default function AssetsPage() {
           </table>
         </div>
       </section>
+      </>)}
+
+      {activeTab === 'requests' && (
+        <>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <Stat label="Pending" value={String(requests.filter((r) => r.status === 'Pending').length)} detail="Awaiting HR review" icon={AlertTriangle} />
+            <Stat label="New Asset" value={String(requests.filter((r) => r.type === 'New Asset').length)} detail="Provisioning requests" icon={Laptop} />
+            <Stat label="Issue Reports" value={String(requests.filter((r) => r.type === 'Issue Report').length)} detail="Reported device problems" icon={Wrench} />
+            <Stat label="Returns" value={String(requests.filter((r) => r.type === 'Return').length)} detail="Give-back requests" icon={Undo2} />
+          </div>
+
+          <section className="rounded-2xl border border-[#D9E5EE] bg-white p-5 shadow-md">
+            <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <label className="relative block">
+                  <Search className="absolute left-3 top-2.5 h-4 w-4 text-[#667085]" />
+                  <input value={reqQuery} onChange={(e) => setReqQuery(e.target.value)} placeholder="Search requester, asset, or reason..." className="rounded-lg border border-[#9FC2DC] py-2 pl-9 pr-3 text-xs text-[#17324A] outline-none focus:ring-2 focus:ring-[#B0D0EA] sm:w-80" />
+                </label>
+                <select value={reqStatus} onChange={(e) => setReqStatus(e.target.value as any)} className="rounded-lg border border-[#9FC2DC] px-3 py-2 text-xs font-semibold text-[#17324A] outline-none focus:ring-2 focus:ring-[#B0D0EA]">
+                  <option value="All">All statuses</option>
+                  <option value="Pending">Pending</option>
+                  <option value="Approved">Approved</option>
+                  <option value="Rejected">Rejected</option>
+                </select>
+                <select value={reqType} onChange={(e) => setReqType(e.target.value as any)} className="rounded-lg border border-[#9FC2DC] px-3 py-2 text-xs font-semibold text-[#17324A] outline-none focus:ring-2 focus:ring-[#B0D0EA]">
+                  <option value="All">All types</option>
+                  <option value="New Asset">New Asset</option>
+                  <option value="Issue Report">Issue Report</option>
+                  <option value="Return">Return</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="mt-4 overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="border-b border-[#D9E5EE] bg-[#EAF2F8] text-[#667085]">
+                    <th className="px-4 py-3">Request</th>
+                    <th className="px-4 py-3">Type</th>
+                    <th className="px-4 py-3">Requested By</th>
+                    <th className="px-4 py-3">Asset</th>
+                    <th className="px-4 py-3">Reason</th>
+                    <th className="px-4 py-3">Urgency</th>
+                    <th className="px-4 py-3">Status</th>
+                    <th className="px-4 py-3 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#D9E5EE]">
+                  {filteredRequests.map((req) => (
+                    <tr key={req.id} className="hover:bg-[#F5F9FC]">
+                      <td className="px-4 py-3">
+                        <button type="button" onClick={() => setReviewRequest(req)} className="text-left font-bold text-[#17324A] hover:text-[#5B91B5]">
+                          {req.id}
+                          <p className="text-[10px] font-normal text-[#667085]">{formatRequestDate(req.createdAt)}</p>
+                        </button>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`rounded-full border px-2.5 py-1 text-[10px] font-bold ${requestTypeStyles[req.type]}`}>{req.type}</span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <p className="font-bold text-[#17324A]">{req.requestedBy.name}</p>
+                        <p className="text-[10px] text-[#667085]">{req.requestedBy.employeeCode} · {req.requestedBy.department}</p>
+                      </td>
+                      <td className="px-4 py-3">
+                        {req.asset ? (
+                          <div>
+                            <p className="font-bold text-[#17324A]">{req.asset.name}</p>
+                            <p className="text-[10px] text-[#667085]">{req.asset.assetTag}</p>
+                          </div>
+                        ) : (
+                          <span className="text-[#667085] italic">{req.category ? `New ${req.category}` : '—'}</span>
+                        )}
+                      </td>
+                      <td className="max-w-[220px] px-4 py-3 text-[#667085]"><p className="line-clamp-2">{req.reason}</p></td>
+                      <td className="px-4 py-3">
+                        {req.urgency ? (
+                          <span className={`rounded-full border px-2.5 py-1 text-[10px] font-bold ${urgencyStyles[req.urgency]}`}>{req.urgency}</span>
+                        ) : (
+                          <span className="text-[#667085]">—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`rounded-full border px-2.5 py-1 text-[10px] font-bold ${requestStatusStyles[req.status]}`}>{req.status}</span>
+                        {req.reviewedBy && <p className="mt-1 text-[10px] text-[#667085]">by {req.reviewedBy.name}</p>}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <button
+                          type="button"
+                          onClick={() => setReviewRequest(req)}
+                          className={req.status === 'Pending'
+                            ? 'rounded-lg border border-[#9FC4E1] bg-[#B0D0EA] px-3 py-1.5 text-[10px] font-bold text-[#17324A] hover:bg-[#9FC4E1] transition'
+                            : 'rounded-lg border border-[#D9E5EE] px-3 py-1.5 text-[10px] font-bold text-[#17324A] hover:bg-[#EAF2F8] transition'}
+                        >
+                          {req.status === 'Pending' ? 'Review' : 'View'}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                  {filteredRequests.length === 0 && (
+                    <tr>
+                      <td colSpan={8} className="px-4 py-8 text-center text-xs text-[#667085]">
+                        No asset requests match the selected filter.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </>
+      )}
 
       {/* Assign Asset Modal */}
       {showAssign && (
@@ -523,6 +774,106 @@ export default function AssetsPage() {
                 </button>
               )}
             </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Asset Request Review Modal */}
+      {reviewRequest && (
+        <Modal
+          title={`Asset Request ${reviewRequest.id}`}
+          onClose={() => {
+            setReviewRequest(null);
+            setReviewNote('');
+            setReviewError('');
+          }}
+        >
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <span className={`rounded-full border px-2.5 py-1 text-[10px] font-bold ${requestTypeStyles[reviewRequest.type]}`}>{reviewRequest.type}</span>
+              <span className={`rounded-full border px-2.5 py-1 text-[10px] font-bold ${requestStatusStyles[reviewRequest.status]}`}>{reviewRequest.status}</span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 rounded-xl border border-[#D9E5EE] bg-[#F8FAFC] p-3 text-xs">
+              <div>
+                <p className="text-[10px] text-[#667085]">Requested By</p>
+                <p className="font-bold text-[#17324A]">{reviewRequest.requestedBy.name}</p>
+                <p className="text-[10px] text-[#667085]">{reviewRequest.requestedBy.employeeCode} · {reviewRequest.requestedBy.department}</p>
+              </div>
+              <div><p className="text-[10px] text-[#667085]">Submitted</p><p className="font-bold text-[#17324A]">{formatRequestDate(reviewRequest.createdAt)}</p></div>
+              <div><p className="text-[10px] text-[#667085]">Asset</p><p className="font-bold text-[#17324A]">{reviewRequest.asset ? `${reviewRequest.asset.name} (${reviewRequest.asset.assetTag})` : reviewRequest.category ? `New ${reviewRequest.category}` : '—'}</p></div>
+              <div><p className="text-[10px] text-[#667085]">Urgency</p><p className="font-bold text-[#17324A]">{reviewRequest.urgency || '—'}</p></div>
+            </div>
+
+            <div className="rounded-xl border border-[#D9E5EE] p-3 text-xs">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-[#667085]">Reason</p>
+              <p className="mt-1 text-[#17324A]">{reviewRequest.reason}</p>
+            </div>
+
+            {reviewRequest.status === 'Pending' ? (
+              <>
+                <Field label="Review note (optional — shared with the employee)">
+                  <textarea
+                    value={reviewNote}
+                    onChange={(e) => setReviewNote(e.target.value)}
+                    rows={3}
+                    maxLength={500}
+                    className={inputClass}
+                    placeholder="e.g. Approved — collect the device from the IT desk on Monday."
+                  />
+                </Field>
+
+                {reviewRequest.type === 'Issue Report' && reviewRequest.asset && (
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-[11px] text-amber-800">
+                    Approving this issue report will move {reviewRequest.asset.assetTag} to <strong>Repair</strong> and mark its condition as <strong>Needs repair</strong>.
+                  </div>
+                )}
+                {reviewRequest.type === 'Return' && reviewRequest.asset && (
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-[11px] text-amber-800">
+                    Approving this return will unassign {reviewRequest.asset.assetTag} from {reviewRequest.requestedBy.name} and return it to inventory as <strong>Available</strong>.
+                  </div>
+                )}
+                {reviewRequest.type === 'New Asset' && (
+                  <div className="rounded-xl border border-sky-200 bg-sky-50 p-3 text-[11px] text-[#55708A]">
+                    After approving, fulfil this request via <strong>Assign asset</strong> on the Assets tab once a device is provisioned.
+                  </div>
+                )}
+
+                {reviewError && <p className="text-xs font-semibold text-rose-600">{reviewError}</p>}
+
+                <div className="flex justify-end gap-2 pt-2">
+                  <button
+                    type="button"
+                    disabled={reviewSubmitting}
+                    onClick={() => submitReview('Rejected')}
+                    className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-2 text-xs font-bold text-rose-700 hover:bg-rose-100 disabled:opacity-50 transition"
+                  >
+                    Reject
+                  </button>
+                  <button
+                    type="button"
+                    disabled={reviewSubmitting}
+                    onClick={() => submitReview('Approved')}
+                    className="rounded-lg bg-[#17324A] px-5 py-2 text-xs font-bold text-white hover:bg-[#244A68] disabled:opacity-50 transition"
+                  >
+                    {reviewSubmitting ? 'Saving…' : 'Approve'}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3 rounded-xl border border-[#D9E5EE] bg-[#F8FAFC] p-3 text-xs">
+                  <div><p className="text-[10px] text-[#667085]">Reviewed By</p><p className="font-bold text-[#17324A]">{reviewRequest.reviewedBy?.name || '—'}</p></div>
+                  <div><p className="text-[10px] text-[#667085]">Reviewed At</p><p className="font-bold text-[#17324A]">{formatRequestDate(reviewRequest.reviewedAt)}</p></div>
+                </div>
+                {reviewRequest.reviewNote && (
+                  <div className="rounded-xl border border-[#D9E5EE] p-3 text-xs">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-[#667085]">HR Note</p>
+                    <p className="mt-1 text-[#17324A]">{reviewRequest.reviewNote}</p>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </Modal>
       )}
