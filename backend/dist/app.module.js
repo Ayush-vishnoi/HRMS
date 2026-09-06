@@ -21,7 +21,6 @@ const notifications_module_1 = require("./notifications/notifications.module");
 const analytics_module_1 = require("./analytics/analytics.module");
 const assets_module_1 = require("./assets/assets.module");
 const policies_module_1 = require("./policies/policies.module");
-const documents_module_1 = require("./documents/documents.module");
 const engagement_module_1 = require("./engagement/engagement.module");
 const expenses_module_1 = require("./expenses/expenses.module");
 const benefits_module_1 = require("./benefits/benefits.module");
@@ -36,6 +35,9 @@ const workforce_module_1 = require("./workforce/workforce.module");
 const disciplinary_module_1 = require("./disciplinary/disciplinary.module");
 const employee_lifecycle_module_1 = require("./employee-lifecycle/employee-lifecycle.module");
 const calendar_module_1 = require("./calendar/calendar.module");
+const chat_module_1 = require("./chat/chat.module");
+const announcements_module_1 = require("./announcements/announcements.module");
+const tasks_module_1 = require("./tasks/tasks.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -55,7 +57,6 @@ exports.AppModule = AppModule = __decorate([
             analytics_module_1.AnalyticsModule,
             assets_module_1.AssetsModule,
             policies_module_1.PoliciesModule,
-            documents_module_1.DocumentsModule,
             engagement_module_1.EngagementModule,
             expenses_module_1.ExpensesModule,
             benefits_module_1.BenefitsModule,
@@ -70,6 +71,9 @@ exports.AppModule = AppModule = __decorate([
             disciplinary_module_1.DisciplinaryModule,
             employee_lifecycle_module_1.EmployeeLifecycleModule,
             calendar_module_1.CalendarModule,
+            chat_module_1.ChatModule,
+            announcements_module_1.AnnouncementsModule,
+            tasks_module_1.TasksModule,
         ],
     })
 ], AppModule);

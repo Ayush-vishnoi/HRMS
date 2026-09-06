@@ -1,0 +1,61 @@
+export interface PayrollReportRow {
+    employeeCode: string;
+    employeeName: string;
+    department: string;
+    basic: number;
+    hra: number;
+    conveyance: number;
+    specialAllowance: number;
+    medicalAllowance: number;
+    bonus: number;
+    incentives: number;
+    overtimePay: number;
+    arrears: number;
+    reimbursements: number;
+    grossEarnings: number;
+    pfEmployee: number;
+    esicEmployee: number;
+    pt: number;
+    tds: number;
+    lwf: number;
+    loanDeduction: number;
+    totalDeductions: number;
+    netPayable: number;
+    pfEmployer: number;
+    esicEmployer: number;
+    gratuityProvision: number;
+    totalEmployerCost: number;
+    taxRegime: string;
+    paymentStatus: string;
+}
+export declare function generatePayrollRegister(items: any[]): PayrollReportRow[];
+export declare function generatePfEcrReport(items: any[]): {
+    UAN: any;
+    MemberName: any;
+    GrossWages: any;
+    EPFWages: number;
+    EPSWages: number;
+    EDLIWages: number;
+    EE_Share_12Pct: any;
+    EPS_Share_8_33Pct: number;
+    ER_EPF_Share: number;
+    NCPDays: any;
+    RefundOfAdvances: number;
+}[];
+export declare function generateEsicReturnReport(items: any[]): {
+    IPNumber: any;
+    IPName: any;
+    NoOfDaysWorked: any;
+    TotalMonthlyWages: any;
+    IPContribution_0_75Pct: any;
+    EmployerContribution_3_25Pct: any;
+    TotalContribution: any;
+}[];
+export declare function generateDepartmentCostingReport(items: any[]): {
+    department: string;
+    headcount: number;
+    grossSalaryCost: number;
+    employerStatutoryCost: number;
+    totalPayrollCost: number;
+    averageCostPerEmployee: number;
+}[];

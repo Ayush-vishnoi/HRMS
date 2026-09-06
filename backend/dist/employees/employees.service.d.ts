@@ -29,9 +29,8 @@ export declare class EmployeesService {
             location: string;
             createdAt: Date;
             updatedAt: Date;
-            notes: string | null;
-            category: import("@prisma/client").$Enums.AssetCategory;
             assetTag: string;
+            category: import("@prisma/client").$Enums.AssetCategory;
             brand: string;
             model: string;
             serialNumber: string;
@@ -41,6 +40,9 @@ export declare class EmployeesService {
             assignedToId: string | null;
             condition: import("@prisma/client").$Enums.AssetCondition;
             lastChecked: string;
+            allocationDate: string | null;
+            acknowledgedAt: Date | null;
+            notes: string | null;
         }[];
         manager: {
             id: string;

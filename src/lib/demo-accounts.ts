@@ -1,4 +1,7 @@
-import 'server-only';
+/**
+ * Dev-only demo accounts, exposed via NEXT_PUBLIC_* env vars
+ * so the client-side login page can offer them without a backend endpoint.
+ */
 
 export interface DemoAccount {
   role: 'Employee' | 'Manager' | 'HR Admin';
@@ -11,20 +14,20 @@ const DEMO_ACCOUNT_ENV_KEYS = [
   {
     role: 'Employee',
     name: 'Ayush Vishnoi',
-    emailKey: 'DEMO_EMPLOYEE_EMAIL',
-    passwordKey: 'DEMO_EMPLOYEE_PASSWORD',
+    emailKey: 'NEXT_PUBLIC_DEMO_EMPLOYEE_EMAIL',
+    passwordKey: 'NEXT_PUBLIC_DEMO_EMPLOYEE_PASSWORD',
   },
   {
     role: 'Manager',
     name: 'Arjun Mehta',
-    emailKey: 'DEMO_MANAGER_EMAIL',
-    passwordKey: 'DEMO_MANAGER_PASSWORD',
+    emailKey: 'NEXT_PUBLIC_DEMO_MANAGER_EMAIL',
+    passwordKey: 'NEXT_PUBLIC_DEMO_MANAGER_PASSWORD',
   },
   {
     role: 'HR Admin',
     name: 'Priya Sharma',
-    emailKey: 'DEMO_HR_ADMIN_EMAIL',
-    passwordKey: 'DEMO_HR_ADMIN_PASSWORD',
+    emailKey: 'NEXT_PUBLIC_DEMO_HR_ADMIN_EMAIL',
+    passwordKey: 'NEXT_PUBLIC_DEMO_HR_ADMIN_PASSWORD',
   },
 ] as const;
 

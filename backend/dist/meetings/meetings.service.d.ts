@@ -14,7 +14,6 @@ export declare class MeetingsService {
             updatedAt: Date;
             employeeId: string;
             rsvp: import("@prisma/client").$Enums.RsvpStatus;
-            inviteStatus: import("@prisma/client").$Enums.InviteStatus;
             responseReason: string | null;
             meetingId: string;
         })[];
@@ -53,7 +52,6 @@ export declare class MeetingsService {
             updatedAt: Date;
             employeeId: string;
             rsvp: import("@prisma/client").$Enums.RsvpStatus;
-            inviteStatus: import("@prisma/client").$Enums.InviteStatus;
             responseReason: string | null;
             meetingId: string;
         })[];
@@ -91,7 +89,6 @@ export declare class MeetingsService {
             updatedAt: Date;
             employeeId: string;
             rsvp: import("@prisma/client").$Enums.RsvpStatus;
-            inviteStatus: import("@prisma/client").$Enums.InviteStatus;
             responseReason: string | null;
             meetingId: string;
         })[];

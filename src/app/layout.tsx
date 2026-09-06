@@ -4,7 +4,6 @@ import './globals.css';
 import { HRMSProvider } from '@/shared/providers/HRMSContext';
 import { MainLayoutWrapper } from '@/shared/components/layout/MainLayoutWrapper';
 import { MeetingsQueryProvider } from '@/shared/providers/MeetingsQueryProvider';
-import { getCurrentEmployee } from '@/lib/auth-session';
 
 import { ChatProvider } from '@/shared/providers/ChatContext';
 
@@ -23,38 +22,19 @@ export const metadata: Metadata = {
   },
 };
 
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // Authentication depends on the remote database. A temporary database outage
-  // must not prevent the public/login shell from rendering.
-  const employee = await getCurrentEmployee().catch((error: unknown) => {
-    console.error('Unable to initialize the authenticated layout:', error);
-    return null;
-  });
-  const initialUser = employee
-    ? {
-        id: employee.id,
-        name: employee.name,
-        email: employee.email,
-        role: employee.roleTitle,
-        userRole: employee.userRole,
-        department: employee.department,
-        avatar: employee.avatarUrl ?? '',
-        employeeCode: employee.employeeCode,
-      }
-    : null;
-
+  // Auth is fully client-side now: the HRMSProvider bootstraps the session
+  // from the stored backend JWT on mount.
   return (
     <html lang="en">
       <body
         className={`${inter.className} antialiased selection:bg-[#B0D0EA] selection:text-[#17324A]`}
       >
-        <HRMSProvider
-          initialUser={initialUser}
-        >
+        <HRMSProvider>
           <ChatProvider>
             <MeetingsQueryProvider>
               <MainLayoutWrapper>{children}</MainLayoutWrapper>
@@ -65,4 +45,3 @@ export default async function RootLayout({
     </html>
   );
 }
-

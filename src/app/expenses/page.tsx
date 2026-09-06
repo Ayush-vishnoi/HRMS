@@ -1,5 +1,6 @@
 'use client';
 
+import { authFetch } from '@/lib/api-client';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   Check,
@@ -175,7 +176,7 @@ export default function ExpensesPage() {
       if (receiptFile) {
         const uploadData = new FormData();
         uploadData.append('receipt', receiptFile);
-        const uploadRes = await fetch('/api/expenses/upload', {
+        const uploadRes = await authFetch<Response>('/api/expenses/upload', { raw: true,
           method: 'POST',
           body: uploadData,
         });
@@ -187,7 +188,7 @@ export default function ExpensesPage() {
         receiptUrl = uploadJson.data.receiptUrl;
       }
 
-      const res = await fetch('/api/expenses', {
+      const res = await authFetch<Response>('/api/expenses', { raw: true,
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -231,7 +232,7 @@ export default function ExpensesPage() {
     try {
       setActionError('');
       setUpdating(true);
-      const res = await fetch('/api/expenses', {
+      const res = await authFetch<Response>('/api/expenses', { raw: true,
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -266,7 +267,7 @@ export default function ExpensesPage() {
     try {
       setActionError('');
       setUpdating(true);
-      const res = await fetch('/api/expenses', {
+      const res = await authFetch<Response>('/api/expenses', { raw: true,
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: claimId, resubmit: true }),

@@ -1,5 +1,6 @@
 'use client';
 
+import { authFetch } from '@/lib/api-client';
 import React, { useCallback, useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -46,6 +47,7 @@ export default function EmployeeLifecyclePage() {
   const [loading, setLoading] = useState<boolean>(true);
   const [data, setData] = useState<any>({
     candidates: [],
+    awaitingSignatureCandidates: [],
     employees: [],
     onboardingHistory: [],
     offboardingHistory: [],
@@ -119,8 +121,8 @@ export default function EmployeeLifecyclePage() {
     setLoading(true);
     try {
       const [resLifecycle, resWarnings] = await Promise.all([
-        fetch('/api/employee-lifecycle'),
-        fetch('/api/disciplinary'),
+        authFetch<Response>('/api/employee-lifecycle', { raw: true }),
+        authFetch<Response>('/api/disciplinary', { raw: true }),
       ]);
 
       const jsonLifecycle = await resLifecycle.json();
@@ -146,7 +148,7 @@ export default function EmployeeLifecyclePage() {
       const hasOffer = selectedCandidate.recruitment_offers && selectedCandidate.recruitment_offers.length > 0;
       let res;
       if (hasOffer) {
-        res = await fetch('/api/employee-lifecycle/convert', {
+        res = await authFetch<Response>('/api/employee-lifecycle/convert', { raw: true,
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -157,7 +159,7 @@ export default function EmployeeLifecyclePage() {
           }),
         });
       } else {
-        res = await fetch('/api/employee-lifecycle', {
+        res = await authFetch<Response>('/api/employee-lifecycle', { raw: true,
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -188,7 +190,7 @@ export default function EmployeeLifecyclePage() {
   const handleTaskToggle = async (taskId: string, currentStatus: string) => {
     const newStatus = currentStatus === 'Completed' ? 'Pending' : 'Completed';
     try {
-      await fetch('/api/employee-lifecycle', {
+      await authFetch<Response>('/api/employee-lifecycle', { raw: true,
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'update_task', taskId, status: newStatus }),
@@ -201,7 +203,7 @@ export default function EmployeeLifecyclePage() {
 
   const handleBgvUpdate = async (bgvId: string, status: string) => {
     try {
-      await fetch('/api/employee-lifecycle', {
+      await authFetch<Response>('/api/employee-lifecycle', { raw: true,
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'update_bgv', bgvId, status }),
@@ -215,7 +217,7 @@ export default function EmployeeLifecyclePage() {
   const handleTransferSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await fetch('/api/employee-lifecycle', {
+      const res = await authFetch<Response>('/api/employee-lifecycle', { raw: true,
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'transfer_request', ...transferForm }),
@@ -236,7 +238,7 @@ export default function EmployeeLifecyclePage() {
   const handlePromotionSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await fetch('/api/employee-lifecycle', {
+      const res = await authFetch<Response>('/api/employee-lifecycle', { raw: true,
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'promotion_request', ...promotionForm }),
@@ -257,7 +259,7 @@ export default function EmployeeLifecyclePage() {
   const handleWarningSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await fetch('/api/disciplinary', {
+      const res = await authFetch<Response>('/api/disciplinary', { raw: true,
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(warningForm),
@@ -279,7 +281,7 @@ export default function EmployeeLifecyclePage() {
     e.preventDefault();
     if (!selectedEmployee) return;
     try {
-      const res = await fetch('/api/employee-lifecycle', {
+      const res = await authFetch<Response>('/api/employee-lifecycle', { raw: true,
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -474,7 +476,7 @@ export default function EmployeeLifecyclePage() {
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-6">
               <div>
                 <h2 className="text-base font-bold text-[#17324A]">Selected Candidates Ready for Onboarding</h2>
-                <p className="text-xs text-[#667085]">Candidates marked as &apos;Selected&apos; in ATS. Click to trigger transactional onboarding.</p>
+                <p className="text-xs text-[#667085]">Candidates whose latest offer is fully Accepted (e-signature complete). Click to trigger transactional onboarding.</p>
               </div>
               <span className="rounded-full bg-[#EBF4FA] px-3 py-1 text-xs font-extrabold text-[#23587E]">
                 {data.candidates.length} Selected Candidates
@@ -484,8 +486,8 @@ export default function EmployeeLifecyclePage() {
             {data.candidates.length === 0 ? (
               <div className="rounded-xl border border-dashed border-[#CBDDE9] p-8 text-center bg-[#F9FBFC]">
                 <UserCheck className="mx-auto h-8 w-8 text-[#8FAEC5] mb-2" />
-                <p className="text-xs font-bold text-[#4B6882]">No pending selected candidates in the onboarding pipeline.</p>
-                <p className="text-[11px] text-[#7895AE] mt-1">Select applicants in Recruitment ATS to populate this queue.</p>
+                <p className="text-xs font-bold text-[#4B6882]">No candidates are ready for onboarding.</p>
+                <p className="text-[11px] text-[#7895AE] mt-1">Candidates appear here once their latest offer is Accepted (all e-signatures signed).</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -506,25 +508,82 @@ export default function EmployeeLifecyclePage() {
                         <div className="flex items-center gap-1.5"><Building2 className="h-3.5 w-3.5 text-[#8FAEC5]" /> {c.job?.department || 'Department'} · {c.location}</div>
                       </div>
                     </div>
-                    <button
-                      onClick={() => {
-                        setSelectedCandidate(c);
-                        setOnboardForm((prev: any) => ({
-                          ...prev,
-                          roleTitle: c.job?.title || 'Engineer',
-                          department: c.job?.department || 'Engineering',
-                        }));
-                        setShowOnboardModal(true);
-                      }}
-                      className="w-full rounded-lg bg-[#23587E] py-2 text-xs font-bold text-white hover:bg-[#1b4461] transition-all flex items-center justify-center gap-1.5"
-                    >
-                      <UserPlus className="h-3.5 w-3.5" /> Start Onboarding
-                    </button>
+                    {c.recruitment_offers?.[0]?.status === 'Accepted' ? (
+                      <button
+                        onClick={() => {
+                          setSelectedCandidate(c);
+                          setOnboardForm((prev: any) => ({
+                            ...prev,
+                            roleTitle: c.job?.title || 'Engineer',
+                            department: c.job?.department || 'Engineering',
+                          }));
+                          setShowOnboardModal(true);
+                        }}
+                        className="w-full rounded-lg bg-[#23587E] py-2 text-xs font-bold text-white hover:bg-[#1b4461] transition-all flex items-center justify-center gap-1.5"
+                      >
+                        <UserPlus className="h-3.5 w-3.5" /> Start Onboarding
+                      </button>
+                    ) : (
+                      <div className="w-full rounded-lg border border-[#D5E2EC] bg-[#F4F8FB] py-2 text-center text-[11px] font-bold text-[#7895AE]">
+                        Offer {c.recruitment_offers?.[0]?.status || 'Not Created'} — Not Eligible for Onboarding
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
             )}
           </div>
+
+          {/* Awaiting Candidate E-Signature Queue */}
+          {data.awaitingSignatureCandidates?.length > 0 && (
+            <div className="rounded-2xl border border-[#D5E2EC] bg-white p-6 shadow-sm">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-6">
+                <div>
+                  <h2 className="text-base font-bold text-[#17324A]">Awaiting Candidate E-Signature</h2>
+                  <p className="text-xs text-[#667085]">Offers sent to candidates — they move to the onboarding queue above once accepted & fully e-signed in the candidate portal.</p>
+                </div>
+                <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-extrabold text-amber-800">
+                  {data.awaitingSignatureCandidates.length} Awaiting Signature
+                </span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {data.awaitingSignatureCandidates.map((c: any) => {
+                  const offer = c.recruitment_offers?.[0];
+                  const signatures = offer?.document_signatures ?? [];
+                  const signedCount = signatures.filter((s: any) => s.status === 'Signed').length;
+                  return (
+                    <div key={c.id} className="rounded-xl border border-amber-200 p-4 bg-amber-50/40 flex flex-col justify-between">
+                      <div>
+                        <div className="flex items-center gap-3 mb-3">
+                          <div className="h-10 w-10 rounded-full bg-amber-500/10 flex items-center justify-center text-xs font-extrabold text-amber-700">
+                            {c.name.charAt(0)}
+                          </div>
+                          <div>
+                            <div className="font-bold text-xs text-[#17324A]">{c.name}</div>
+                            <div className="text-[11px] text-[#667085]">{c.email}</div>
+                          </div>
+                        </div>
+                        <div className="space-y-1.5 text-[11px] text-[#4B6882] mb-3">
+                          <div className="flex items-center gap-1.5"><BriefcaseBusiness className="h-3.5 w-3.5 text-[#8FAEC5]" /> {c.job?.title || 'Applied Role'}</div>
+                          <div className="flex items-center gap-1.5">
+                            <Clock className="h-3.5 w-3.5 text-[#8FAEC5]" />
+                            Sent {offer?.sent_at ? new Date(offer.sent_at).toLocaleDateString('en-GB') : '—'} · Offer {offer?.status}
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <FileCheck className="h-3.5 w-3.5 text-[#8FAEC5]" />
+                            E-signatures: {signedCount}/{signatures.length} signed
+                          </div>
+                        </div>
+                      </div>
+                      <div className="w-full rounded-lg border border-amber-300 bg-amber-100/60 py-2 text-center text-[11px] font-bold text-amber-800 flex items-center justify-center gap-1.5">
+                        <Clock className="h-3.5 w-3.5" /> Awaiting Candidate E-Signature
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Onboarding Checklist & BGV Tracker */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

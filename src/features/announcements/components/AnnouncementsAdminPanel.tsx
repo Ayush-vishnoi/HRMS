@@ -1,5 +1,6 @@
 'use client';
 
+import { authFetch } from '@/lib/api-client';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Archive,
@@ -97,7 +98,7 @@ export function AnnouncementsAdminPanel({
   // Load announcements + distinct departments/locations (from employee directory) for targeting dropdowns
   useEffect(() => {
     loadAnnouncements();
-    fetch('/api/employees')
+    authFetch<Response>('/api/employees', { raw: true })
       .then((res) => (res.ok ? res.json() : null))
       .then((json: { success?: boolean; data?: Array<{ department: string; location: string }> } | null) => {
         if (json?.success && Array.isArray(json.data)) {
@@ -156,7 +157,7 @@ export function AnnouncementsAdminPanel({
     if (editing) payload.id = editing.id;
 
     try {
-      const res = await fetch('/api/announcements', {
+      const res = await authFetch<Response>('/api/announcements', { raw: true,
         method: editing ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -180,7 +181,7 @@ export function AnnouncementsAdminPanel({
   const quickAction = async (id: string, action: 'pin' | 'unpin' | 'archive' | 'unarchive') => {
     setError('');
     try {
-      const res = await fetch('/api/announcements', {
+      const res = await authFetch<Response>('/api/announcements', { raw: true,
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, action }),
@@ -209,7 +210,7 @@ export function AnnouncementsAdminPanel({
     if (!window.confirm(`Delete announcement "${announcement.title}"? This cannot be undone.`)) return;
     setError('');
     try {
-      const res = await fetch(`/api/announcements?id=${encodeURIComponent(announcement.id)}`, {
+      const res = await authFetch<Response>(`/api/announcements?id=${encodeURIComponent(announcement.id)}`, { raw: true,
         method: 'DELETE',
       });
       const json = await res.json();

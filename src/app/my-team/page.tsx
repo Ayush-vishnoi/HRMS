@@ -1,5 +1,6 @@
 'use client';
 
+import { authFetch } from '@/lib/api-client';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
@@ -179,7 +180,7 @@ export default function MyTeamPage() {
     setIsSubmitting(true);
     setCreateTeamError(null);
     try {
-      const res = await fetch('/api/my-team', {
+      const res = await authFetch<Response>('/api/my-team', { raw: true,
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -232,7 +233,7 @@ export default function MyTeamPage() {
     setIsSubmitting(true);
 
     try {
-      const res = await fetch(`/api/my-team?teamId=${encodeURIComponent(deletingTeam.id)}`, {
+      const res = await authFetch<Response>(`/api/my-team?teamId=${encodeURIComponent(deletingTeam.id)}`, { raw: true,
         method: 'DELETE',
         headers: {
           'x-user-id': currentUser.id,
@@ -257,7 +258,7 @@ export default function MyTeamPage() {
 
   const fetchTeams = async () => {
     try {
-      const res = await fetch(`/api/my-team?managerId=${encodeURIComponent(currentUser.id)}`, {
+      const res = await authFetch<Response>(`/api/my-team?managerId=${encodeURIComponent(currentUser.id)}`, { raw: true,
         headers: { 'x-user-id': currentUser.id },
       });
       if (res.ok) {
@@ -321,7 +322,7 @@ export default function MyTeamPage() {
   const handleAssignLeader = async (teamId: string, newLeaderId: string) => {
     setIsSubmitting(true);
     try {
-      const res = await fetch('/api/my-team', {
+      const res = await authFetch<Response>('/api/my-team', { raw: true,
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -366,7 +367,7 @@ export default function MyTeamPage() {
     setIsSubmitting(true);
 
     try {
-      const res = await fetch('/api/my-team', {
+      const res = await authFetch<Response>('/api/my-team', { raw: true,
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -414,7 +415,7 @@ export default function MyTeamPage() {
     const { team, member } = removingMember;
 
     try {
-      const res = await fetch('/api/my-team', {
+      const res = await authFetch<Response>('/api/my-team', { raw: true,
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -449,7 +450,7 @@ export default function MyTeamPage() {
     showAction(`Leadership note saved to database for ${leader.name}`);
 
     try {
-      await fetch('/api/my-team', {
+      await authFetch<Response>('/api/my-team', { raw: true,
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',

@@ -1,3 +1,0 @@
--- Historical migration applied in the database on 2026-08-16.
--- The original SQL is not present in this checkout; this marker preserves
--- migration-history completeness without replaying the already-applied change.

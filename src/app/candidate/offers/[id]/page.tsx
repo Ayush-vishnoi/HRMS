@@ -1,5 +1,6 @@
 'use client';
 
+import { authFetch } from '@/lib/api-client';
 import React, { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import {
@@ -54,7 +55,7 @@ export default function CandidateOfferPage({ params }: { params: Promise<{ id: s
   const fetchOffer = async () => {
     try {
       setLoading(true);
-      const res = await fetch(`/api/candidate/offers/${offerId}`);
+      const res = await authFetch<Response>(`/api/candidate/offers/${offerId}`, { raw: true });
       if (res.status === 401) {
         router.push('/candidate/login');
         return;
@@ -78,7 +79,7 @@ export default function CandidateOfferPage({ params }: { params: Promise<{ id: s
     if (!acceptConsent) return;
     setAcceptLoading(true);
     try {
-      const res = await fetch(`/api/candidate/offers/${offerId}/accept`, {
+      const res = await authFetch<Response>(`/api/candidate/offers/${offerId}/accept`, { raw: true,
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ remarks: acceptRemarks.trim() || undefined }),
@@ -103,7 +104,7 @@ export default function CandidateOfferPage({ params }: { params: Promise<{ id: s
     }
     setRejectLoading(true);
     try {
-      const res = await fetch(`/api/candidate/offers/${offerId}/reject`, {
+      const res = await authFetch<Response>(`/api/candidate/offers/${offerId}/reject`, { raw: true,
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reason: rejectReason.trim() }),
@@ -128,7 +129,7 @@ export default function CandidateOfferPage({ params }: { params: Promise<{ id: s
     }
     setSignLoading(true);
     try {
-      const res = await fetch(`/api/candidate/offers/${offerId}/signature`, {
+      const res = await authFetch<Response>(`/api/candidate/offers/${offerId}/signature`, { raw: true,
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -150,7 +151,7 @@ export default function CandidateOfferPage({ params }: { params: Promise<{ id: s
   };
 
   const handleLogout = async () => {
-    await fetch('/api/candidate/auth/logout', { method: 'POST' });
+    await authFetch<Response>('/api/candidate/auth/logout', { raw: true, method: 'POST' });
     router.push('/candidate/login');
   };
 

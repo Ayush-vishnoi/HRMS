@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { useHRMS } from '@/shared/providers/HRMSContext';
 import { useChat } from '@/shared/providers/ChatContext';
+import { authFetch } from '@/lib/api-client';
 import { HRHelpDeskModal } from '@/features/help-desk/components/HRHelpDeskModal';
 import { MOCK_EMPLOYEES } from '@/features/employees/data/employees';
 import { getTimeGreeting } from '@/shared/lib/formatters';
@@ -156,12 +157,11 @@ export const Header: React.FC<HeaderProps> = ({ onClockAction }) => {
     let isMounted = true;
     const loadNotifications = async () => {
       try {
-        const response = await fetch('/api/notifications?limit=20', { cache: 'no-store' });
-        if (!response.ok) return;
-        const json = await response.json();
-        if (isMounted && json?.success && Array.isArray(json.data)) {
-          setNotifications(json.data);
-          setUnreadNotificationCount(typeof json.unreadCount === 'number' ? json.unreadCount : 0);
+        // Backend returns a raw array of notifications for the current user.
+        const data = await authFetch<UserNotificationItem[]>('/api/notifications');
+        if (isMounted && Array.isArray(data)) {
+          setNotifications(data);
+          setUnreadNotificationCount(data.filter((n) => !n.isRead).length);
         }
       } catch (error) {
         console.error('Failed to fetch notifications:', error);
@@ -181,12 +181,10 @@ export const Header: React.FC<HeaderProps> = ({ onClockAction }) => {
 
   const refreshNotifications = async () => {
     try {
-      const response = await fetch('/api/notifications?limit=20', { cache: 'no-store' });
-      if (!response.ok) return;
-      const json = await response.json();
-      if (json?.success && Array.isArray(json.data)) {
-        setNotifications(json.data);
-        setUnreadNotificationCount(typeof json.unreadCount === 'number' ? json.unreadCount : 0);
+      const data = await authFetch<UserNotificationItem[]>('/api/notifications');
+      if (Array.isArray(data)) {
+        setNotifications(data);
+        setUnreadNotificationCount(data.filter((n) => !n.isRead).length);
       }
     } catch (error) {
       console.error('Failed to refresh notifications:', error);
@@ -205,10 +203,8 @@ export const Header: React.FC<HeaderProps> = ({ onClockAction }) => {
     setUnreadNotificationCount((prev) => Math.max(0, prev - 1));
 
     try {
-      await fetch('/api/notifications', {
+      await authFetch(`/api/notifications/${encodeURIComponent(notificationId)}/read`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: notificationId }),
       });
     } catch (error) {
       console.error('Failed to mark notification as read:', error);
@@ -219,13 +215,17 @@ export const Header: React.FC<HeaderProps> = ({ onClockAction }) => {
     const target = notifications.find((notification) => notification.id === notificationId);
     if (!target) return;
 
+    // Backend has no per-notification delete; mark as read instead so it
+    // stops counting towards the unread badge.
     setNotifications((prev) => prev.filter((notification) => notification.id !== notificationId));
     if (!target.isRead) {
       setUnreadNotificationCount((prev) => Math.max(0, prev - 1));
     }
 
     try {
-      await fetch(`/api/notifications?id=${encodeURIComponent(notificationId)}`, { method: 'DELETE' });
+      await authFetch(`/api/notifications/${encodeURIComponent(notificationId)}/read`, {
+        method: 'PATCH',
+      });
     } catch (error) {
       console.error('Failed to clear notification:', error);
     }
@@ -236,7 +236,7 @@ export const Header: React.FC<HeaderProps> = ({ onClockAction }) => {
     setUnreadNotificationCount(0);
 
     try {
-      await fetch('/api/notifications', { method: 'DELETE' });
+      await authFetch('/api/notifications/read-all', { method: 'PATCH' });
     } catch (error) {
       console.error('Failed to clear all notifications:', error);
     }
@@ -265,9 +265,9 @@ export const Header: React.FC<HeaderProps> = ({ onClockAction }) => {
   const handleLogout = async () => {
     setShowProfile(false);
 
+    // The backend is stateless (JWT only, no logout endpoint), so signing out
+    // is purely a client-side concern: clear the token and redirect.
     try {
-      const response = await fetch('/api/auth/logout', { method: 'POST' });
-      if (!response.ok) throw new Error('Logout request failed');
       logout();
       window.localStorage.setItem('hrms_auth_event', `logout:${Date.now()}`);
       window.location.replace('/');

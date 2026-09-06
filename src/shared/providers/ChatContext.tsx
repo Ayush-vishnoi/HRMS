@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { useHRMS } from '@/shared/providers/HRMSContext';
+import { authFetch, backendUrl } from '@/lib/api-client';
 
 export type MessageStatus = 'SENT' | 'DELIVERED' | 'SEEN';
 
@@ -53,6 +54,15 @@ export interface ChatToast {
   content: string;
 }
 
+interface ConversationResponse {
+  success: boolean;
+  data: {
+    conversationId: string;
+    targetEmployee: ChatEmployee;
+    messages: ChatMessage[];
+  } | null;
+}
+
 interface ChatContextType {
   isChatOpen: boolean;
   activeEmployee: ChatEmployee | null;
@@ -95,14 +105,12 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Fetch aggregate unread count
   const refreshUnreadCount = useCallback(async () => {
     try {
-      const res = await fetch('/api/chat/unread-count', {
-        headers: { 'x-user-id': currentUser.id },
-      });
-      if (res.ok) {
-        const json = await res.json();
-        if (json.success && typeof json.unreadCount === 'number') {
-          setUnreadCount(json.unreadCount);
-        }
+      const json = await authFetch<{ success: boolean; unreadCount?: number }>(
+        '/api/chat/unread-count',
+        { headers: { 'x-user-id': currentUser.id } },
+      );
+      if (json && json.success && typeof json.unreadCount === 'number') {
+        setUnreadCount(json.unreadCount);
       }
     } catch (err) {
       console.warn('Chat unread count is temporarily unavailable:', err);
@@ -112,14 +120,12 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Fetch list of conversations
   const refreshConversations = useCallback(async () => {
     try {
-      const res = await fetch('/api/chat/conversations', {
-        headers: { 'x-user-id': currentUser.id },
-      });
-      if (res.ok) {
-        const json = await res.json();
-        if (json.success && Array.isArray(json.data)) {
-          setConversations(json.data);
-        }
+      const json = await authFetch<{ success: boolean; data?: ChatConversation[] }>(
+        '/api/chat/conversations',
+        { headers: { 'x-user-id': currentUser.id } },
+      );
+      if (json && json.success && Array.isArray(json.data)) {
+        setConversations(json.data);
       }
     } catch (err) {
       console.warn('Chat conversations are temporarily unavailable:', err);
@@ -159,7 +165,11 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const connectSSE = () => {
       if (disposed) return;
-      eventSource = new EventSource('/api/chat/events');
+      // EventSource cannot send headers, so identify via the userId query
+      // param, which the backend accepts as a fallback to the JWT.
+      eventSource = new EventSource(
+        backendUrl(`/api/chat/events?userId=${encodeURIComponent(currentUser.id)}`),
+      );
 
       eventSource.addEventListener('message:new', (event: MessageEvent) => {
         try {
@@ -175,10 +185,11 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
             });
 
             // Mark as SEEN immediately
-            void fetch('/api/chat/messages/seen', {
-              method: 'PATCH',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ senderId: payload.senderId }),
+            void authFetch('/api/chat/messages/seen', {
+              method: 'POST',
+              body: { conversationId: payload.conversationId },
+            }).catch(() => {
+              /* background task; ignore failures */
             });
           } else {
             // Otherwise increment unread count & show floating toast notification
@@ -269,7 +280,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (reconnectTimeoutId !== null) window.clearTimeout(reconnectTimeoutId);
       eventSource?.close();
     };
-  }, [isAuthenticated, refreshConversations, refreshUnreadCount]);
+  }, [isAuthenticated, currentUser.id, refreshConversations, refreshUnreadCount]);
 
   // Open chat with a specific employee
   const openChatWith = useCallback(async (employeeId: string) => {
@@ -278,27 +289,20 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setToastNotification(null);
 
     try {
-      const res = await fetch(`/api/chat/messages?employeeId=${encodeURIComponent(employeeId)}`, {
-        headers: { 'x-user-id': currentUser.id },
-      });
-      if (!res.ok) {
-        throw new Error('Failed to load conversation');
-      }
-
-      const json = await res.json();
+      const json = await authFetch<ConversationResponse>(
+        `/api/chat/messages?employeeId=${encodeURIComponent(employeeId)}`,
+        { headers: { 'x-user-id': currentUser.id } },
+      );
       if (json.success && json.data) {
         setActiveConversationId(json.data.conversationId);
         setActiveEmployee(json.data.targetEmployee);
         setMessages(json.data.messages || []);
 
         // The conversation is usable now; marking it seen is background work.
-        void fetch('/api/chat/messages/seen', {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-user-id': currentUser.id,
-          },
-          body: JSON.stringify({ conversationId: json.data.conversationId, senderId: employeeId }),
+        void authFetch('/api/chat/messages/seen', {
+          method: 'POST',
+          headers: { 'x-user-id': currentUser.id },
+          body: { conversationId: json.data.conversationId },
         }).catch((error) => {
           console.warn('Failed to mark conversation as seen:', error);
         });
@@ -327,23 +331,21 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const trimmedContent = content.trim();
 
       try {
-        const res = await fetch('/api/chat/messages', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-user-id': currentUser.id,
+        const json = await authFetch<{ success: boolean; data?: ChatMessage }>(
+          '/api/chat/messages',
+          {
+            method: 'POST',
+            headers: { 'x-user-id': currentUser.id },
+            body: {
+              receiverId: currentTarget.id,
+              content: trimmedContent,
+            },
           },
-          body: JSON.stringify({
-            receiverId: currentTarget.id,
-            content: trimmedContent,
-          }),
-        });
+        );
 
-        if (!res.ok) throw new Error('Failed to send message');
-
-        const json = await res.json();
         if (json.success && json.data) {
-          setMessages((prev) => [...prev, json.data]);
+          const sentMessage = json.data;
+          setMessages((prev) => [...prev, sentMessage]);
           refreshConversations();
           return true;
         }

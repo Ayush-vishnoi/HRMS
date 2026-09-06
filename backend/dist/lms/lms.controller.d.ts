@@ -17,9 +17,9 @@ export declare class LmsController {
         } & {
             id: string;
             createdAt: Date;
+            category: string;
             title: string;
             description: string;
-            category: string;
             durationHours: number;
             level: string;
             isMandatory: boolean;
@@ -41,9 +41,9 @@ export declare class LmsController {
             } & {
                 id: string;
                 createdAt: Date;
+                category: string;
                 title: string;
                 description: string;
-                category: string;
                 durationHours: number;
                 level: string;
                 isMandatory: boolean;

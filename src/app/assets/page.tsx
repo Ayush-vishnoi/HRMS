@@ -1,5 +1,6 @@
 'use client';
 
+import { authFetch } from '@/lib/api-client';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
@@ -159,7 +160,7 @@ export default function AssetsPage() {
 
   const fetchAssets = async () => {
     try {
-      const res = await fetch('/api/assets');
+      const res = await authFetch<Response>('/api/assets', { raw: true });
       if (res.ok) {
         const json = await res.json();
         if (json?.success && Array.isArray(json.data)) {
@@ -173,7 +174,7 @@ export default function AssetsPage() {
 
   const fetchRequests = async () => {
     try {
-      const res = await fetch('/api/asset-requests');
+      const res = await authFetch<Response>('/api/asset-requests', { raw: true });
       if (res.ok) {
         const json = await res.json();
         if (json?.success && Array.isArray(json.data?.requests)) {
@@ -233,7 +234,7 @@ export default function AssetsPage() {
     if (!targetAsset || !targetEmployee) return;
 
     try {
-      const res = await fetch('/api/assets', {
+      const res = await authFetch<Response>('/api/assets', { raw: true,
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -262,7 +263,7 @@ export default function AssetsPage() {
     setNotice('Asset record updated in database successfully.');
 
     try {
-      await fetch('/api/assets', {
+      await authFetch<Response>('/api/assets', { raw: true,
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -284,7 +285,7 @@ export default function AssetsPage() {
     if (!form.name.trim() || !form.serialNumber.trim()) return;
 
     try {
-      const res = await fetch('/api/assets', {
+      const res = await authFetch<Response>('/api/assets', { raw: true,
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -319,7 +320,7 @@ export default function AssetsPage() {
     setReviewSubmitting(true);
     setReviewError('');
     try {
-      const res = await fetch('/api/asset-requests', {
+      const res = await authFetch<Response>('/api/asset-requests', { raw: true,
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: reviewRequest.id, decision, reviewNote: reviewNote.trim() || undefined }),

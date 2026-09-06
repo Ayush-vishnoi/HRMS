@@ -1,5 +1,6 @@
 'use client';
 
+import { authFetch } from '@/lib/api-client';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   Award,
@@ -60,7 +61,7 @@ export default function LmsPage() {
   const fetchLms = async () => {
     try {
       setLoading(true);
-      const res = await fetch(`/api/lms?employeeId=${encodeURIComponent(currentUser.id)}`);
+      const res = await authFetch<Response>(`/api/lms?employeeId=${encodeURIComponent(currentUser.id)}`, { raw: true });
       if (res.ok) {
         const json = await res.json();
         if (json.success && json.data) {
@@ -84,7 +85,7 @@ export default function LmsPage() {
       const existing = enrollments.find((e) => e.courseId === courseId);
       const action = existing ? 'progress' : 'enroll';
 
-      const res = await fetch('/api/lms', {
+      const res = await authFetch<Response>('/api/lms', { raw: true,
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

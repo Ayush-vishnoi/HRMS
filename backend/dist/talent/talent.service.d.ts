@@ -7,6 +7,7 @@ export declare class TalentService {
             id: string;
             department: string;
             organization_id: string;
+            updated_at: Date;
             current_role_title: string;
             next_role_title: string;
             level_order: number;
@@ -17,12 +18,11 @@ export declare class TalentService {
             recommended_training_ids: string[];
             is_active: boolean;
             created_at: Date;
-            updated_at: Date;
         }[];
         aspiration: {
             id: string;
-            created_at: Date;
             updated_at: Date;
+            created_at: Date;
             employee_id: string;
             target_role: string;
             target_department: string | null;
@@ -37,15 +37,15 @@ export declare class TalentService {
                 id: string;
                 name: string;
                 createdAt: Date;
-                description: string | null;
                 category: string;
+                description: string | null;
             };
         } & {
             id: string;
             designation_id: string | null;
+            updated_at: Date;
             priority: string;
             created_at: Date;
-            updated_at: Date;
             role_title: string;
             skill_id: string;
             required_proficiency: string;
@@ -57,8 +57,8 @@ export declare class TalentService {
     }>;
     handleAction(userId: string, userRole: string, body: any): Promise<{
         id: string;
-        created_at: Date;
         updated_at: Date;
+        created_at: Date;
         employee_id: string;
         target_role: string;
         target_department: string | null;
@@ -71,10 +71,10 @@ export declare class TalentService {
         id: string;
         name: string;
         organization_id: string;
-        description: string | null;
         category: string;
-        created_at: Date;
+        description: string | null;
         updated_at: Date;
+        created_at: Date;
         is_confidential: boolean;
         created_by_id: string | null;
     } | {
@@ -88,8 +88,8 @@ export declare class TalentService {
         id: string;
         department: string;
         organization_id: string;
-        created_at: Date;
         updated_at: Date;
+        created_at: Date;
         critical_role_title: string;
         incumbent_employee_id: string | null;
         emergency_successor_id: string | null;

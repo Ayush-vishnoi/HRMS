@@ -1,5 +1,6 @@
 'use client';
 
+import { authFetch } from '@/lib/api-client';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   AlertCircle,
@@ -182,7 +183,7 @@ export default function PayrollPage() {
   // 2. Fetch Cycles
   const fetchCycles = async () => {
     try {
-      const res = await fetch('/api/payroll/engine');
+      const res = await authFetch<Response>('/api/payroll/engine', { raw: true });
       if (res.ok) {
         const json = await res.json();
         if (json.success && Array.isArray(json.data)) {
@@ -200,7 +201,7 @@ export default function PayrollPage() {
   // 3. Fetch Structures
   const fetchStructures = async () => {
     try {
-      const res = await fetch('/api/payroll/structures');
+      const res = await authFetch<Response>('/api/payroll/structures', { raw: true });
       if (res.ok) {
         const json = await res.json();
         if (json.success) {
@@ -217,7 +218,7 @@ export default function PayrollPage() {
   const fetchTaxDeclarations = async () => {
     try {
       if (isPrivileged) {
-        const resAll = await fetch(`/api/payroll/tax-declarations?view=all&financialYear=${financialYear}`);
+        const resAll = await authFetch<Response>(`/api/payroll/tax-declarations?view=all&financialYear=${financialYear}`, { raw: true });
         if (resAll.ok) {
           const jsonAll = await resAll.json();
           if (jsonAll.success && Array.isArray(jsonAll.data)) {
@@ -225,7 +226,7 @@ export default function PayrollPage() {
           }
         }
       }
-      const resMy = await fetch(`/api/payroll/tax-declarations?employeeId=${currentUser.id}&financialYear=${financialYear}`);
+      const resMy = await authFetch<Response>(`/api/payroll/tax-declarations?employeeId=${currentUser.id}&financialYear=${financialYear}`, { raw: true });
       if (resMy.ok) {
         const jsonMy = await resMy.json();
         if (jsonMy.success && jsonMy.data) {
@@ -277,7 +278,7 @@ export default function PayrollPage() {
   // 7. Fetch Statutory Rules
   const fetchStatutoryRules = async () => {
     try {
-      const res = await fetch('/api/payroll/statutory-rules');
+      const res = await authFetch<Response>('/api/payroll/statutory-rules', { raw: true });
       if (res.ok) {
         const json = await res.json();
         if (json.success && json.data) {
@@ -293,7 +294,7 @@ export default function PayrollPage() {
   // 8. Fetch Form 16
   const fetchForm16 = async (empId: string) => {
     try {
-      const res = await fetch(`/api/payroll/form16?employeeId=${empId}&financialYear=${financialYear}`);
+      const res = await authFetch<Response>(`/api/payroll/form16?employeeId=${empId}&financialYear=${financialYear}`, { raw: true });
       if (res.ok) {
         const json = await res.json();
         if (json.success && json.data) {
@@ -308,7 +309,7 @@ export default function PayrollPage() {
   // 9. Fetch Reports
   const fetchReports = async (type: string) => {
     try {
-      const res = await fetch(`/api/payroll/reports?type=${type}`);
+      const res = await authFetch<Response>(`/api/payroll/reports?type=${type}`, { raw: true });
       if (res.ok) {
         const json = await res.json();
         if (json.success && Array.isArray(json.data)) {
@@ -359,7 +360,7 @@ export default function PayrollPage() {
     e.preventDefault();
     try {
       setProcessingAction(true);
-      const res = await fetch('/api/payroll/engine', {
+      const res = await authFetch<Response>('/api/payroll/engine', { raw: true,
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -383,7 +384,7 @@ export default function PayrollPage() {
   const handleCycleAction = async (cycleId: string, action: 'under_review' | 'approve' | 'lock' | 'disburse') => {
     try {
       setProcessingAction(true);
-      const res = await fetch('/api/payroll/engine', {
+      const res = await authFetch<Response>('/api/payroll/engine', { raw: true,
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ cycleId, action }),
@@ -392,7 +393,7 @@ export default function PayrollPage() {
         await fetchCycles();
         await fetchPayslips();
         if (selectedCycle?.id === cycleId) {
-          const updatedRes = await fetch(`/api/payroll/engine?cycleId=${cycleId}`);
+          const updatedRes = await authFetch<Response>(`/api/payroll/engine?cycleId=${cycleId}`, { raw: true });
           if (updatedRes.ok) {
             const j = await updatedRes.json();
             setSelectedCycle(j.data);
@@ -410,7 +411,7 @@ export default function PayrollPage() {
     e.preventDefault();
     try {
       setProcessingAction(true);
-      const res = await fetch('/api/payroll/tax-declarations', {
+      const res = await authFetch<Response>('/api/payroll/tax-declarations', { raw: true,
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -437,7 +438,7 @@ export default function PayrollPage() {
   const handleVerifyTaxDecl = async (id: string, status: 'Approved' | 'Rejected') => {
     try {
       setProcessingAction(true);
-      const res = await fetch('/api/payroll/tax-declarations', {
+      const res = await authFetch<Response>('/api/payroll/tax-declarations', { raw: true,
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -460,7 +461,7 @@ export default function PayrollPage() {
   const handleRunReconciliation = async (cycleId: string) => {
     try {
       setReconLoading(true);
-      const res = await fetch('/api/payroll/reconciliation', {
+      const res = await authFetch<Response>('/api/payroll/reconciliation', { raw: true,
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ cycleId }),
@@ -1660,7 +1661,7 @@ export default function PayrollPage() {
               </select>
               <button
                 onClick={async () => {
-                  const res = await fetch('/api/payroll/pdf', {
+                  const res = await authFetch<Response>('/api/payroll/pdf', { raw: true,
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ documentType: 'form16', employeeId: form16EmpId, financialYear }),
@@ -1915,7 +1916,7 @@ export default function PayrollPage() {
                 const special = Math.max(0, Math.round(monthly - basic - hra - conv - med));
                 const pf = Math.min(1800, Math.round(basic * 0.12));
 
-                const res = await fetch('/api/payroll/structures', {
+                const res = await authFetch<Response>('/api/payroll/structures', { raw: true,
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({

@@ -76,7 +76,7 @@ let MeetingsService = class MeetingsService {
     async rsvp(meetingId, employeeId, status, reason) {
         return this.prisma.meetingAttendee.updateMany({
             where: { meetingId, employeeId },
-            data: { inviteStatus: status, rsvp: status === 'ACCEPTED' ? 'ACCEPTED' : 'DECLINED', responseReason: reason },
+            data: { rsvp: status, responseReason: reason },
         });
     }
     async cancel(id) {

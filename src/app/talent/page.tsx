@@ -1,5 +1,6 @@
 'use client';
 
+import { authFetch } from '@/lib/api-client';
 import React, { useEffect, useState } from 'react';
 import {
   AlertCircle,
@@ -74,7 +75,7 @@ export default function TalentPage() {
   const fetchTalentData = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/talent?employeeId=${currentUser.id}`);
+      const res = await authFetch<Response>(`/api/talent?employeeId=${currentUser.id}`, { raw: true });
       if (res.ok) {
         const json = await res.json();
         if (json.success && json.data) {
@@ -104,7 +105,7 @@ export default function TalentPage() {
   const handleSaveAspirations = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await fetch('/api/talent', {
+      const res = await authFetch<Response>('/api/talent', { raw: true,
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -128,7 +129,7 @@ export default function TalentPage() {
   const handleApplyMobility = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await fetch('/api/talent', {
+      const res = await authFetch<Response>('/api/talent', { raw: true,
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -150,7 +151,7 @@ export default function TalentPage() {
 
   const handleEnrollCourse = async (courseId: string, courseTitle: string) => {
     try {
-      const res = await fetch('/api/lms', {
+      const res = await authFetch<Response>('/api/lms', { raw: true,
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

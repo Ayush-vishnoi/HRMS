@@ -1,5 +1,6 @@
 'use client';
 
+import { authFetch } from '@/lib/api-client';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   BadgeCheck,
@@ -54,7 +55,7 @@ export default function SkillsPage() {
   const fetchSkills = async () => {
     try {
       setLoading(true);
-      const res = await fetch(`/api/skills?employeeId=${encodeURIComponent(currentUser.id)}`);
+      const res = await authFetch<Response>(`/api/skills?employeeId=${encodeURIComponent(currentUser.id)}`, { raw: true });
       if (res.ok) {
         const json = await res.json();
         if (json.success && json.data) {
@@ -78,7 +79,7 @@ export default function SkillsPage() {
     if (!selectedSkillName) return;
 
     try {
-      const res = await fetch('/api/skills', {
+      const res = await authFetch<Response>('/api/skills', { raw: true,
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

@@ -1,5 +1,6 @@
 'use client';
 
+import { authFetch } from '@/lib/api-client';
 import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
@@ -63,11 +64,9 @@ export default function Employee360Page() {
       try {
         setLoading(true);
         setError(null);
-        const res = await fetch(
-          `/api/employees/${encodeURIComponent(employeeId)}/360?role=${encodeURIComponent(
+        const res = await authFetch<Response>(`/api/employees/${encodeURIComponent(employeeId)}/360?role=${encodeURIComponent(
             currentUser.userRole
-          )}&currentUserId=${encodeURIComponent(currentUser.id)}`
-        );
+          )}&currentUserId=${encodeURIComponent(currentUser.id)}`, { raw: true });
         const json = await res.json();
         if (json.success && json.data) {
           setData(json.data);

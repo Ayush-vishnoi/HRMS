@@ -1,5 +1,6 @@
 'use client';
 
+import { authFetch } from '@/lib/api-client';
 import React, { useState } from 'react';
 import { X, Printer, Download, Building2, CheckCircle2, ShieldCheck, FileText, Loader2 } from 'lucide-react';
 import { CURRENT_USER } from '@/features/employees/data/employees';
@@ -60,7 +61,7 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({ payslip, showAmounts
   const handleDownloadPdf = async () => {
     try {
       setDownloading(true);
-      const res = await fetch('/api/payroll/pdf', {
+      const res = await authFetch<Response>('/api/payroll/pdf', { raw: true,
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

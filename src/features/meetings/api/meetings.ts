@@ -1,3 +1,4 @@
+import { authFetch } from '@/lib/api-client';
 import type {
   CreateMeetingInput,
   EmployeeSearchResult,
@@ -24,18 +25,18 @@ export async function getMeetings(filters: MeetingFilters = {}): Promise<Meeting
   if (filters.department) params.set('department', filters.department);
   if (filters.mine !== undefined) params.set('mine', String(filters.mine));
 
-  const res = await fetch(`/api/meetings?${params.toString()}`);
+  const res = await authFetch<Response>(`/api/meetings?${params.toString()}`, { raw: true });
   return readResponse<Meeting[]>(res, 'Failed to fetch meetings');
 }
 
 export async function getMeeting(id: string): Promise<Meeting | undefined> {
-  const res = await fetch(`/api/meetings?id=${encodeURIComponent(id)}`);
+  const res = await authFetch<Response>(`/api/meetings?id=${encodeURIComponent(id)}`, { raw: true });
   if (res.status === 404) return undefined;
   return readResponse<Meeting>(res, 'Failed to fetch meeting');
 }
 
 export async function createMeeting(input: CreateMeetingInput): Promise<Meeting> {
-  const res = await fetch('/api/meetings', {
+  const res = await authFetch<Response>('/api/meetings', { raw: true,
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(input),
@@ -44,7 +45,7 @@ export async function createMeeting(input: CreateMeetingInput): Promise<Meeting>
 }
 
 export async function updateMeeting(id: string, input: UpdateMeetingInput): Promise<Meeting> {
-  const res = await fetch('/api/meetings', {
+  const res = await authFetch<Response>('/api/meetings', { raw: true,
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ id, ...input }),
@@ -53,7 +54,7 @@ export async function updateMeeting(id: string, input: UpdateMeetingInput): Prom
 }
 
 export async function cancelMeeting(id: string): Promise<Meeting> {
-  const res = await fetch('/api/meetings', {
+  const res = await authFetch<Response>('/api/meetings', { raw: true,
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ id, action: 'cancel' }),
@@ -62,7 +63,7 @@ export async function cancelMeeting(id: string): Promise<Meeting> {
 }
 
 export async function updateRsvp(id: string, rsvp: RSVP, reason?: string): Promise<Meeting> {
-  const res = await fetch('/api/meetings', {
+  const res = await authFetch<Response>('/api/meetings', { raw: true,
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ id, action: 'rsvp', rsvp, reason }),
@@ -71,7 +72,7 @@ export async function updateRsvp(id: string, rsvp: RSVP, reason?: string): Promi
 }
 
 export async function searchEmployees(search = ''): Promise<EmployeeSearchResult[]> {
-  const res = await fetch(`/api/meetings?search=${encodeURIComponent(search)}`);
+  const res = await authFetch<Response>(`/api/meetings?search=${encodeURIComponent(search)}`, { raw: true });
   if (!res.ok) return [];
   return readResponse<EmployeeSearchResult[]>(res, 'Failed to search employees');
 }

@@ -1,5 +1,6 @@
 'use client';
 
+import { authFetch } from '@/lib/api-client';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   AlertCircle,
@@ -88,7 +89,7 @@ export default function BenefitsPage() {
   const fetchBenefits = async () => {
     try {
       setLoading(true);
-      const res = await fetch(`/api/benefits?employeeId=${encodeURIComponent(currentUser.id)}`);
+      const res = await authFetch<Response>(`/api/benefits?employeeId=${encodeURIComponent(currentUser.id)}`, { raw: true });
       if (res.ok) {
         const json = await res.json();
         if (json.success && json.data) {
@@ -116,7 +117,7 @@ export default function BenefitsPage() {
     if (!claimAmount || !hospital) return;
 
     try {
-      const res = await fetch('/api/benefits', {
+      const res = await authFetch<Response>('/api/benefits', { raw: true,
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -146,7 +147,7 @@ export default function BenefitsPage() {
     if (!depName) return;
 
     try {
-      const res = await fetch('/api/benefits', {
+      const res = await authFetch<Response>('/api/benefits', { raw: true,
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

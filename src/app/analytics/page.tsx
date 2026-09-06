@@ -1,5 +1,6 @@
 'use client';
 
+import { authFetch } from '@/lib/api-client';
 import React, { useEffect, useState } from 'react';
 import {
   BarChart3,
@@ -40,7 +41,7 @@ export default function AnalyticsPage() {
     const fetchAnalytics = async () => {
       try {
         setLoading(true);
-        const res = await fetch('/api/analytics');
+        const res = await authFetch<Response>('/api/analytics', { raw: true });
         if (res.ok) {
           const json = await res.json();
           if (json.success && json.data) {

@@ -67,4 +67,25 @@ npm run build
 npm run start
 ```
 
-Configuration is environment-independent at present because the application does not yet connect to external services. Document required environment variables here when authentication, database, email, storage, or observability integrations are introduced.
+## Environment Variables
+
+Copy `.env.example` to `.env` and fill in the values. `DATABASE_URL` and `REDIS_URL` are required; the email variables are optional.
+
+### Email Delivery (Resend)
+
+Outbound email (candidate magic links, offer notifications) is dispatched through [`sendEmail()`](src/lib/notifications/email-service.ts:31). Without configuration it runs in adapter-ready mode — messages are logged to the server console and an in-memory dispatch log, nothing is actually sent.
+
+To enable real delivery via [Resend](https://resend.com):
+
+1. Create a free account (100 emails/day on the free tier) and verify your sending domain under **Domains**.
+2. Create an API key under **API Keys**.
+3. Add to `.env`:
+
+   ```bash
+   RESEND_API_KEY="re_xxxxxxxxxxxxxxxxxxxxxxxx"
+   RESEND_DOMAIN="yourdomain.com"                      # builds the from address
+   EMAIL_FROM="HRMS <onboarding@yourdomain.com>"       # optional explicit override
+   NEXT_PUBLIC_APP_URL="http://localhost:3000"         # base for candidate portal links
+   ```
+
+4. Restart `npm run dev`. Every email dispatcher (magic link, offer available, offer accepted/rejected, signature completed) now sends through the Resend API using plain `fetch` — no extra npm dependency. Delivery failures are logged with `[EMAIL DISPATCH FAILED]` / `[EMAIL DISPATCH ERROR]` prefixes and never break the surrounding workflow.

@@ -7,6 +7,7 @@ export declare class DisciplinaryService {
         status: string;
         createdAt: Date;
         updatedAt: Date;
+        acknowledgedAt: Date | null;
         employeeId: string;
         reason: string;
         type: string;
@@ -17,13 +18,13 @@ export declare class DisciplinaryService {
         issuedByName: string;
         actionRequired: string;
         isEmployeeVisible: boolean;
-        acknowledgedAt: Date | null;
     }[]>;
     create(user: any, body: any): Promise<{
         id: string;
         status: string;
         createdAt: Date;
         updatedAt: Date;
+        acknowledgedAt: Date | null;
         employeeId: string;
         reason: string;
         type: string;
@@ -34,6 +35,5 @@ export declare class DisciplinaryService {
         issuedByName: string;
         actionRequired: string;
         isEmployeeVisible: boolean;
-        acknowledgedAt: Date | null;
     }>;
 }

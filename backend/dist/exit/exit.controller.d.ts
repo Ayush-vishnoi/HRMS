@@ -49,9 +49,9 @@ export declare class ExitController {
                 status: string;
                 createdAt: Date;
                 updatedAt: Date;
+                notes: string | null;
                 title: string;
                 description: string;
-                notes: string | null;
                 verifiedAt: Date | null;
                 dueDate: string;
                 exitRequestId: string;
@@ -67,6 +67,7 @@ export declare class ExitController {
             createdAt: Date;
             updatedAt: Date;
             employeeId: string;
+            rejectionReason: string | null;
             resignationDate: string;
             requestedRelievingDate: string;
             approvedRelievingDate: string | null;
@@ -74,6 +75,9 @@ export declare class ExitController {
             reasonDetails: string;
             managerApproval: string;
             hrApproval: string;
+            managerApprovedAt: Date | null;
+            hrApprovedAt: Date | null;
+            workflowStage: string;
             noticePeriodDays: number;
         })[];
         alumniRecords: {
@@ -96,8 +100,8 @@ export declare class ExitController {
             id: string;
             name: string;
             status: import("@prisma/client").$Enums.AssetStatus;
-            category: import("@prisma/client").$Enums.AssetCategory;
             assetTag: string;
+            category: import("@prisma/client").$Enums.AssetCategory;
             serialNumber: string;
         }[];
     }>;
@@ -145,9 +149,9 @@ export declare class ExitController {
             status: string;
             createdAt: Date;
             updatedAt: Date;
+            notes: string | null;
             title: string;
             description: string;
-            notes: string | null;
             verifiedAt: Date | null;
             dueDate: string;
             exitRequestId: string;
@@ -163,6 +167,7 @@ export declare class ExitController {
         createdAt: Date;
         updatedAt: Date;
         employeeId: string;
+        rejectionReason: string | null;
         resignationDate: string;
         requestedRelievingDate: string;
         approvedRelievingDate: string | null;
@@ -170,6 +175,9 @@ export declare class ExitController {
         reasonDetails: string;
         managerApproval: string;
         hrApproval: string;
+        managerApprovedAt: Date | null;
+        hrApprovedAt: Date | null;
+        workflowStage: string;
         noticePeriodDays: number;
     })>;
 }

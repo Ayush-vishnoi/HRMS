@@ -40,9 +40,9 @@ export declare class EngagementService {
             commentsCount: number;
         }[];
         recognitions: {
+            message: string;
             id: string;
             createdAt: Date;
-            message: string;
             likesCount: number;
             giverId: string;
             giverName: string;
@@ -56,10 +56,10 @@ export declare class EngagementService {
             id: string;
             status: string;
             createdAt: Date;
+            category: string;
             employeeId: string | null;
             title: string;
             description: string;
-            category: string;
             employeeName: string | null;
             upvotesCount: number;
             hrResponse: string | null;
@@ -79,9 +79,9 @@ export declare class EngagementService {
         likesCount: number;
         commentsCount: number;
     } | {
+        message: string;
         id: string;
         createdAt: Date;
-        message: string;
         likesCount: number;
         giverId: string;
         giverName: string;
@@ -94,10 +94,10 @@ export declare class EngagementService {
         id: string;
         status: string;
         createdAt: Date;
+        category: string;
         employeeId: string | null;
         title: string;
         description: string;
-        category: string;
         employeeName: string | null;
         upvotesCount: number;
         hrResponse: string | null;

@@ -10,25 +10,8 @@ import {
   ShieldCheck,
   UserRound,
 } from 'lucide-react';
-
-interface LoginResponse {
-  success: boolean;
-  error?: string;
-}
-
-type DemoAccountRole = 'Employee' | 'Manager' | 'HR Admin';
-
-interface DemoAccount {
-  role: DemoAccountRole;
-  name: string;
-  email: string;
-  password: string;
-}
-
-interface DemoAccountsResponse {
-  success: boolean;
-  data?: DemoAccount[];
-}
+import { login } from '@/lib/api-client';
+import { getDemoAccounts, type DemoAccount } from '@/lib/demo-accounts';
 
 const isDemoMode = process.env.NODE_ENV === 'development';
 const demoAccountIcons = {
@@ -50,35 +33,8 @@ export const LoginPage: React.FC = () => {
 
   useEffect(() => {
     if (!isDemoMode) return;
-
-    const controller = new AbortController();
-
-    const loadDemoAccounts = async () => {
-      try {
-        const response = await fetch('/api/auth/demo-accounts', {
-          cache: 'no-store',
-          signal: controller.signal,
-        });
-
-        if (!response.ok) return;
-
-        const result = (await response.json()) as DemoAccountsResponse;
-        if (result.success && Array.isArray(result.data)) {
-          setDemoAccounts(result.data);
-        }
-      } catch (loadError) {
-        if ((loadError as Error).name !== 'AbortError') {
-          setDemoAccounts([]);
-        }
-      } finally {
-        if (!controller.signal.aborted) {
-          setIsDemoAccountsLoading(false);
-        }
-      }
-    };
-
-    void loadDemoAccounts();
-    return () => controller.abort();
+    setDemoAccounts(getDemoAccounts());
+    setIsDemoAccountsLoading(false);
   }, []);
 
   useEffect(() => {
@@ -158,22 +114,16 @@ export const LoginPage: React.FC = () => {
     setIsSubmitting(true);
 
     try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ identifier, password }),
-      });
-      const result = (await response.json()) as LoginResponse;
-
-      if (!response.ok || !result.success) {
-        setError(result.error ?? 'Unable to sign in right now.');
-        return;
-      }
+      await login(identifier, password);
 
       window.localStorage.setItem('hrms_auth_event', `login:${Date.now()}`);
       window.location.replace('/');
-    } catch {
-      setError('Unable to sign in right now.');
+    } catch (submitError) {
+      setError(
+        submitError instanceof Error && submitError.message !== 'Unauthorized'
+          ? submitError.message
+          : 'Unable to sign in right now.',
+      );
     } finally {
       setIsSubmitting(false);
     }

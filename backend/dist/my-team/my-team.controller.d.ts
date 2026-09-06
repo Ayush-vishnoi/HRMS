@@ -66,8 +66,8 @@ export declare class MyTeamController {
         id: string;
         managerId: string;
         updatedAt: Date;
-        employeeId: string;
         notes: string;
+        employeeId: string;
         focus: string;
         workload: number;
         goalProgress: number;

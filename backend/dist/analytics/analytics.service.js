@@ -22,7 +22,7 @@ let AnalyticsService = class AnalyticsService {
             this.prisma.employee.count(),
             this.prisma.helpDeskTicket.count({ where: { status: { in: ['Open', 'InProgress'] } } }),
             this.prisma.leaveRequest.count({ where: { status: 'Pending' } }),
-            this.prisma.documentRequest.count({ where: { status: { in: ['Pending', 'InReview'] } } }),
+            this.prisma.documentRequest.count({ where: { status: { in: ['Pending', 'InProgress'] } } }),
             this.prisma.attendanceRecord.findMany({ select: { date: true, status: true }, take: 100, orderBy: { createdAt: 'desc' } }),
             this.prisma.recruitmentCandidate.findMany({ select: { stage: true } }),
         ]);

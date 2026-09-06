@@ -1,5 +1,6 @@
 'use client';
 
+import { authFetch } from '@/lib/api-client';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   Heart,
@@ -106,7 +107,7 @@ export default function EngagementPage() {
   const fetchEngagement = async () => {
     try {
       setLoading(true);
-      const res = await fetch('/api/engagement');
+      const res = await authFetch<Response>('/api/engagement', { raw: true });
       if (res.ok) {
         const json = await res.json();
         if (json.success && json.data) {
@@ -133,7 +134,7 @@ export default function EngagementPage() {
 
     const receiver = employees.find((emp) => emp.id === kudosReceiverId);
     try {
-      const res = await fetch('/api/engagement', {
+      const res = await authFetch<Response>('/api/engagement', { raw: true,
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -163,7 +164,7 @@ export default function EngagementPage() {
     if (!postTitle || !postContent) return;
 
     try {
-      const res = await fetch('/api/engagement', {
+      const res = await authFetch<Response>('/api/engagement', { raw: true,
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -193,7 +194,7 @@ export default function EngagementPage() {
     if (!sugTitle || !sugDesc) return;
 
     try {
-      const res = await fetch('/api/engagement', {
+      const res = await authFetch<Response>('/api/engagement', { raw: true,
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -219,7 +220,7 @@ export default function EngagementPage() {
 
   const handleUpvoteSuggestion = async (id: string) => {
     try {
-      const res = await fetch('/api/engagement', {
+      const res = await authFetch<Response>('/api/engagement', { raw: true,
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

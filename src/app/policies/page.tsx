@@ -1,5 +1,6 @@
 'use client';
 
+import { authFetch } from '@/lib/api-client';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   BookOpenCheck,
@@ -109,7 +110,7 @@ export default function PoliciesPage() {
 
   const fetchPolicies = async () => {
     try {
-      const res = await fetch(`/api/policies?employeeId=${encodeURIComponent(currentUser.id)}`);
+      const res = await authFetch<Response>(`/api/policies?employeeId=${encodeURIComponent(currentUser.id)}`, { raw: true });
       if (res.ok) {
         const json = await res.json();
         if (json.success && Array.isArray(json.data)) {
@@ -140,7 +141,7 @@ export default function PoliciesPage() {
     setNotice('Policy acknowledgement recorded in database successfully.');
 
     try {
-      await fetch('/api/policies', {
+      await authFetch<Response>('/api/policies', { raw: true,
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -166,7 +167,7 @@ export default function PoliciesPage() {
     const fileSize = file ? `${(file.size / 1024 / 1024).toFixed(1)} MB` : '1.2 MB';
 
     try {
-      const res = await fetch('/api/policies', {
+      const res = await authFetch<Response>('/api/policies', { raw: true,
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

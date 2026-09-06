@@ -1,5 +1,6 @@
 'use client';
 
+import { authFetch } from '@/lib/api-client';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   AlertCircle,
@@ -202,7 +203,7 @@ export default function PerformancePage() {
     setLoading(true);
     try {
       // 1. Cycles
-      const cycleRes = await fetch(`/api/performance/cycles?employeeId=${currentUser.id}`);
+      const cycleRes = await authFetch<Response>(`/api/performance/cycles?employeeId=${currentUser.id}`, { raw: true });
       if (cycleRes.ok) {
         const json = await cycleRes.json();
         if (json.success) {
@@ -217,7 +218,7 @@ export default function PerformancePage() {
       }
 
       // 2. Goals & OKRs & KPIs
-      const goalsRes = await fetch(`/api/performance/goals?employeeId=${currentUser.id}`);
+      const goalsRes = await authFetch<Response>(`/api/performance/goals?employeeId=${currentUser.id}`, { raw: true });
       if (goalsRes.ok) {
         const json = await goalsRes.json();
         if (json.success) {
@@ -227,7 +228,7 @@ export default function PerformancePage() {
       }
 
       // 3. Competencies
-      const compRes = await fetch(`/api/performance/competencies?employeeId=${currentUser.id}`);
+      const compRes = await authFetch<Response>(`/api/performance/competencies?employeeId=${currentUser.id}`, { raw: true });
       if (compRes.ok) {
         const json = await compRes.json();
         if (json.success) {
@@ -237,7 +238,7 @@ export default function PerformancePage() {
       }
 
       // 4. PIPs
-      const pipRes = await fetch(`/api/performance/pip?employeeId=${currentUser.id}`);
+      const pipRes = await authFetch<Response>(`/api/performance/pip?employeeId=${currentUser.id}`, { raw: true });
       if (pipRes.ok) {
         const json = await pipRes.json();
         if (json.success) setPips(json.data || []);
@@ -245,7 +246,7 @@ export default function PerformancePage() {
 
       // 5. Calibration (if Manager/Admin)
       if (isAdmin || isManager) {
-        const calRes = await fetch(`/api/performance/calibration`);
+        const calRes = await authFetch<Response>(`/api/performance/calibration`, { raw: true });
         if (calRes.ok) {
           const json = await calRes.json();
           if (json.success) setCalibrationData(json.data);
@@ -253,7 +254,7 @@ export default function PerformancePage() {
       }
 
       // 6. KRAs
-      const kraRes = await fetch(`/api/performance?employeeId=${encodeURIComponent(currentUser.id)}&role=${encodeURIComponent(currentUser.userRole)}`);
+      const kraRes = await authFetch<Response>(`/api/performance?employeeId=${encodeURIComponent(currentUser.id)}&role=${encodeURIComponent(currentUser.userRole)}`, { raw: true });
       if (kraRes.ok) {
         const json = await kraRes.json();
         if (json.success && Array.isArray(json.data)) setKras(json.data);
@@ -280,7 +281,7 @@ export default function PerformancePage() {
   const handleCreateGoal = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await fetch('/api/performance/goals', {
+      const res = await authFetch<Response>('/api/performance/goals', { raw: true,
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -307,7 +308,7 @@ export default function PerformancePage() {
     e.preventDefault();
     if (!isCascadingGoal) return;
     try {
-      const res = await fetch('/api/performance/goals', {
+      const res = await authFetch<Response>('/api/performance/goals', { raw: true,
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -333,7 +334,7 @@ export default function PerformancePage() {
   const handleSyncKpis = async () => {
     try {
       showToast('Syncing real HRMS metrics (Attendance, LMS, Timesheets)...');
-      const res = await fetch('/api/performance/goals', {
+      const res = await authFetch<Response>('/api/performance/goals', { raw: true,
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -355,7 +356,7 @@ export default function PerformancePage() {
   // Handle Key Result Check-in
   const handleUpdateKeyResultProgress = async (keyResultId: string, currentVal: number) => {
     try {
-      const res = await fetch('/api/performance/goals', {
+      const res = await authFetch<Response>('/api/performance/goals', { raw: true,
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -377,7 +378,7 @@ export default function PerformancePage() {
     e.preventDefault();
     if (!activeCycle) return;
     try {
-      const res = await fetch('/api/performance/cycles', {
+      const res = await authFetch<Response>('/api/performance/cycles', { raw: true,
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -403,7 +404,7 @@ export default function PerformancePage() {
     e.preventDefault();
     if (!managerReviewModal || !activeCycle) return;
     try {
-      const res = await fetch('/api/performance/cycles', {
+      const res = await authFetch<Response>('/api/performance/cycles', { raw: true,
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -430,7 +431,7 @@ export default function PerformancePage() {
   const handleSubmitFeedback = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await fetch('/api/performance/cycles', {
+      const res = await authFetch<Response>('/api/performance/cycles', { raw: true,
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -456,7 +457,7 @@ export default function PerformancePage() {
   const handleCreatePip = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await fetch('/api/performance/pip', {
+      const res = await authFetch<Response>('/api/performance/pip', { raw: true,
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -481,7 +482,7 @@ export default function PerformancePage() {
   const handleSaveKraProgress = async () => {
     if (!selectedKra) return;
     try {
-      const res = await fetch('/api/performance', {
+      const res = await authFetch<Response>('/api/performance', { raw: true,
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

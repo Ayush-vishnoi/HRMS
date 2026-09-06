@@ -1,4 +1,5 @@
 import { PrismaService } from '../prisma/prisma.service';
+import type { Form16StatementData } from './engines/types';
 export declare class PayrollService {
     private prisma;
     constructor(prisma: PrismaService);
@@ -7,7 +8,9 @@ export declare class PayrollService {
             id: string;
             employeeCode: string;
             name: string;
+            roleTitle: string;
             department: string;
+            location: string;
         };
     } & {
         id: string;
@@ -26,7 +29,7 @@ export declare class PayrollService {
         netPayable: import("@prisma/client/runtime/library").Decimal;
         paymentDate: string;
     })[]>;
-    getCycles(status?: string): Promise<({
+    getCycles(status?: string, cycleId?: string): Promise<({
         items: {
             id: string;
             employeeCode: string;
@@ -39,9 +42,8 @@ export declare class PayrollService {
             grossEarnings: number;
             totalDeductions: number;
             netPayable: number;
-            employeeName: string;
-            paymentStatus: string;
             cycleId: string;
+            employeeName: string;
             basic: number;
             medicalAllowance: number;
             lta: number;
@@ -68,6 +70,7 @@ export declare class PayrollService {
             bankAccountMasked: string | null;
             bankIfsc: string | null;
             panNumber: string | null;
+            paymentStatus: string;
         }[];
     } & {
         id: string;
@@ -87,7 +90,192 @@ export declare class PayrollService {
         approvedById: string | null;
         lockedAt: Date | null;
         disbursedAt: Date | null;
-    })[]>;
+    }) | ({
+        items: {
+            id: string;
+            employeeCode: string;
+            department: string;
+            createdAt: Date;
+            employeeId: string;
+            hra: number;
+            conveyance: number;
+            specialAllowance: number;
+            grossEarnings: number;
+            totalDeductions: number;
+            netPayable: number;
+            cycleId: string;
+            employeeName: string;
+            basic: number;
+            medicalAllowance: number;
+            lta: number;
+            bonus: number;
+            incentives: number;
+            overtimePay: number;
+            arrears: number;
+            reimbursements: number;
+            pfEmployee: number;
+            pfEmployer: number;
+            esicEmployee: number;
+            esicEmployer: number;
+            pt: number;
+            tds: number;
+            lwf: number;
+            loanDeduction: number;
+            gratuityProvision: number;
+            taxRegime: string;
+            payableDays: number;
+            lossOfPayDays: number;
+            lossOfPayDeduction: number;
+            otherDeductions: number;
+            calculationSnapshotJson: string | null;
+            bankAccountMasked: string | null;
+            bankIfsc: string | null;
+            panNumber: string | null;
+            paymentStatus: string;
+        }[];
+    } & {
+        id: string;
+        status: string;
+        createdAt: Date;
+        updatedAt: Date;
+        monthYear: string;
+        totalDeductions: number;
+        cycleStartDate: string;
+        cycleEndDate: string;
+        totalEmployees: number;
+        totalGross: number;
+        totalNetPayable: number;
+        country: string;
+        currency: string;
+        processedById: string | null;
+        approvedById: string | null;
+        lockedAt: Date | null;
+        disbursedAt: Date | null;
+    })[] | null>;
+    calculateAndSaveCycle(userId: string, body: any): Promise<{
+        items: {
+            id: string;
+            employeeCode: string;
+            department: string;
+            createdAt: Date;
+            employeeId: string;
+            hra: number;
+            conveyance: number;
+            specialAllowance: number;
+            grossEarnings: number;
+            totalDeductions: number;
+            netPayable: number;
+            cycleId: string;
+            employeeName: string;
+            basic: number;
+            medicalAllowance: number;
+            lta: number;
+            bonus: number;
+            incentives: number;
+            overtimePay: number;
+            arrears: number;
+            reimbursements: number;
+            pfEmployee: number;
+            pfEmployer: number;
+            esicEmployee: number;
+            esicEmployer: number;
+            pt: number;
+            tds: number;
+            lwf: number;
+            loanDeduction: number;
+            gratuityProvision: number;
+            taxRegime: string;
+            payableDays: number;
+            lossOfPayDays: number;
+            lossOfPayDeduction: number;
+            otherDeductions: number;
+            calculationSnapshotJson: string | null;
+            bankAccountMasked: string | null;
+            bankIfsc: string | null;
+            panNumber: string | null;
+            paymentStatus: string;
+        }[];
+    } & {
+        id: string;
+        status: string;
+        createdAt: Date;
+        updatedAt: Date;
+        monthYear: string;
+        totalDeductions: number;
+        cycleStartDate: string;
+        cycleEndDate: string;
+        totalEmployees: number;
+        totalGross: number;
+        totalNetPayable: number;
+        country: string;
+        currency: string;
+        processedById: string | null;
+        approvedById: string | null;
+        lockedAt: Date | null;
+        disbursedAt: Date | null;
+    }>;
+    updateCycleStatus(userId: string, body: any): Promise<{
+        items: {
+            id: string;
+            employeeCode: string;
+            department: string;
+            createdAt: Date;
+            employeeId: string;
+            hra: number;
+            conveyance: number;
+            specialAllowance: number;
+            grossEarnings: number;
+            totalDeductions: number;
+            netPayable: number;
+            cycleId: string;
+            employeeName: string;
+            basic: number;
+            medicalAllowance: number;
+            lta: number;
+            bonus: number;
+            incentives: number;
+            overtimePay: number;
+            arrears: number;
+            reimbursements: number;
+            pfEmployee: number;
+            pfEmployer: number;
+            esicEmployee: number;
+            esicEmployer: number;
+            pt: number;
+            tds: number;
+            lwf: number;
+            loanDeduction: number;
+            gratuityProvision: number;
+            taxRegime: string;
+            payableDays: number;
+            lossOfPayDays: number;
+            lossOfPayDeduction: number;
+            otherDeductions: number;
+            calculationSnapshotJson: string | null;
+            bankAccountMasked: string | null;
+            bankIfsc: string | null;
+            panNumber: string | null;
+            paymentStatus: string;
+        }[];
+    } & {
+        id: string;
+        status: string;
+        createdAt: Date;
+        updatedAt: Date;
+        monthYear: string;
+        totalDeductions: number;
+        cycleStartDate: string;
+        cycleEndDate: string;
+        totalEmployees: number;
+        totalGross: number;
+        totalNetPayable: number;
+        country: string;
+        currency: string;
+        processedById: string | null;
+        approvedById: string | null;
+        lockedAt: Date | null;
+        disbursedAt: Date | null;
+    }>;
     getSalaryStructure(employeeId: string): Promise<{
         id: string;
         createdAt: Date;
@@ -116,6 +304,7 @@ export declare class PayrollService {
         status: string;
         createdAt: Date;
         updatedAt: Date;
+        notes: string | null;
         employeeId: string;
         approvedById: string | null;
         loanType: string;
@@ -127,15 +316,14 @@ export declare class PayrollService {
         remainingBalance: number;
         disbursedOn: string;
         pausedMonths: string[];
-        notes: string | null;
     }[]>;
-    getTaxDeclarations(employeeId: string): Promise<{
+    getTaxDeclarations(employeeId?: string, financialYear?: string): Promise<{
         id: string;
         createdAt: Date;
         updatedAt: Date;
         employeeId: string;
-        financialYear: string;
         regime: string;
+        financialYear: string;
         section80C: number;
         section80D: number;
         section80G: number;
@@ -145,8 +333,8 @@ export declare class PayrollService {
         hraExemptionRent: number;
         homeLoanInterest: number;
         otherExemptions: number;
-        otherDeductionsTotal: number;
         declarationStatus: string;
+        otherDeductionsTotal: number;
         proofUrls: string[];
         verifiedByAdminId: string | null;
         verifiedAmountJson: string | null;
@@ -154,4 +342,7 @@ export declare class PayrollService {
         rejectionReason: string | null;
         verifiedAt: Date | null;
     }[]>;
+    getReconciliation(currentCycleId: string, previousCycleId?: string): Promise<import("./engines/types").ReconciliationSummary>;
+    getReports(monthYear?: string): Promise<import("./engines/reports-service").PayrollReportRow[]>;
+    getForm16(employeeId: string, financialYear: string): Promise<Form16StatementData>;
 }

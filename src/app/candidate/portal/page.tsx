@@ -1,5 +1,6 @@
 'use client';
 
+import { authFetch } from '@/lib/api-client';
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
@@ -31,7 +32,7 @@ export default function CandidatePortalPage() {
   const fetchPortalData = async () => {
     try {
       setLoading(false);
-      const res = await fetch('/api/candidate/portal');
+      const res = await authFetch<Response>('/api/candidate/portal', { raw: true });
       if (res.status === 401) {
         router.push('/candidate/login');
         return;
@@ -49,7 +50,7 @@ export default function CandidatePortalPage() {
   };
 
   const handleLogout = async () => {
-    await fetch('/api/candidate/auth/logout', { method: 'POST' });
+    await authFetch<Response>('/api/candidate/auth/logout', { raw: true, method: 'POST' });
     router.push('/candidate/login');
   };
 

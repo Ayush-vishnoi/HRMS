@@ -1,5 +1,6 @@
 'use client';
 
+import { authFetch } from '@/lib/api-client';
 import React, { useEffect, useState } from 'react';
 import {
   Check,
@@ -63,7 +64,7 @@ export const ManagerDashboard: React.FC = () => {
   useEffect(() => {
     const fetchLiveTeams = async () => {
       try {
-        const res = await fetch(`/api/my-team?managerId=${encodeURIComponent(currentUser.id)}`);
+        const res = await authFetch<Response>(`/api/my-team?managerId=${encodeURIComponent(currentUser.id)}`, { raw: true });
         if (res.ok) {
           const json = await res.json();
           if (json.success && Array.isArray(json.data)) {

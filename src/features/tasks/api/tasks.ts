@@ -1,3 +1,4 @@
+import { authFetch } from '@/lib/api-client';
 import type {
   CreateTaskInput,
   Task,
@@ -18,7 +19,7 @@ async function readResponse<T>(res: Response, fallbackMessage: string): Promise<
 }
 
 export async function getMyTasks(): Promise<Task[]> {
-  const res = await fetch('/api/tasks');
+  const res = await authFetch<Response>('/api/tasks', { raw: true });
   return readResponse<Task[]>(res, 'Failed to fetch tasks');
 }
 
@@ -28,7 +29,7 @@ export async function getTeamTasks(filters: TeamTaskFilters = {}): Promise<{ tas
   if (filters.assigneeId) params.set('assigneeId', filters.assigneeId);
   if (filters.status) params.set('status', filters.status);
 
-  const res = await fetch(`/api/tasks?${params.toString()}`);
+  const res = await authFetch<Response>(`/api/tasks?${params.toString()}`, { raw: true });
   const json = await res.json().catch(() => ({})) as ApiResponse<Task[]>;
   if (!res.ok) throw new Error(json.error || 'Failed to fetch team tasks');
   if (json.data === undefined) throw new Error('Failed to fetch team tasks');
@@ -36,7 +37,7 @@ export async function getTeamTasks(filters: TeamTaskFilters = {}): Promise<{ tas
 }
 
 export async function createTask(input: CreateTaskInput): Promise<Task> {
-  const res = await fetch('/api/tasks', {
+  const res = await authFetch<Response>('/api/tasks', { raw: true,
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(input),
@@ -45,7 +46,7 @@ export async function createTask(input: CreateTaskInput): Promise<Task> {
 }
 
 export async function updateTask(id: string, input: UpdateTaskInput): Promise<Task> {
-  const res = await fetch('/api/tasks', {
+  const res = await authFetch<Response>('/api/tasks', { raw: true,
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ id, ...input }),
@@ -54,7 +55,7 @@ export async function updateTask(id: string, input: UpdateTaskInput): Promise<Ta
 }
 
 export async function deleteTask(id: string): Promise<{ id: string }> {
-  const res = await fetch('/api/tasks', {
+  const res = await authFetch<Response>('/api/tasks', { raw: true,
     method: 'DELETE',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ id }),
@@ -71,7 +72,7 @@ export interface DirectReport {
 }
 
 export async function getDirectReports(): Promise<DirectReport[]> {
-  const res = await fetch('/api/tasks/direct-reports');
+  const res = await authFetch<Response>('/api/tasks/direct-reports', { raw: true });
   return readResponse<DirectReport[]>(res, 'Failed to fetch direct reports');
 }
 

@@ -34,14 +34,18 @@ model Employee {
   designation_id                                                                               String?
   work_location_id                                                                             String?
   assignedAssets                                                                               Asset[]                              @relation("AssetAssignee")
+  assetRequestsMade                                                                            AssetRequest[]                       @relation("AssetRequestRequester")
+  assetRequestsReviewed                                                                        AssetRequest[]                       @relation("AssetRequestReviewer")
   attendanceRecords                                                                            AttendanceRecord[]
   authAccounts                                                                                 AuthAccount[]
   authSessions                                                                                 AuthSession[]
   business_units_business_units_head_employee_idToemployees                                    business_units[]                     @relation("business_units_head_employee_idToemployees")
   candidate_notes                                                                              candidate_notes[]
   publishedPolicies                                                                            CompanyPolicy[]                      @relation("PolicyPublisher")
+  announcementsPublished                                                                       Announcement[]                       @relation("AnnouncementPublisher")
   departments_departments_head_employee_idToemployees                                          departments[]                        @relation("departments_head_employee_idToemployees")
   documentRequests                                                                             DocumentRequest[]
+  document_request_attachments_added_by_idToemployees                                          DocumentRequestAttachment[]             @relation("document_request_attachments_added_by_idToemployees")
   document_signatures                                                                          document_signatures[]
   document_templates_document_templates_created_by_idToemployees                               DocumentTemplate[]                   @relation("document_templates_created_by_idToemployees")
   document_templates_document_templates_updated_by_idToemployees                               DocumentTemplate[]                   @relation("document_templates_updated_by_idToemployees")
@@ -109,7 +113,9 @@ model Employee {
   teamMemberMetadataAsEmp                                                                      TeamMemberMetadata[]                 @relation("MetadataEmployee")
   teamMemberMetadataAsMgr                                                                      TeamMemberMetadata[]                 @relation("MetadataManager")
   teamMemberships                                                                              TeamMember[]
-  timesheets_timesheets_employee_idToemployees                                                 timesheets[]                         @relation("timesheets_employee_idToemployees")
+  tasksAssignedTo                                                                              Task[]                              @relation("TaskAssignee")
+  tasksAssignedBy                                                                              Task[]                              @relation("TaskAssigner")
+  timesheets_timesheets_employee_idToemployees                                                 timesheets[]                        @relation("timesheets_employee_idToemployees")
   timesheets_timesheets_reviewer_idToemployees                                                 timesheets[]                         @relation("timesheets_reviewer_idToemployees")
   performance_kpis                                                                             performance_kpis[]
   career_aspirations                                                                           career_aspirations?
@@ -120,6 +126,10 @@ model Employee {
   recruiting_jobs                                                                              RecruitmentJob[]                     @relation("JobRecruiter")
   assigned_candidates                                                                          RecruitmentCandidate[]               @relation("CandidateAssignedRecruiter")
   candidate_stage_changes                                                                      candidate_stage_history[]            @relation("StageHistoryChangedBy")
+  conversationsAsP1                                                                            Conversation[]                       @relation("ConversationParticipant1")
+  conversationsAsP2                                                                            Conversation[]                       @relation("ConversationParticipant2")
+  sentMessages                                                                                 Message[]                            @relation("SentMessages")
+  receivedMessages                                                                             Message[]                            @relation("ReceivedMessages")
 
   @@index([department_id, designation_id])
   @@index([organization_id, business_unit_id])
@@ -313,15 +323,14 @@ model Meeting {
 }
 
 model MeetingAttendee {
-  id             String       @id @default(cuid()) @db.VarChar(36)
-  meetingId      String       @map("meeting_id") @db.VarChar(36)
-  employeeId     String       @map("employee_id") @db.VarChar(36)
-  rsvp           RsvpStatus   @default(PENDING)
-  inviteStatus   InviteStatus @default(PENDING) @map("invite_status")
-  responseReason String?      @map("response_reason") @db.VarChar(500)
-  updatedAt      DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  employee       Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  meeting        Meeting      @relation(fields: [meetingId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  id             String     @id @default(cuid()) @db.VarChar(36)
+  meetingId      String     @map("meeting_id") @db.VarChar(36)
+  employeeId     String     @map("employee_id") @db.VarChar(36)
+  rsvp           RsvpStatus @default(PENDING)
+  responseReason String?    @map("response_reason") @db.VarChar(500)
+  updatedAt      DateTime   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  employee       Employee   @relation(fields: [employeeId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  meeting        Meeting    @relation(fields: [meetingId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@unique([meetingId, employeeId], map: "uq_meeting_attendee")
   @@map("meeting_attendees")
@@ -675,13 +684,39 @@ model Asset {
   location      String         @db.VarChar(100)
   condition     AssetCondition @default(Good)
   lastChecked   String         @map("last_checked") @db.VarChar(30)
+  allocationDate String?       @map("allocation_date") @db.VarChar(30)
+  acknowledgedAt DateTime?     @map("acknowledged_at") @db.Timestamptz(6)
   notes         String?
   createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt     DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   assignedTo    Employee?      @relation("AssetAssignee", fields: [assignedToId], references: [id], onUpdate: NoAction)
+  requests      AssetRequest[] @relation("AssetRequestAsset")
 
   @@index([status, category], map: "idx_assets_status_cat")
   @@map("assets")
+}
+
+model AssetRequest {
+  id            String             @id @db.VarChar(36)
+  type          AssetRequestType
+  status        AssetRequestStatus @default(Pending)
+  requestedById String             @map("requested_by_id") @db.VarChar(36)
+  assetId       String?            @map("asset_id") @db.VarChar(36)
+  category      AssetCategory?
+  reason        String             @db.VarChar(500)
+  urgency       TicketPriority?
+  reviewedById  String?            @map("reviewed_by_id") @db.VarChar(36)
+  reviewedAt    DateTime?          @map("reviewed_at") @db.Timestamptz(6)
+  reviewNote    String?            @map("review_note") @db.VarChar(500)
+  createdAt     DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  requestedBy   Employee           @relation("AssetRequestRequester", fields: [requestedById], references: [id], onUpdate: NoAction)
+  asset         Asset?             @relation("AssetRequestAsset", fields: [assetId], references: [id], onUpdate: NoAction, onDelete: SetNull)
+  reviewedBy    Employee?          @relation("AssetRequestReviewer", fields: [reviewedById], references: [id], onUpdate: NoAction, onDelete: SetNull)
+
+  @@index([status, type], map: "idx_asset_requests_status_type")
+  @@index([requestedById], map: "idx_asset_requests_requester")
+  @@map("asset_requests")
 }
 
 model WorkShift {
@@ -743,6 +778,26 @@ model HelpDeskTicket {
   @@map("help_desk_tickets")
 }
 
+model Task {
+  id           String       @id @db.VarChar(36)
+  title        String       @db.VarChar(150)
+  description  String?
+  assignedToId String       @map("assigned_to_id") @db.VarChar(36)
+  assignedById String?      @map("assigned_by_id") @db.VarChar(36)
+  dueDate      DateTime?    @map("due_date") @db.Date
+  priority     TaskPriority @default(Medium)
+  status       TaskStatus   @default(ToDo)
+  createdAt    DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  completedAt  DateTime?    @map("completed_at") @db.Timestamptz(6)
+  assignedTo   Employee     @relation("TaskAssignee", fields: [assignedToId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  assignedBy   Employee?    @relation("TaskAssigner", fields: [assignedById], references: [id], onDelete: SetNull, onUpdate: NoAction)
+
+  @@index([assignedToId, status], map: "idx_tasks_assignee_status")
+  @@index([assignedById], map: "idx_tasks_assigner")
+  @@index([dueDate], map: "idx_tasks_due_date")
+  @@map("tasks")
+}
+
 model EmployeeDocument {
   id                  String                  @id @db.VarChar(36)
   employeeId          String                  @map("employee_id") @db.VarChar(36)
@@ -767,7 +822,14 @@ model EmployeeDocument {
   expiry_reminder_at  DateTime?               @db.Date
   signature_status    DocumentSignatureStatus @default(Not_Required)
   signed_at           DateTime?
-  document_signatures document_signatures[]
+  locked_until        DateTime?               @db.Timestamptz(6)
+  downloaded_at       DateTime?               @db.Timestamptz(6)
+  shared_by_hr        Boolean                 @default(false)
+  shared_at           DateTime?               @db.Timestamptz(6)
+  uploaded_by_employee Boolean                @default(false) @map("uploaded_by_employee")
+  document_signatures                     document_signatures[]
+  document_request_attachments            DocumentRequestAttachment[]
+  submittedDocumentRequests               DocumentRequest[]
   document_categories document_categories?    @relation(fields: [category_id], references: [id])
   employee            Employee                @relation(fields: [employeeId], references: [id], onDelete: Cascade, onUpdate: NoAction)
   document_templates  DocumentTemplate?       @relation(fields: [template_id], references: [id])
@@ -779,19 +841,59 @@ model EmployeeDocument {
   @@map("employee_documents")
 }
 
+/// Binary document storage inside PostgreSQL (BYTEA). Replaces local-disk
+/// uploads/ storage so files live with the data, survive redeploys, and stay
+/// private behind authenticated API routes.
+model DocumentBlob {
+  id         String   @id @db.VarChar(255) // storage key (filename)
+  category   String   @db.VarChar(30) // 'employee' | 'offers' | 'resumes' | 'expenses'
+  mime_type  String?  @map("mime_type") @db.VarChar(120)
+  size_bytes Int      @map("size_bytes")
+  data       Bytes
+  created_at DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([category], map: "idx_document_blobs_category")
+  @@map("document_blobs")
+}
+
 model DocumentRequest {
-  id           String                @id @db.VarChar(36)
-  employeeId   String                @map("employee_id") @db.VarChar(36)
-  documentType String                @map("document_type") @db.VarChar(100)
-  reason       String
-  status       DocumentRequestStatus @default(Pending)
-  requestedOn  String                @map("requested_on") @db.VarChar(30)
-  createdAt    DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt    DateTime              @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  employee     Employee              @relation(fields: [employeeId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  id                  String                       @id @db.VarChar(36)
+  employeeId          String                       @map("employee_id") @db.VarChar(36)
+  documentType        String                       @map("document_type") @db.VarChar(100)
+  reason              String
+  status              DocumentRequestStatus        @default(Requested)
+  requestedOn         String                       @map("requested_on") @db.VarChar(30)
+  sentAt              DateTime?                    @map("sent_at") @db.Timestamptz(6)
+  downloadedAt        DateTime?                    @map("downloaded_at") @db.Timestamptz(6)
+  submittedDocumentId String?                      @map("submitted_document_id") @db.VarChar(36)
+  createdAt           DateTime                     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime                     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  employee            Employee                     @relation(fields: [employeeId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  submittedDocument   EmployeeDocument?            @relation(fields: [submittedDocumentId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  attachments         DocumentRequestAttachment[]
 
   @@index([employeeId, status], map: "idx_doc_requests_status")
+  @@index([submittedDocumentId], map: "idx_doc_requests_submitted_document")
   @@map("document_requests")
+}
+
+/// Files HR attaches to a DocumentRequest when fulfilling it. Each attachment
+/// references an existing EmployeeDocument row (uploaded file or a PDF generated
+/// from a DocumentTemplate), so binary storage is never duplicated.
+model DocumentRequestAttachment {
+  id         String           @id @db.VarChar(36)
+  requestId  String           @map("request_id") @db.VarChar(36)
+  documentId String           @map("document_id") @db.VarChar(36)
+  source     String           @default("upload") @db.VarChar(20) // 'upload' | 'template'
+  addedById  String           @map("added_by_id") @db.VarChar(36)
+  addedAt    DateTime         @default(now()) @map("added_at") @db.Timestamptz(6)
+  request    DocumentRequest  @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  document   EmployeeDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  addedBy    Employee         @relation("document_request_attachments_added_by_idToemployees", fields: [addedById], references: [id], onDelete: Cascade)
+
+  @@index([requestId])
+  @@index([documentId])
+  @@map("document_request_attachments")
 }
 
 model CompanyPolicy {
@@ -826,6 +928,30 @@ model PolicyAcknowledgement {
 
   @@unique([policyId, employeeId], map: "uq_policy_ack")
   @@map("policy_acknowledgements")
+}
+
+model Announcement {
+  id                 String              @id @db.VarChar(36)
+  title              String              @db.VarChar(150)
+  body               String
+  category           AnnouncementCategory @default(General)
+  postedById         String              @map("posted_by_id") @db.VarChar(36)
+  postedByDepartment String              @map("posted_by_department") @db.VarChar(80)
+  isPinned           Boolean             @default(false) @map("is_pinned")
+  publishedAt        DateTime            @default(now()) @map("published_at") @db.Timestamptz(6)
+  expiresAt          DateTime?           @map("expires_at") @db.Timestamptz(6)
+  targetAudience     AnnouncementAudience @default(All) @map("target_audience")
+  targetDepartment   String?             @map("target_department") @db.VarChar(80)
+  targetLocation     String?             @map("target_location") @db.VarChar(120)
+  targetRole         UserRole?           @map("target_role")
+  isArchived         Boolean             @default(false) @map("is_archived")
+  createdAt          DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  postedBy           Employee            @relation("AnnouncementPublisher", fields: [postedById], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([publishedAt])
+  @@index([isPinned, publishedAt])
+  @@map("announcements")
 }
 
 model DocumentTemplate {
@@ -1717,6 +1843,7 @@ enum EmploymentStatus {
   OnLeave    @map("On Leave")
   Remote
   Offboarded
+  Exited
 }
 
 enum AttendanceStatus {
@@ -1747,9 +1874,9 @@ enum LeaveRequestStatus {
 }
 
 enum MeetingType {
-  ONE_TO_ONE
   TEAM
   ORG_EVENT
+  ONE_TO_ONE
 }
 
 enum MeetingStatus {
@@ -1769,14 +1896,7 @@ enum Recurrence {
 enum RsvpStatus {
   ACCEPTED
   DECLINED
-  TENTATIVE
   PENDING
-}
-
-enum InviteStatus {
-  PENDING
-  ACCEPTED
-  DECLINED
 }
 
 enum PayslipStatus {
@@ -1812,8 +1932,15 @@ enum DocumentStatus {
 
 enum DocumentRequestStatus {
   Pending
-  InReview  @map("In Review")
-  Completed
+  InProgress @map("In Progress")
+  Ready
+  Delivered
+  Requested
+  Submitted
+  Sent
+  Downloaded
+  Verified
+  Rejected
 }
 
 enum PolicyCategory {
@@ -1823,6 +1950,21 @@ enum PolicyCategory {
   WorkplaceSafety     @map("Workplace Safety")
   AntiHarassment      @map("Anti-Harassment")
   RemoteWork          @map("Remote Work")
+}
+
+enum AnnouncementCategory {
+  General
+  Event
+  Holiday
+  Urgent
+  Policy
+}
+
+enum AnnouncementAudience {
+  All
+  Department
+  Location
+  Role
 }
 
 enum TicketCategory {
@@ -1847,6 +1989,18 @@ enum TicketStatus {
   Resolved
 }
 
+enum TaskPriority {
+  Low
+  Medium
+  High
+}
+
+enum TaskStatus {
+  ToDo       @map("To Do")
+  InProgress @map("In Progress")
+  Done
+}
+
 enum AssetCategory {
   Laptop
   Monitor
@@ -1867,6 +2021,18 @@ enum AssetCondition {
   Good
   Fair
   NeedsRepair @map("Needs repair")
+}
+
+enum AssetRequestType {
+  NewAsset    @map("New Asset")
+  IssueReport @map("Issue Report")
+  Return
+}
+
+enum AssetRequestStatus {
+  Pending
+  Approved
+  Rejected
 }
 
 enum JobEmploymentType {
@@ -2391,6 +2557,8 @@ model ExpenseClaim {
   paymentStatus   String   @default("Pending") @map("payment_status")
   approvedAmount  Float?   @map("approved_amount")
   settlementDate  String?  @map("settlement_date")
+  managerRejectionReason String? @map("manager_rejection_reason")
+  hrRejectionReason      String? @map("hr_rejection_reason")
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @default(now()) @updatedAt @map("updated_at")
 
@@ -2669,6 +2837,10 @@ model ExitRequest {
   reasonDetails          String    @map("reason_details")
   managerApproval        String    @default("Pending") @map("manager_approval")
   hrApproval             String    @default("Pending") @map("hr_approval")
+  managerApprovedAt      DateTime? @map("manager_approved_at")
+  hrApprovedAt           DateTime? @map("hr_approved_at")
+  rejectionReason        String?   @map("rejection_reason")
+  workflowStage          String    @default("Pending Manager Approval") @map("workflow_stage")
   noticePeriodDays       Int       @default(60) @map("notice_period_days")
   status                 String    @default("Submitted")
   createdAt              DateTime  @default(now()) @map("created_at")
@@ -2839,5 +3011,48 @@ model KnowledgeTransferTask {
   @@index([exitRequestId, status])
   @@map("knowledge_transfer_tasks")
 }
+
+model Conversation {
+  id             String   @id @default(cuid()) @db.VarChar(36)
+  participant1Id String   @map("participant_1_id") @db.VarChar(36)
+  participant2Id String   @map("participant_2_id") @db.VarChar(36)
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  participant1 Employee  @relation("ConversationParticipant1", fields: [participant1Id], references: [id], onDelete: Cascade)
+  participant2 Employee  @relation("ConversationParticipant2", fields: [participant2Id], references: [id], onDelete: Cascade)
+  messages     Message[]
+
+  @@unique([participant1Id, participant2Id], map: "uq_conversation_participants")
+  @@index([participant1Id])
+  @@index([participant2Id])
+  @@map("conversations")
+}
+
+enum MessageStatus {
+  SENT
+  DELIVERED
+  SEEN
+}
+
+model Message {
+  id             String        @id @default(cuid()) @db.VarChar(36)
+  conversationId String        @map("conversation_id") @db.VarChar(36)
+  senderId       String        @map("sender_id") @db.VarChar(36)
+  receiverId     String        @map("receiver_id") @db.VarChar(36)
+  content        String        @db.Text
+  status         MessageStatus @default(SENT)
+  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       Employee     @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver     Employee     @relation("ReceivedMessages", fields: [receiverId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+  @@index([receiverId, status])
+  @@map("messages")
+}
+
 
 

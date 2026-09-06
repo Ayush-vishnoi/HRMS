@@ -17,11 +17,11 @@ export declare class PerformanceController {
             status: import("@prisma/client").$Enums.KraStatus;
             createdAt: Date;
             updatedAt: Date;
+            category: string;
+            assignedToId: string;
             title: string;
             description: string;
-            category: string;
             priority: import("@prisma/client").$Enums.KraPriority;
-            assignedToId: string;
             dueDate: string;
             progress: number;
             keyResult: string;
@@ -61,8 +61,8 @@ export declare class PerformanceController {
             status: import("@prisma/client").$Enums.ReviewCycleStatus;
             organization_id: string;
             description: string | null;
-            created_at: Date;
             updated_at: Date;
+            created_at: Date;
             created_by_id: string | null;
             start_date: Date;
             review_period: string;
@@ -93,8 +93,8 @@ export declare class PerformanceController {
             status: import("@prisma/client").$Enums.PipStatus;
             reason: string;
             title: string;
-            created_at: Date;
             updated_at: Date;
+            created_at: Date;
             employee_id: string;
             start_date: Date;
             end_date: Date | null;
@@ -121,11 +121,11 @@ export declare class PerformanceController {
         status: import("@prisma/client").$Enums.KraStatus;
         createdAt: Date;
         updatedAt: Date;
+        category: string;
+        assignedToId: string;
         title: string;
         description: string;
-        category: string;
         priority: import("@prisma/client").$Enums.KraPriority;
-        assignedToId: string;
         dueDate: string;
         progress: number;
         keyResult: string;

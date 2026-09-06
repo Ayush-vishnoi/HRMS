@@ -12,7 +12,6 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { AssetsModule } from './assets/assets.module';
 import { PoliciesModule } from './policies/policies.module';
-import { DocumentsModule } from './documents/documents.module';
 import { EngagementModule } from './engagement/engagement.module';
 import { ExpensesModule } from './expenses/expenses.module';
 import { BenefitsModule } from './benefits/benefits.module';
@@ -27,6 +26,9 @@ import { WorkforceModule } from './workforce/workforce.module';
 import { DisciplinaryModule } from './disciplinary/disciplinary.module';
 import { EmployeeLifecycleModule } from './employee-lifecycle/employee-lifecycle.module';
 import { CalendarModule } from './calendar/calendar.module';
+import { ChatModule } from './chat/chat.module';
+import { AnnouncementsModule } from './announcements/announcements.module';
+import { TasksModule } from './tasks/tasks.module';
 
 @Module({
   imports: [
@@ -43,7 +45,6 @@ import { CalendarModule } from './calendar/calendar.module';
     AnalyticsModule,
     AssetsModule,
     PoliciesModule,
-    DocumentsModule,
     EngagementModule,
     ExpensesModule,
     BenefitsModule,
@@ -58,6 +59,9 @@ import { CalendarModule } from './calendar/calendar.module';
     DisciplinaryModule,
     EmployeeLifecycleModule,
     CalendarModule,
+    ChatModule,
+    AnnouncementsModule,
+    TasksModule,
   ],
 })
 export class AppModule {}

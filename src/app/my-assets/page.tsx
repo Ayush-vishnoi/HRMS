@@ -1,5 +1,6 @@
 'use client';
 
+import { authFetch } from '@/lib/api-client';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
@@ -134,7 +135,7 @@ export default function MyAssetsPage() {
     const maxAttempts = 3;
     for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
       try {
-        const response = await fetch('/api/my-assets', { cache: 'no-store' });
+        const response = await authFetch<Response>('/api/my-assets', { raw: true, cache: 'no-store' });
         const json = await response.json().catch(() => null);
         if (response.ok && json?.success) {
           setAssets(json.data?.assets || []);
@@ -189,7 +190,7 @@ export default function MyAssetsPage() {
     setBusy(true);
     setActionError('');
     try {
-      const response = await fetch('/api/my-assets', {
+      const response = await authFetch<Response>('/api/my-assets', { raw: true,
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'acknowledge', assetId }),
@@ -224,7 +225,7 @@ export default function MyAssetsPage() {
       }
       if (requestModal === 'return') payload.assetId = requestAssetId;
 
-      const response = await fetch('/api/my-assets', {
+      const response = await authFetch<Response>('/api/my-assets', { raw: true,
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),

@@ -44,6 +44,7 @@ export declare class RecruitmentController {
             createdAt: Date;
             updatedAt: Date;
             appliedOn: string;
+            source: import("@prisma/client").$Enums.CandidateSource;
             jobId: string;
             stage: import("@prisma/client").$Enums.CandidateStage;
             score: number;
@@ -60,7 +61,6 @@ export declare class RecruitmentController {
             parsed_resume: import("@prisma/client/runtime/library").JsonValue | null;
             referrer_id: string | null;
             resumeUrl: string | null;
-            source: import("@prisma/client").$Enums.CandidateSource;
             talent_pool: boolean;
         })[];
         interviews: ({
@@ -73,8 +73,8 @@ export declare class RecruitmentController {
             status: string;
             location: string | null;
             title: string;
-            created_at: Date;
             updated_at: Date;
+            created_at: Date;
             candidate_id: string;
             round: number;
             starts_at: Date;
@@ -91,15 +91,15 @@ export declare class RecruitmentController {
             id: string;
             status: import("@prisma/client").$Enums.RecruitmentOfferStatus;
             currency: string;
-            version: number;
-            template_id: string | null;
-            expires_at: Date | null;
-            created_at: Date;
             updated_at: Date;
+            version: number;
+            created_at: Date;
             candidate_id: string;
+            template_id: string | null;
             offered_title: string;
             offered_ctc: import("@prisma/client/runtime/library").Decimal | null;
             proposed_join_date: Date | null;
+            expires_at: Date | null;
             content_snapshot: string | null;
             sent_at: Date | null;
             viewed_at: Date | null;
@@ -172,6 +172,7 @@ export declare class RecruitmentController {
         createdAt: Date;
         updatedAt: Date;
         appliedOn: string;
+        source: import("@prisma/client").$Enums.CandidateSource;
         jobId: string;
         stage: import("@prisma/client").$Enums.CandidateStage;
         score: number;
@@ -188,7 +189,6 @@ export declare class RecruitmentController {
         parsed_resume: import("@prisma/client/runtime/library").JsonValue | null;
         referrer_id: string | null;
         resumeUrl: string | null;
-        source: import("@prisma/client").$Enums.CandidateSource;
         talent_pool: boolean;
     })[]>;
     updateStage(id: string, body: any, user: any): Promise<{
@@ -201,6 +201,7 @@ export declare class RecruitmentController {
         createdAt: Date;
         updatedAt: Date;
         appliedOn: string;
+        source: import("@prisma/client").$Enums.CandidateSource;
         jobId: string;
         stage: import("@prisma/client").$Enums.CandidateStage;
         score: number;
@@ -217,7 +218,6 @@ export declare class RecruitmentController {
         parsed_resume: import("@prisma/client/runtime/library").JsonValue | null;
         referrer_id: string | null;
         resumeUrl: string | null;
-        source: import("@prisma/client").$Enums.CandidateSource;
         talent_pool: boolean;
     }>;
 }

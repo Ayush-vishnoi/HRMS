@@ -1,5 +1,6 @@
 'use client';
 
+import { authFetch } from '@/lib/api-client';
 import React, { useEffect, useState } from 'react';
 import {
   AlertTriangle,
@@ -328,7 +329,7 @@ export default function ExitPage() {
   ): Promise<Record<string, unknown> | null> => {
     try {
       setBusy(true);
-      const res = await fetch('/api/exit', {
+      const res = await authFetch<Response>('/api/exit', { raw: true,
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),

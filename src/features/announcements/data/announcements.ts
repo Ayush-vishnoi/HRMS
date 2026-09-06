@@ -1,5 +1,6 @@
 'use client';
 
+import { authFetch } from '@/lib/api-client';
 import {
   AlertTriangle,
   BookOpenCheck,
@@ -128,7 +129,7 @@ export const fetchAnnouncements = async (
   scope?: 'dashboard' | 'admin',
 ): Promise<Announcement[]> => {
   const query = scope ? `?scope=${scope}` : '';
-  const res = await fetch(`/api/announcements${query}`);
+  const res = await authFetch<Response>(`/api/announcements${query}`, { raw: true });
   const json = await res.json();
   if (!res.ok || !json.success) throw new Error(json.error || 'Failed to fetch announcements');
   return json.data as Announcement[];

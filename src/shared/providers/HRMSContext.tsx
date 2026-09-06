@@ -1,6 +1,7 @@
 'use client';
 
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { authFetch, logout as apiLogout, tokenStore, userStore } from '@/lib/api-client';
 import { MOCK_EMPLOYEES } from '@/features/employees/data/employees';
 import type { Employee } from '@/features/employees/data/employees';
 import { INITIAL_LEAVE_REQUESTS, MOCK_LEAVE_BALANCES } from '@/features/leaves/data/leaves';
@@ -201,23 +202,79 @@ const isPortalOpen = (date: Date) => {
 
 interface HRMSProviderProps {
   children: React.ReactNode;
-  initialUser: UserAccount | null;
 }
 
-export const HRMSProvider: React.FC<HRMSProviderProps> = ({ children, initialUser }) => {
-  const [isAuthenticated, setIsAuthenticated] = useState(Boolean(initialUser));
-  const [currentUser, setCurrentUser] = useState<UserAccount>(
-    initialUser ?? DEMO_ACCOUNTS.employee,
-  );
-  const isAuthReady = true;
+/** Map a backend user (login/session response) to the frontend UserAccount shape. */
+const mapBackendUser = (user: {
+  id: string;
+  email: string;
+  name: string;
+  employeeCode?: string;
+  userRole?: string;
+  department?: string | null;
+  avatarUrl?: string | null;
+}): UserAccount => ({
+  id: user.id,
+  name: user.name,
+  email: user.email,
+  role: user.department || 'Staff Member',
+  userRole: (user.userRole as UserRole) || 'employee',
+  department: user.department || 'General',
+  avatar:
+    user.avatarUrl ||
+    'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
+  employeeCode: user.employeeCode || `EMP-${user.id}`,
+});
 
-  // Store this tab's user ID in sessionStorage so it survives navigation
-  // but stays isolated from other tabs (sessionStorage is tab-specific)
+export const HRMSProvider: React.FC<HRMSProviderProps> = ({ children }) => {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [currentUser, setCurrentUser] = useState<UserAccount>(DEMO_ACCOUNTS.employee);
+  const [isAuthReady, setIsAuthReady] = useState(false);
+
+  // Bootstrap auth from the stored backend JWT on mount (client-side only).
   useEffect(() => {
-    if (initialUser?.id) {
-      window.sessionStorage.setItem('hrms_tab_user_id', initialUser.id);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    let cancelled = false;
+
+    const bootstrap = async () => {
+      const token = tokenStore.get();
+      if (!token) {
+        setIsAuthReady(true);
+        return;
+      }
+
+      try {
+        const session = await authFetch<{
+          id: string;
+          email: string;
+          name: string;
+          employeeCode?: string;
+          userRole?: string;
+          department?: string | null;
+          avatarUrl?: string | null;
+        } | null>('/api/auth/session');
+
+        if (cancelled) return;
+
+        if (session?.id) {
+          const mapped = mapBackendUser(session);
+          userStore.set(session);
+          setCurrentUser(mapped);
+          setIsAuthenticated(true);
+          window.sessionStorage.setItem('hrms_tab_user_id', mapped.id);
+        } else {
+          tokenStore.clear();
+        }
+      } catch {
+        if (!cancelled) tokenStore.clear();
+      } finally {
+        if (!cancelled) setIsAuthReady(true);
+      }
+    };
+
+    void bootstrap();
+    return () => {
+      cancelled = true;
+    };
   }, []);
   const [employees, setEmployees] = useState<Employee[]>(MOCK_EMPLOYEES);
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>(INITIAL_LEAVE_REQUESTS);
@@ -236,25 +293,28 @@ export const HRMSProvider: React.FC<HRMSProviderProps> = ({ children, initialUse
 
   // Load non-auth application state after the first paint. The mock state above
   // keeps the shell responsive while the remote database hydrates the context.
+  // Skipped while unauthenticated so we never fire requests that would 401 and
+  // trigger the global redirect to /login.
   useEffect(() => {
+    if (!isAuthReady || !isAuthenticated) return;
+
     const storedLateRequests = window.localStorage.getItem(LATE_REQUEST_STORAGE_KEY);
     if (storedLateRequests) {
       setLateClockInRequests(JSON.parse(storedLateRequests) as LateClockInRequest[]);
     }
 
     // Fetch with a hard timeout and a single retry on network-level failures
-    // so a cold-starting or reconnecting database degrades gracefully
+    // so a cold-starting or reconnecting backend degrades gracefully
     // instead of hanging hydration (`TypeError: Failed to fetch`).
-    const fetchJson = async (url: string, timeoutMs = 20_000): Promise<any | null> => {
+    const fetchJson = async (path: string, timeoutMs = 20_000): Promise<any | null> => {
       for (let attempt = 0; ; attempt++) {
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), timeoutMs);
         try {
-          const res = await fetch(url, { signal: controller.signal });
-          return res.ok ? await res.json() : null;
+          return await authFetch<any>(path, { signal: controller.signal });
         } catch (err) {
           if (attempt > 0) {
-            console.error(`Error fetching ${url}:`, err);
+            console.error(`Error fetching ${path}:`, err);
             return null;
           }
           await new Promise((resolve) => setTimeout(resolve, 1500));
@@ -325,7 +385,7 @@ export const HRMSProvider: React.FC<HRMSProviderProps> = ({ children, initialUse
       if (idleCallbackId !== null) window.cancelIdleCallback(idleCallbackId);
       if (timeoutId !== null) window.clearTimeout(timeoutId);
     };
-  }, []);
+  }, [isAuthReady, isAuthenticated]);
 
   const persistLateClockInRequests = (requests: LateClockInRequest[]) => {
     setLateClockInRequests(requests);
@@ -347,14 +407,13 @@ export const HRMSProvider: React.FC<HRMSProviderProps> = ({ children, initialUse
     setElapsedSeconds(0);
 
     try {
-      await fetch('/api/attendance', {
+      await authFetch('/api/attendance', {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+        body: {
           id: targetId,
           checkOut: time,
           hoursWorked,
-        }),
+        },
       });
     } catch (err) {
       console.error('Failed to update clock-out in database:', err);
@@ -381,6 +440,7 @@ export const HRMSProvider: React.FC<HRMSProviderProps> = ({ children, initialUse
   const logout = useCallback(() => {
     setIsAuthenticated(false);
     window.sessionStorage.removeItem('hrms_tab_user_id');
+    apiLogout();
   }, []);
 
   useEffect(() => {
@@ -398,23 +458,17 @@ export const HRMSProvider: React.FC<HRMSProviderProps> = ({ children, initialUse
       activeController = controller;
 
       try {
-        const response = await fetch('/api/auth/session-status', {
-          cache: 'no-store',
-          signal: controller.signal,
-        });
+        const session = await authFetch<{
+          id: string;
+        } | null>('/api/auth/session', { signal: controller.signal });
 
-        if (response.status === 401) {
+        const tabUserId = window.sessionStorage.getItem('hrms_tab_user_id');
+        // If the token now belongs to a different user (another tab), log this tab out
+        if (tabUserId && session?.id && session.id !== tabUserId) {
           logout();
-        } else if (response.ok) {
-          const data = await response.json();
-          const tabUserId = window.sessionStorage.getItem('hrms_tab_user_id');
-          // If cookie switched to a different user in another tab, log this tab out
-          if (tabUserId && data.user && data.user.id !== tabUserId) {
-            logout();
-          }
         }
       } catch (sessionError) {
-        if ((sessionError as Error).name !== 'AbortError') {
+        if ((sessionError as Error).name !== 'AbortError' && (sessionError as Error).message !== 'Unauthorized') {
           console.warn('Session status check could not reach the server.');
         }
       } finally {
@@ -453,17 +507,15 @@ export const HRMSProvider: React.FC<HRMSProviderProps> = ({ children, initialUse
 
   const addEmployee = async (empData: Omit<Employee, 'id' | 'employeeCode'>) => {
     try {
-      const res = await fetch('/api/employees', {
+      const json = await authFetch<{ success: boolean; data?: any }>('/api/employees', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+        body: {
           ...empData,
           roleTitle: empData.role,
           avatarUrl: empData.avatar,
-        }),
+        },
       });
-      const json = await res.json();
-      if (json.success && json.data) {
+      if (json?.success && json.data) {
         const newEmployee = formatDbEmployee(json.data, empData.manager);
         setEmployees((prev) => [newEmployee, ...prev.filter((e) => e.id !== newEmployee.id)]);
       }
@@ -484,17 +536,16 @@ export const HRMSProvider: React.FC<HRMSProviderProps> = ({ children, initialUse
     setIsClockedIn(true);
 
     try {
-      await fetch('/api/attendance', {
+      await authFetch('/api/attendance', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+        body: {
           id,
           employeeId: currentUser.id,
           date: formatLocalDate(now),
           checkIn: nowTime,
           status,
           location: 'Office - HQ',
-        }),
+        },
       });
     } catch (err) {
       console.error('Failed to save attendance record to database:', err);
@@ -561,8 +612,8 @@ export const HRMSProvider: React.FC<HRMSProviderProps> = ({ children, initialUse
   };
 
   const refreshLeaveBalances = async (employeeId?: string) => {
-    const url = employeeId ? `/api/leaves?employeeId=${employeeId}` : '/api/leaves';
-    const res = await fetch(url).then((r) => r.ok ? r.json() : null);
+    const path = employeeId ? `/api/leaves?employeeId=${employeeId}` : '/api/leaves';
+    const res = await authFetch<any>(path).catch(() => null);
     if (res?.success && Array.isArray(res.data?.balances) && res.data.balances.length > 0) {
       const b = res.data.balances;
       const pick = (type: string) => b.find((x: any) => x.leaveType === type);
@@ -578,20 +629,18 @@ export const HRMSProvider: React.FC<HRMSProviderProps> = ({ children, initialUse
 
   const addLeaveRequest = async (newLeave: Omit<LeaveRequest, 'id' | 'employeeId' | 'employeeName' | 'employeeAvatar' | 'status' | 'appliedOn'>) => {
     try {
-      const res = await fetch('/api/leaves', {
+      const json = await authFetch<{ success: boolean; data?: any }>('/api/leaves', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+        body: {
           employeeId: currentUser.id,
           leaveType: newLeave.leaveType,
           startDate: newLeave.startDate,
           endDate: newLeave.endDate,
           days: newLeave.days,
           reason: newLeave.reason,
-        }),
+        },
       });
-      const json = await res.json();
-      if (json.success && json.data) {
+      if (json?.success && json.data) {
         const created: LeaveRequest = {
           ...newLeave,
           id: json.data.id,
@@ -636,10 +685,9 @@ export const HRMSProvider: React.FC<HRMSProviderProps> = ({ children, initialUse
     }
 
     try {
-      await fetch('/api/leaves', {
+      await authFetch('/api/leaves', {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, status, reviewerId: currentUser.id }),
+        body: { id, status, reviewerId: currentUser.id },
       });
       await refreshLeaveBalances(currentUser.id);
     } catch (err) {
@@ -661,19 +709,17 @@ export const HRMSProvider: React.FC<HRMSProviderProps> = ({ children, initialUse
     setHelpDeskTickets((prev) => [created, ...prev]);
 
     try {
-      const res = await fetch('/api/help-desk', {
+      const json = await authFetch<{ success: boolean; data?: any }>('/api/help-desk', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+        body: {
           employeeId: currentUser.id,
           category: ticket.category,
           priority: ticket.priority,
           subject: ticket.subject,
           description: ticket.description,
-        }),
+        },
       });
-      const json = await res.json();
-      if (json.success && json.data) {
+      if (json?.success && json.data) {
         setHelpDeskTickets((prev) => prev.map((t) => t.id === tempId ? { ...t, id: json.data.id } : t));
         return json.data.id;
       }
@@ -692,15 +738,14 @@ export const HRMSProvider: React.FC<HRMSProviderProps> = ({ children, initialUse
     } : ticket));
 
     try {
-      await fetch('/api/help-desk', {
+      await authFetch('/api/help-desk', {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+        body: {
           id,
           status,
           resolution: resolution?.trim(),
           resolvedById: currentUser.id,
-        }),
+        },
       });
     } catch (err) {
       console.error('Failed to update help desk ticket in database:', err);

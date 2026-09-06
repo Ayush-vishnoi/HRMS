@@ -1,5 +1,6 @@
 'use client';
 
+import { authFetch } from '@/lib/api-client';
 import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Mail, KeyRound, ArrowRight, CheckCircle2, AlertCircle, ShieldCheck, Sparkles } from 'lucide-react';
@@ -38,7 +39,7 @@ function CandidateLoginContent() {
     setMessage(null);
 
     try {
-      const res = await fetch('/api/candidate/auth/request-token', {
+      const res = await authFetch<Response>('/api/candidate/auth/request-token', { raw: true,
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: email.trim() }),
@@ -72,7 +73,7 @@ function CandidateLoginContent() {
     setError(null);
 
     try {
-      const res = await fetch('/api/candidate/auth/verify', {
+      const res = await authFetch<Response>('/api/candidate/auth/verify', { raw: true,
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token: targetToken.trim(), email: email.trim() || undefined }),

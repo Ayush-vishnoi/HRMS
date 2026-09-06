@@ -1,5 +1,6 @@
 'use client';
 
+import { authFetch } from '@/lib/api-client';
 import React, { useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -40,6 +41,7 @@ import {
   Download,
   Eye,
   Printer,
+  Wallet,
 } from 'lucide-react';
 
 import { useHRMS } from '@/shared/providers/HRMSContext';
@@ -49,6 +51,8 @@ import type {
   RecruitmentCandidate,
   RecruitmentJob,
 } from '@/features/recruitment/data/recruitment';
+import ResumeReviewQueue from '@/features/recruitment/components/ResumeReviewQueue';
+import AddCandidateManualModal from '@/features/recruitment/components/AddCandidateManualModal';
 
 const stages = [
   'All',
@@ -235,6 +239,7 @@ export default function RecruitmentPage() {
   // Modals
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [isAddJdOpen, setIsAddJdOpen] = useState(false);
+  const [isAddCandidateOpen, setIsAddCandidateOpen] = useState(false);
   const [newTagInput, setNewTagInput] = useState('');
   const [isAddingTag, setIsAddingTag] = useState(false);
 
@@ -293,8 +298,12 @@ export default function RecruitmentPage() {
   const [isSubmittingOffer, setIsSubmittingOffer] = useState(false);
   const [offerError, setOfferError] = useState<string | null>(null);
 
-  // Phase 4C-C2: Multi-Level Offer Approval Workflow
+  // Phase 4C-C2: Single-Level (HR) Offer Approval Workflow
   const [isSubmitApprovalModalOpen, setIsSubmitApprovalModalOpen] = useState(false);
+  // Detail-panel collapsible sections (declutter)
+  const [isTimelineCollapsed, setIsTimelineCollapsed] = useState(false);
+  const [isNotesCollapsed, setIsNotesCollapsed] = useState(false);
+  const [isOfferDocsCollapsed, setIsOfferDocsCollapsed] = useState(false);
   const [isApproveOfferModalOpen, setIsApproveOfferModalOpen] = useState(false);
   const [isRequestChangesModalOpen, setIsRequestChangesModalOpen] = useState(false);
   const [isRejectOfferModalOpen, setIsRejectOfferModalOpen] = useState(false);
@@ -315,6 +324,8 @@ export default function RecruitmentPage() {
   const [docPreviewTitle, setDocPreviewTitle] = useState<string>('');
   const [isGeneratingDoc, setIsGeneratingDoc] = useState(false);
   const [isPreviewingDoc, setIsPreviewingDoc] = useState(false);
+  const [isSendingOffer, setIsSendingOffer] = useState(false);
+  const [offerPortalUrl, setOfferPortalUrl] = useState<{ url: string; expiresAt: string } | null>(null);
   const [docActionError, setDocActionError] = useState<string | null>(null);
 
   // Live weighted score calculation
@@ -370,7 +381,7 @@ export default function RecruitmentPage() {
   ----------------------------- */
   const loadData = async (signal?: AbortSignal) => {
     try {
-      const response = await fetch('/api/recruitment', { cache: 'no-store', signal });
+      const response = await authFetch<Response>('/api/recruitment', { raw: true, cache: 'no-store', signal });
       const payload = await response.json();
       if (payload?.success && payload?.data) {
         const nextJobs: RecruitmentJob[] = (payload.data.jobs || []).map((j: any) => ({
@@ -461,7 +472,7 @@ export default function RecruitmentPage() {
     if (!candidateId) return;
     setIsLoadingInterviews(true);
     try {
-      const res = await fetch(`/api/recruitment/interviews?candidateId=${candidateId}`);
+      const res = await authFetch<Response>(`/api/recruitment/interviews?candidateId=${candidateId}`, { raw: true });
       const data = await res.json();
       if (data.success) {
         setInterviews(data.data || []);
@@ -475,7 +486,7 @@ export default function RecruitmentPage() {
 
   useEffect(() => {
     // Load employee directory for panel assignment
-    fetch('/api/employees')
+    authFetch<Response>('/api/employees', { raw: true })
       .then((res) => res.json())
       .then((json) => {
         if (json.success && Array.isArray(json.data)) {
@@ -491,14 +502,14 @@ export default function RecruitmentPage() {
     void loadInterviews(selectedCandidateId);
     void loadOffers(selectedCandidateId);
 
-    fetch(`/api/recruitment/candidates/${selectedCandidateId}/notes`)
+    authFetch<Response>(`/api/recruitment/candidates/${selectedCandidateId}/notes`, { raw: true })
       .then((res) => res.json())
       .then((data) => {
         if (data.success) setNotes(data.data || []);
       })
       .catch(() => {});
 
-    fetch(`/api/recruitment/candidates/${selectedCandidateId}/timeline`)
+    authFetch<Response>(`/api/recruitment/candidates/${selectedCandidateId}/timeline`, { raw: true })
       .then((res) => res.json())
       .then((data) => {
         if (data.success) setTimeline(data.data || []);
@@ -567,7 +578,7 @@ export default function RecruitmentPage() {
       const formData = new FormData();
       formData.append('file', file);
 
-      const res = await fetch(`/api/recruitment/candidates/${candidateId}/resume`, {
+      const res = await authFetch<Response>(`/api/recruitment/candidates/${candidateId}/resume`, { raw: true,
         method: 'POST',
         body: formData,
       });
@@ -591,7 +602,7 @@ export default function RecruitmentPage() {
     showNotice('Re-parsing resume and recalculating match intelligence...');
 
     try {
-      const res = await fetch(`/api/recruitment/candidates/${candidateId}/parse-resume`, {
+      const res = await authFetch<Response>(`/api/recruitment/candidates/${candidateId}/parse-resume`, { raw: true,
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({}),
@@ -618,7 +629,7 @@ export default function RecruitmentPage() {
     setIsRediscoveryOpen(true);
     setIsLoadingRediscovery(true);
     try {
-      const res = await fetch(`/api/recruitment/jobs/${selectedJob.id}/rediscover?minScore=40`);
+      const res = await authFetch<Response>(`/api/recruitment/jobs/${selectedJob.id}/rediscover?minScore=40`, { raw: true });
       const json = await res.json();
       if (json.rediscoveredCandidates) {
         setRediscoveredCandidates(json.rediscoveredCandidates);
@@ -632,7 +643,7 @@ export default function RecruitmentPage() {
 
   const handleAddRediscoveredCandidate = async (candidateId: string) => {
     try {
-      const res = await fetch(`/api/recruitment/candidates/${candidateId}/add-to-job`, {
+      const res = await authFetch<Response>(`/api/recruitment/candidates/${candidateId}/add-to-job`, { raw: true,
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ targetJobId: selectedJob.id }),
@@ -759,13 +770,13 @@ export default function RecruitmentPage() {
 
       let res;
       if (editingInterviewId) {
-        res = await fetch(`/api/recruitment/interviews/${editingInterviewId}`, {
+        res = await authFetch<Response>(`/api/recruitment/interviews/${editingInterviewId}`, { raw: true,
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
         });
       } else {
-        res = await fetch('/api/recruitment/interviews', {
+        res = await authFetch<Response>('/api/recruitment/interviews', { raw: true,
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
@@ -784,7 +795,7 @@ export default function RecruitmentPage() {
         await loadData();
 
         // Refresh timeline
-        const tlRes = await fetch(`/api/recruitment/candidates/${selectedCandidate.id}/timeline`);
+        const tlRes = await authFetch<Response>(`/api/recruitment/candidates/${selectedCandidate.id}/timeline`, { raw: true });
         const tlJson = await tlRes.json();
         if (tlJson.success) setTimeline(tlJson.data || []);
       } else {
@@ -799,7 +810,7 @@ export default function RecruitmentPage() {
 
   const handleUpdateInterviewStatus = async (interviewId: string, nextStatus: string) => {
     try {
-      const res = await fetch(`/api/recruitment/interviews/${interviewId}`, {
+      const res = await authFetch<Response>(`/api/recruitment/interviews/${interviewId}`, { raw: true,
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: nextStatus }),
@@ -809,7 +820,7 @@ export default function RecruitmentPage() {
         showNotice(`Interview marked as ${nextStatus}`);
         if (selectedCandidate) {
           await loadInterviews(selectedCandidate.id);
-          const tlRes = await fetch(`/api/recruitment/candidates/${selectedCandidate.id}/timeline`);
+          const tlRes = await authFetch<Response>(`/api/recruitment/candidates/${selectedCandidate.id}/timeline`, { raw: true });
           const tlJson = await tlRes.json();
           if (tlJson.success) setTimeline(tlJson.data || []);
         }
@@ -860,7 +871,7 @@ export default function RecruitmentPage() {
         comments: feedbackComments.trim() || undefined,
       };
 
-      const res = await fetch(`/api/recruitment/interviews/${feedbackInterview.id}/feedback`, {
+      const res = await authFetch<Response>(`/api/recruitment/interviews/${feedbackInterview.id}/feedback`, { raw: true,
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -872,7 +883,7 @@ export default function RecruitmentPage() {
         setIsFeedbackModalOpen(false);
         if (selectedCandidate) {
           await loadInterviews(selectedCandidate.id);
-          const tlRes = await fetch(`/api/recruitment/candidates/${selectedCandidate.id}/timeline`);
+          const tlRes = await authFetch<Response>(`/api/recruitment/candidates/${selectedCandidate.id}/timeline`, { raw: true });
           const tlJson = await tlRes.json();
           if (tlJson.success) setTimeline(tlJson.data || []);
         }
@@ -904,7 +915,7 @@ export default function RecruitmentPage() {
         throw new Error('Please provide an evaluation justification / notes for this decision.');
       }
 
-      const res = await fetch(`/api/recruitment/candidates/${selectedCandidate.id}/selection`, {
+      const res = await authFetch<Response>(`/api/recruitment/candidates/${selectedCandidate.id}/selection`, { raw: true,
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -927,7 +938,7 @@ export default function RecruitmentPage() {
         await loadData();
         if (selectedCandidate) {
           await loadInterviews(selectedCandidate.id);
-          const tlRes = await fetch(`/api/recruitment/candidates/${selectedCandidate.id}/timeline`);
+          const tlRes = await authFetch<Response>(`/api/recruitment/candidates/${selectedCandidate.id}/timeline`, { raw: true });
           const tlJson = await tlRes.json();
           if (tlJson.success) setTimeline(tlJson.data || []);
         }
@@ -946,7 +957,7 @@ export default function RecruitmentPage() {
   ----------------------------- */
   const loadOffers = async (candidateId: string) => {
     try {
-      const res = await fetch(`/api/recruitment/offers?candidateId=${candidateId}`);
+      const res = await authFetch<Response>(`/api/recruitment/offers?candidateId=${candidateId}`, { raw: true });
       const json = await res.json();
       if (json.success) {
         setCandidateOffers(json.data || []);
@@ -1000,7 +1011,7 @@ export default function RecruitmentPage() {
     try {
       let res;
       if (offerIdToEdit) {
-        res = await fetch(`/api/recruitment/offers/${offerIdToEdit}`, {
+        res = await authFetch<Response>(`/api/recruitment/offers/${offerIdToEdit}`, { raw: true,
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -1014,7 +1025,7 @@ export default function RecruitmentPage() {
           }),
         });
       } else {
-        res = await fetch('/api/recruitment/offers', {
+        res = await authFetch<Response>('/api/recruitment/offers', { raw: true,
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -1041,7 +1052,7 @@ export default function RecruitmentPage() {
         await loadData();
         if (selectedCandidate) {
           await loadOffers(selectedCandidate.id);
-          const tlRes = await fetch(`/api/recruitment/candidates/${selectedCandidate.id}/timeline`);
+          const tlRes = await authFetch<Response>(`/api/recruitment/candidates/${selectedCandidate.id}/timeline`, { raw: true });
           const tlJson = await tlRes.json();
           if (tlJson.success) setTimeline(tlJson.data || []);
         }
@@ -1064,9 +1075,7 @@ export default function RecruitmentPage() {
     setApprovalActionError(null);
 
     try {
-      const res = await fetch(
-        `/api/recruitment/offers/${activeOfferForApproval.id}/submit-approval`,
-        {
+      const res = await authFetch<Response>(`/api/recruitment/offers/${activeOfferForApproval.id}/submit-approval`, { raw: true,
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -1080,11 +1089,11 @@ export default function RecruitmentPage() {
         setIsSubmitApprovalModalOpen(false);
         setApprovalActionComment('');
         setActiveOfferForApproval(null);
-        alert('Offer submitted for multi-level approval successfully!');
+        alert('Offer submitted for HR approval successfully!');
         await loadData();
         if (selectedCandidate) {
           await loadOffers(selectedCandidate.id);
-          const tlRes = await fetch(`/api/recruitment/candidates/${selectedCandidate.id}/timeline`);
+          const tlRes = await authFetch<Response>(`/api/recruitment/candidates/${selectedCandidate.id}/timeline`, { raw: true });
           const tlJson = await tlRes.json();
           if (tlJson.success) setTimeline(tlJson.data || []);
         }
@@ -1104,9 +1113,7 @@ export default function RecruitmentPage() {
     setApprovalActionError(null);
 
     try {
-      const res = await fetch(
-        `/api/recruitment/offers/${activeOfferForApproval.id}/approvals`,
-        {
+      const res = await authFetch<Response>(`/api/recruitment/offers/${activeOfferForApproval.id}/approvals`, { raw: true,
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -1125,9 +1132,7 @@ export default function RecruitmentPage() {
         setActiveOfferForApproval(null);
         alert(
           action === 'APPROVE'
-            ? json.data?.isFullyApproved
-              ? 'Offer has been fully approved by all levels!'
-              : 'Level approved successfully! Next level has been activated.'
+            ? 'Offer approved successfully!'
             : action === 'REQUEST_CHANGES'
             ? 'Changes requested. Offer returned to Draft for recruiter revisions.'
             : 'Offer has been rejected.'
@@ -1135,7 +1140,7 @@ export default function RecruitmentPage() {
         await loadData();
         if (selectedCandidate) {
           await loadOffers(selectedCandidate.id);
-          const tlRes = await fetch(`/api/recruitment/candidates/${selectedCandidate.id}/timeline`);
+          const tlRes = await authFetch<Response>(`/api/recruitment/candidates/${selectedCandidate.id}/timeline`, { raw: true });
           const tlJson = await tlRes.json();
           if (tlJson.success) setTimeline(tlJson.data || []);
         }
@@ -1160,7 +1165,7 @@ export default function RecruitmentPage() {
     setIsDocGenModalOpen(true);
 
     try {
-      const res = await fetch(`/api/recruitment/offers/${offer.id}/documents`);
+      const res = await authFetch<Response>(`/api/recruitment/offers/${offer.id}/documents`, { raw: true });
       const json = await res.json();
       if (json.success) {
         setAvailableDocTemplates(json.templates || []);
@@ -1173,7 +1178,7 @@ export default function RecruitmentPage() {
 
   const handleFetchOfferDocuments = async (offerId: string) => {
     try {
-      const res = await fetch(`/api/recruitment/offers/${offerId}/documents`);
+      const res = await authFetch<Response>(`/api/recruitment/offers/${offerId}/documents`, { raw: true });
       const json = await res.json();
       if (json.success) {
         setOfferDocumentsList(json.documents || []);
@@ -1187,7 +1192,7 @@ export default function RecruitmentPage() {
     setIsPreviewingDoc(true);
     setDocActionError(null);
     try {
-      const res = await fetch(`/api/recruitment/offers/${offerId}/documents/preview`, {
+      const res = await authFetch<Response>(`/api/recruitment/offers/${offerId}/documents/preview`, { raw: true,
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ documentType: docType, templateId: templateId || undefined }),
@@ -1213,7 +1218,7 @@ export default function RecruitmentPage() {
     setDocActionError(null);
 
     try {
-      const res = await fetch(`/api/recruitment/offers/${activeOfferForDoc.id}/documents`, {
+      const res = await authFetch<Response>(`/api/recruitment/offers/${activeOfferForDoc.id}/documents`, { raw: true,
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1224,12 +1229,19 @@ export default function RecruitmentPage() {
 
       const json = await res.json();
       if (json.success) {
-        showNotice(`Official ${json.document.templateName || json.document.documentType} generated successfully!`);
+        showNotice(
+          json.autoSentToCandidate
+            ? `${json.document.templateName || json.document.documentType} generated — offer auto-sent to candidate!`
+            : `Official ${json.document.templateName || json.document.documentType} generated successfully!`
+        );
+        if (json.autoSentToCandidate && json.portalUrl) {
+          setOfferPortalUrl({ url: json.portalUrl, expiresAt: json.portalUrlExpiresAt });
+        }
         setIsDocGenModalOpen(false);
         if (selectedCandidate) {
           await loadOffers(selectedCandidate.id);
           await handleFetchOfferDocuments(activeOfferForDoc.id);
-          const tlRes = await fetch(`/api/recruitment/candidates/${selectedCandidate.id}/timeline`);
+          const tlRes = await authFetch<Response>(`/api/recruitment/candidates/${selectedCandidate.id}/timeline`, { raw: true });
           const tlJson = await tlRes.json();
           if (tlJson.success) setTimeline(tlJson.data || []);
         }
@@ -1240,6 +1252,40 @@ export default function RecruitmentPage() {
       setDocActionError(e.message || 'Error generating document.');
     } finally {
       setIsGeneratingDoc(false);
+    }
+  };
+
+  /* ---------------------------------------------
+     OFFER DISPATCH: SEND / RE-SEND TO CANDIDATE
+     (magic-link confirmation email + status 'Sent')
+  --------------------------------------------- */
+  const handleSendOfferToCandidate = async (offerId: string) => {
+    if (!selectedCandidate) return;
+    setIsSendingOffer(true);
+    setDocActionError(null);
+
+    try {
+      const res = await authFetch<Response>(`/api/recruitment/offers/${offerId}/send`, { raw: true,
+        method: 'POST',
+      });
+
+      const json = await res.json();
+      if (json.success) {
+        showNotice(json.message || 'Offer sent to candidate.');
+        if (json.portalUrl) {
+          setOfferPortalUrl({ url: json.portalUrl, expiresAt: json.portalUrlExpiresAt });
+        }
+        await loadOffers(selectedCandidate.id);
+        const tlRes = await authFetch<Response>(`/api/recruitment/candidates/${selectedCandidate.id}/timeline`, { raw: true });
+        const tlJson = await tlRes.json();
+        if (tlJson.success) setTimeline(tlJson.data || []);
+      } else {
+        setDocActionError(json.error || 'Failed to send offer.');
+      }
+    } catch (e: any) {
+      setDocActionError(e.message || 'Error sending offer.');
+    } finally {
+      setIsSendingOffer(false);
     }
   };
 
@@ -1255,7 +1301,7 @@ export default function RecruitmentPage() {
     setIsTransitioning(true);
 
     try {
-      const res = await fetch(`/api/recruitment/candidates/${selectedCandidate.id}/stage`, {
+      const res = await authFetch<Response>(`/api/recruitment/candidates/${selectedCandidate.id}/stage`, { raw: true,
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1273,7 +1319,7 @@ export default function RecruitmentPage() {
         setTransitionNote('');
 
         // Refresh timeline
-        const tlRes = await fetch(`/api/recruitment/candidates/${selectedCandidate.id}/timeline`);
+        const tlRes = await authFetch<Response>(`/api/recruitment/candidates/${selectedCandidate.id}/timeline`, { raw: true });
         const tlJson = await tlRes.json();
         if (tlJson.success) setTimeline(tlJson.data || []);
       } else {
@@ -1295,7 +1341,7 @@ export default function RecruitmentPage() {
     setIsSubmittingNote(true);
 
     try {
-      const res = await fetch(`/api/recruitment/candidates/${selectedCandidate.id}/notes`, {
+      const res = await authFetch<Response>(`/api/recruitment/candidates/${selectedCandidate.id}/notes`, { raw: true,
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ note: newNoteText.trim() }),
@@ -1307,7 +1353,7 @@ export default function RecruitmentPage() {
         showNotice('Note added to candidate profile');
 
         // Refresh timeline
-        const tlRes = await fetch(`/api/recruitment/candidates/${selectedCandidate.id}/timeline`);
+        const tlRes = await authFetch<Response>(`/api/recruitment/candidates/${selectedCandidate.id}/timeline`, { raw: true });
         const tlJson = await tlRes.json();
         if (tlJson.success) setTimeline(tlJson.data || []);
       } else {
@@ -1328,7 +1374,7 @@ export default function RecruitmentPage() {
     const updatedTags = Array.from(new Set([...(selectedCandidate.tags || []), newTagInput.trim()]));
 
     try {
-      const res = await fetch(`/api/recruitment/candidates/${selectedCandidate.id}`, {
+      const res = await authFetch<Response>(`/api/recruitment/candidates/${selectedCandidate.id}`, { raw: true,
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tags: updatedTags }),
@@ -1352,25 +1398,25 @@ export default function RecruitmentPage() {
     try {
       let res;
       if (action === 'submit_approval') {
-        res = await fetch(`/api/recruitment/jobs/${jobId}`, {
+        res = await authFetch<Response>(`/api/recruitment/jobs/${jobId}`, { raw: true,
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'submit_approval', note }),
         });
       } else if (['APPROVE', 'REJECT', 'REQUEST_CHANGES'].includes(action)) {
-        res = await fetch(`/api/recruitment/jobs/${jobId}/approvals`, {
+        res = await authFetch<Response>(`/api/recruitment/jobs/${jobId}/approvals`, { raw: true,
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action, note }),
         });
       } else if (action === 'publish') {
-        res = await fetch(`/api/recruitment/jobs/${jobId}`, {
+        res = await authFetch<Response>(`/api/recruitment/jobs/${jobId}`, { raw: true,
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'publish' }),
         });
       } else if (action === 'hold' || action === 'close') {
-        res = await fetch(`/api/recruitment/jobs/${jobId}`, {
+        res = await authFetch<Response>(`/api/recruitment/jobs/${jobId}`, { raw: true,
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action }),
@@ -1408,7 +1454,7 @@ export default function RecruitmentPage() {
       .filter(Boolean);
 
     try {
-      const res = await fetch('/api/recruitment/jobs', {
+      const res = await authFetch<Response>('/api/recruitment/jobs', { raw: true,
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1485,6 +1531,15 @@ export default function RecruitmentPage() {
           >
             <Upload className="h-4 w-4 text-[#315B76]" />
             Upload resumes
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setIsAddCandidateOpen(true)}
+            className="inline-flex items-center gap-2 rounded-lg border border-[#9FC2DC] bg-white px-3 py-2 text-xs font-semibold text-[#17324A] shadow-sm transition-colors hover:bg-[#E8F2FA]"
+          >
+            <UserPlus className="h-4 w-4 text-[#315B76]" />
+            Add Candidate Manually
           </button>
 
           <button
@@ -1844,8 +1899,8 @@ export default function RecruitmentPage() {
               </div>
             </div>
 
-            {/* Stage Transition Bar */}
-            <div className="mt-3.5 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[#C3D9E8] bg-[#F4F9FC] p-2.5">
+            {/* Stage Transition Bar — separated with divider + consistent spacing */}
+            <div className="mt-5 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[#C3D9E8] bg-[#F4F9FC] p-2.5">
               <div className="flex items-center gap-1.5 text-xs font-semibold text-[#17324A]">
                 <span>Move candidate:</span>
               </div>
@@ -1924,6 +1979,7 @@ export default function RecruitmentPage() {
                     Onboarded · {selectedCandidate.onboardingEmployeeCode}
                   </span>
                 ) : (
+                  candidateOffers[0]?.status === 'Accepted' &&
                   (selectedCandidate.stage === 'Shortlisted' ||
                     selectedCandidate.stage === 'Selected' ||
                     selectedCandidate.stage === 'Offer') && (
@@ -1945,8 +2001,15 @@ export default function RecruitmentPage() {
             {/* Phase 4C-C1: Offer Card if candidate has offers or is in Offer stage */}
             {candidateOffers.length > 0 && (() => {
               const latestOffer = candidateOffers[0];
+              let declineReason: string | null = latestOffer.compensationSnapshot?.declineReason || null;
+              if (!declineReason && latestOffer.content_snapshot) {
+                try {
+                  const parsedSnap = JSON.parse(latestOffer.content_snapshot);
+                  declineReason = parsedSnap?.declineReason || null;
+                } catch (e) {}
+              }
               return (
-                <div className="mt-3 rounded-lg border border-[#9FC2DC] bg-[#F8FAFC] p-3 shadow-xs">
+                <div className="mt-5 rounded-lg border border-[#9FC2DC] bg-[#F8FAFC] p-3.5 shadow-xs">
                   <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-2">
                     <div className="flex items-center gap-2">
                       <span className="rounded bg-[#17324A] px-2 py-0.5 text-[10px] font-bold text-white">
@@ -1963,6 +2026,8 @@ export default function RecruitmentPage() {
                             ? 'bg-[#FEF3C7] text-[#92400E] border-[#FDE68A]'
                             : latestOffer.status === 'Approved' || latestOffer.status === 'Accepted'
                             ? 'bg-[#DCFCE7] text-[#166534] border-[#BBF7D0]'
+                            : latestOffer.status === 'Sent' || latestOffer.status === 'Viewed'
+                            ? 'bg-[#E8F2FA] text-[#17324A] border-[#9FC2DC]'
                             : 'bg-[#F1F5F9] text-[#475569] border-[#E2E8F0]'
                         }`}
                       >
@@ -1980,42 +2045,51 @@ export default function RecruitmentPage() {
                     </div>
                   </div>
 
-                  <div className="mt-2.5 grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
-                    <div className="rounded bg-white p-2 border border-[#E2E8F0]">
-                      <span className="text-[10px] text-[#64748B] block">Annual CTC</span>
-                      <span className="font-bold text-[#0F172A] text-xs">
-                        ₹{Number(latestOffer.offered_ctc || 0).toLocaleString('en-IN')}
+                  {/* Offer Summary Card (FIX 2: grouped stats with header) */}
+                  <div className="mt-3 rounded-lg border border-[#C3D9E8] bg-white p-3">
+                    <div className="flex items-center gap-2 border-b border-[#E2E8F0] pb-2">
+                      <Wallet className="h-3.5 w-3.5 text-[#17324A]" />
+                      <span className="text-[11px] font-bold uppercase tracking-wide text-[#17324A]">
+                        Offer Summary
                       </span>
                     </div>
-                    <div className="rounded bg-white p-2 border border-[#E2E8F0]">
-                      <span className="text-[10px] text-[#64748B] block">Est. Monthly In-Hand</span>
-                      <span className="font-bold text-[#166534] text-xs">
-                        ₹{Number(latestOffer.compensationSnapshot?.estimatedNetTakeHomeMonthly || 0).toLocaleString('en-IN')}
-                      </span>
-                    </div>
-                    <div className="rounded bg-white p-2 border border-[#E2E8F0]">
-                      <span className="text-[10px] text-[#64748B] block">Proposed Joining</span>
-                      <span className="font-semibold text-[#0F172A] text-xs">
-                        {latestOffer.proposed_join_date
-                          ? new Date(latestOffer.proposed_join_date).toLocaleDateString()
-                          : 'TBD'}
-                      </span>
-                    </div>
-                    <div className="rounded bg-white p-2 border border-[#E2E8F0]">
-                      <span className="text-[10px] text-[#64748B] block">Offer Expiry</span>
-                      <span className="font-semibold text-[#0F172A] text-xs">
-                        {latestOffer.expires_at
-                          ? new Date(latestOffer.expires_at).toLocaleDateString()
-                          : 'None'}
-                      </span>
+                    <div className="mt-2.5 grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                      <div className="rounded bg-[#F8FAFC] p-2 border border-[#E2E8F0]">
+                        <span className="text-[10px] text-[#64748B] block">Annual CTC</span>
+                        <span className="font-bold text-[#0F172A] text-xs">
+                          ₹{Number(latestOffer.offered_ctc || 0).toLocaleString('en-IN')}
+                        </span>
+                      </div>
+                      <div className="rounded bg-[#F8FAFC] p-2 border border-[#E2E8F0]">
+                        <span className="text-[10px] text-[#64748B] block">Est. Monthly In-Hand</span>
+                        <span className="font-bold text-[#166534] text-xs">
+                          ₹{Number(latestOffer.compensationSnapshot?.estimatedNetTakeHomeMonthly || 0).toLocaleString('en-IN')}
+                        </span>
+                      </div>
+                      <div className="rounded bg-[#F8FAFC] p-2 border border-[#E2E8F0]">
+                        <span className="text-[10px] text-[#64748B] block">Proposed Joining</span>
+                        <span className="font-semibold text-[#0F172A] text-xs">
+                          {latestOffer.proposed_join_date
+                            ? new Date(latestOffer.proposed_join_date).toLocaleDateString()
+                            : 'TBD'}
+                        </span>
+                      </div>
+                      <div className="rounded bg-[#F8FAFC] p-2 border border-[#E2E8F0]">
+                        <span className="text-[10px] text-[#64748B] block">Offer Expiry</span>
+                        <span className="font-semibold text-[#0F172A] text-xs">
+                          {latestOffer.expires_at
+                            ? new Date(latestOffer.expires_at).toLocaleDateString()
+                            : 'None'}
+                        </span>
+                      </div>
                     </div>
                   </div>
 
-                  {/* Phase 4C-C2: Multi-Level Approval Tracker & Actions */}
+                  {/* Phase 4C-C2: Single-Level HR Approval Status & Actions */}
                   {latestOffer.status === 'Draft' && (
                     <div className="mt-3 flex items-center justify-between border-t border-[#E2E8F0] pt-2.5">
                       <span className="text-[11px] text-[#64748B]">
-                        Ready for review? Submit to Hiring Manager & HR for approval.
+                        Ready for review? Submit to HR for approval.
                       </span>
                       <button
                         type="button"
@@ -2038,52 +2112,24 @@ export default function RecruitmentPage() {
                       <div className="flex items-center justify-between">
                         <span className="text-[11px] font-bold text-[#17324A] flex items-center gap-1.5">
                           <Clock className="h-3.5 w-3.5 text-[#D97706]" />
-                          Multi-Level Approval in Progress
-                        </span>
-                        <span className="text-[10px] font-semibold text-[#64748B]">
-                          Level {latestOffer.approvalSummary?.currentLevel || 1} of {latestOffer.approvalSummary?.totalLevels || 2}
+                          Pending HR Approval
                         </span>
                       </div>
 
-                      {/* Approval Stepper Display */}
-                      <div className="grid grid-cols-2 gap-2 text-[10px]">
-                        <div
-                          className={`rounded p-2 border ${
-                            (latestOffer.approvalSummary?.completedLevels || 0) >= 1
-                              ? 'bg-[#DCFCE7] border-[#BBF7D0] text-[#166534]'
-                              : (latestOffer.approvalSummary?.currentLevel || 1) === 1
-                              ? 'bg-[#FEF3C7] border-[#FDE68A] text-[#92400E]'
-                              : 'bg-white border-[#E2E8F0] text-[#64748B]'
-                          }`}
-                        >
-                          <span className="font-bold block">Level 1: Hiring Manager</span>
-                          <span>
-                            {(latestOffer.approvalSummary?.completedLevels || 0) >= 1
-                              ? '✓ Approved'
-                              : (latestOffer.approvalSummary?.currentLevel || 1) === 1
-                              ? '⏳ Pending Action'
-                              : 'Waiting'}
-                          </span>
-                        </div>
-
-                        <div
-                          className={`rounded p-2 border ${
-                            (latestOffer.approvalSummary?.completedLevels || 0) >= 2
-                              ? 'bg-[#DCFCE7] border-[#BBF7D0] text-[#166534]'
-                              : (latestOffer.approvalSummary?.currentLevel || 1) === 2
-                              ? 'bg-[#FEF3C7] border-[#FDE68A] text-[#92400E]'
-                              : 'bg-white border-[#E2E8F0] text-[#64748B]'
-                          }`}
-                        >
-                          <span className="font-bold block">Level 2: HR / Admin</span>
-                          <span>
-                            {(latestOffer.approvalSummary?.completedLevels || 0) >= 2
-                              ? '✓ Approved'
-                              : (latestOffer.approvalSummary?.currentLevel || 1) === 2
-                              ? '⏳ Pending Action'
-                              : '⏸️ Waiting on Level 1'}
-                          </span>
-                        </div>
+                      {/* Single Approval Status Display */}
+                      <div
+                        className={`rounded p-2.5 border text-[11px] ${
+                          (latestOffer.approvalSummary?.completedLevels || 0) >= 1
+                            ? 'bg-[#DCFCE7] border-[#BBF7D0] text-[#166534]'
+                            : 'bg-[#FEF3C7] border-[#FDE68A] text-[#92400E]'
+                        }`}
+                      >
+                        <span className="font-bold block">HR / Admin Review</span>
+                        <span>
+                          {(latestOffer.approvalSummary?.completedLevels || 0) >= 1
+                            ? '✓ Approved'
+                            : '⏳ Pending Action'}
+                        </span>
                       </div>
 
                       {/* Approver Action Triggers */}
@@ -2091,7 +2137,7 @@ export default function RecruitmentPage() {
                         <span className="text-[10px] text-[#64748B]">
                           {latestOffer.approvalSummary?.canCurrentUserApprove
                             ? 'You are authorized to review this offer:'
-                            : 'Waiting for designated approver response.'}
+                            : 'Waiting for HR approver response.'}
                         </span>
                         {latestOffer.approvalSummary?.canCurrentUserApprove && (
                           <div className="flex items-center gap-1.5">
@@ -2137,21 +2183,79 @@ export default function RecruitmentPage() {
                     </div>
                   )}
 
-                  {latestOffer.status === 'Approved' && (
-                    <div className="mt-3 flex items-center justify-between border-t border-[#E2E8F0] pt-2 text-xs">
-                      <span className="text-[11px] font-bold text-[#166534] flex items-center gap-1">
-                        <CheckCircle2 className="h-3.5 w-3.5 text-[#166534]" />
-                        Offer fully approved by all levels. Ready for generation & sending.
-                      </span>
+                  {latestOffer.status === 'Approved' && (() => {
+                    let approvedDocs: any[] = [];
+                    try {
+                      const parsed = latestOffer.content_snapshot ? JSON.parse(latestOffer.content_snapshot) : null;
+                      if (Array.isArray(parsed?.documents)) approvedDocs = parsed.documents;
+                    } catch (e) {}
+                    return (
+                      <div className="mt-3 flex items-center justify-between border-t border-[#E2E8F0] pt-2 text-xs">
+                        <span className="text-[11px] font-bold text-[#166534] flex items-center gap-1">
+                          <CheckCircle2 className="h-3.5 w-3.5 text-[#166534]" />
+                          {approvedDocs.length > 0
+                            ? 'Approved by HR. Ready to send to the candidate.'
+                            : 'Approved by HR. Generate the first document to auto-send it to the candidate.'}
+                        </span>
+                        {approvedDocs.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => handleSendOfferToCandidate(latestOffer.id)}
+                            disabled={isSendingOffer}
+                            className="inline-flex items-center gap-1 rounded bg-[#23587E] px-2.5 py-1 text-[10px] font-semibold text-white shadow-xs hover:bg-[#1B4461] disabled:opacity-60"
+                          >
+                            <Mail className="h-3 w-3" />
+                            {isSendingOffer ? 'Sending…' : 'Send to Candidate'}
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })()}
+
+                  {(latestOffer.status === 'Sent' || latestOffer.status === 'Viewed') && (
+                    <div className="mt-3 border-t border-[#E2E8F0] pt-2.5 space-y-2">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-[11px] font-bold text-[#23587E] flex items-center gap-1">
+                          <Mail className="h-3.5 w-3.5 text-[#23587E]" />
+                          Sent to candidate — awaiting e-signature & acceptance.
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleSendOfferToCandidate(latestOffer.id)}
+                          disabled={isSendingOffer}
+                          className="inline-flex items-center gap-1 rounded bg-[#23587E] px-2.5 py-1 text-[10px] font-semibold text-white shadow-xs hover:bg-[#1B4461] disabled:opacity-60"
+                        >
+                          <Mail className="h-3 w-3" />
+                          {isSendingOffer ? 'Sending…' : 'Resend Email'}
+                        </button>
+                      </div>
+                      {latestOffer.sent_at && (
+                        <p className="text-[10px] text-[#64748B]">
+                          Last sent: {new Date(latestOffer.sent_at).toLocaleString('en-GB')}
+                        </p>
+                      )}
+                      {offerPortalUrl && (
+                        <div className="rounded border border-[#9FC2DC] bg-[#E8F2FA] p-2 text-[10px] text-[#17324A] break-all">
+                          <span className="font-bold">Candidate portal link (single-use, expires {new Date(offerPortalUrl.expiresAt).toLocaleTimeString('en-GB')}):</span>{' '}
+                          <a href={offerPortalUrl.url} target="_blank" rel="noreferrer" className="underline text-[#23587E]">
+                            {offerPortalUrl.url}
+                          </a>
+                        </div>
+                      )}
                     </div>
                   )}
 
                   {latestOffer.status === 'Declined' && (
-                    <div className="mt-3 flex items-center justify-between border-t border-[#E2E8F0] pt-2 text-xs">
+                    <div className="mt-3 border-t border-[#E2E8F0] pt-2 text-xs">
                       <span className="text-[11px] font-bold text-[#9F1239] flex items-center gap-1">
                         <AlertCircle className="h-3.5 w-3.5 text-[#9F1239]" />
-                        Offer was declined/rejected during review.
+                        Offer was declined/rejected during review — read-only.
                       </span>
+                      {declineReason && (
+                        <p className="mt-1 pl-5 text-[11px] italic text-[#9F1239]">
+                          Candidate's reason: "{declineReason}"
+                        </p>
+                      )}
                     </div>
                   )}
 
@@ -2164,14 +2268,22 @@ export default function RecruitmentPage() {
                     } catch (e) {}
 
                     return (
-                      <div className="mt-3 border-t border-[#E2E8F0] pt-2 text-xs space-y-2">
+                      <div className="mt-3 border-t border-[#E2E8F0] pt-2.5 text-xs space-y-2">
                         <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => setIsOfferDocsCollapsed(!isOfferDocsCollapsed)}
+                            className="flex items-center gap-1.5 text-left"
+                            aria-expanded={!isOfferDocsCollapsed}
+                          >
+                            <ChevronDown
+                              className={`h-3.5 w-3.5 text-[#64748B] transition-transform duration-200 ${isOfferDocsCollapsed ? '-rotate-90' : ''}`}
+                            />
                             <FileText className="h-3.5 w-3.5 text-[#17324A]" />
                             <span className="font-bold text-[#17324A]">Generated Documents ({docs.length})</span>
-                          </div>
+                          </button>
                           <div className="flex items-center gap-1.5">
-                            {latestOffer.status === 'Approved' ? (
+                            {['Approved', 'Sent'].includes(latestOffer.status) ? (
                               <button
                                 type="button"
                                 onClick={() => openDocGenModal(latestOffer)}
@@ -2193,7 +2305,7 @@ export default function RecruitmentPage() {
                           </div>
                         </div>
 
-                        {docs.length > 0 ? (
+                        {!isOfferDocsCollapsed && (docs.length > 0 ? (
                           <div className="space-y-1.5 pt-1">
                             {docs.map((doc: any) => (
                               <div
@@ -2234,11 +2346,11 @@ export default function RecruitmentPage() {
                           </div>
                         ) : (
                           <p className="text-[10px] text-[#64748B] italic">
-                            {latestOffer.status === 'Approved'
+                            {['Approved', 'Sent'].includes(latestOffer.status)
                               ? 'No documents generated yet. Click "Generate Document" to create formal Offer/Appointment/NDA letters.'
                               : 'Official document generation is unlocked once the offer is fully Approved.'}
                           </p>
-                        )}
+                        ))}
                       </div>
                     );
                   })()}
@@ -2253,7 +2365,7 @@ export default function RecruitmentPage() {
               if (!upcomingInterview) return null;
 
               return (
-                <div className="mt-3 flex items-center justify-between rounded-lg border border-[#9FC2DC] bg-[#E8F2FA] p-2.5">
+                <div className="mt-5 flex items-center justify-between rounded-lg border border-[#9FC2DC] bg-[#E8F2FA] p-2.5">
                   <div className="flex items-center gap-2">
                     <div className="rounded-md bg-[#17324A] p-1.5 text-white">
                       <Calendar className="h-3.5 w-3.5" />
@@ -2547,27 +2659,45 @@ export default function RecruitmentPage() {
             {/* TAB CONTENT 2: RECRUITER NOTES (CRM) */}
             {activeTab === 'notes' && (
               <div className="mt-4 space-y-4">
-                <form onSubmit={handleAddNote} className="space-y-2">
-                  <textarea
-                    rows={2}
-                    required
-                    placeholder="Add recruiter or interview feedback note..."
-                    value={newNoteText}
-                    onChange={(e) => setNewNoteText(e.target.value)}
-                    className="w-full rounded-lg border border-[#C3D9E8] p-2.5 text-xs text-[#17324A] outline-none focus:border-[#6FA6C9]"
+                <button
+                  type="button"
+                  onClick={() => setIsNotesCollapsed(!isNotesCollapsed)}
+                  className="flex w-full items-center justify-between rounded-lg border border-[#C3D9E8] bg-[#F8FAFC] px-3 py-2 text-left"
+                  aria-expanded={!isNotesCollapsed}
+                >
+                  <span className="flex items-center gap-1.5">
+                    <MessageSquare className="h-3.5 w-3.5 text-[#17324A]" />
+                    <span className="text-xs font-bold text-[#17324A]">Recruiter Notes ({notes.length})</span>
+                  </span>
+                  <ChevronDown
+                    className={`h-3.5 w-3.5 text-[#64748B] transition-transform duration-200 ${isNotesCollapsed ? '-rotate-90' : ''}`}
                   />
-                  <div className="flex justify-end">
-                    <button
-                      type="submit"
-                      disabled={isSubmittingNote}
-                      className="rounded-lg bg-[#17324A] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#315B76]"
-                    >
-                      {isSubmittingNote ? 'Saving...' : 'Add Note'}
-                    </button>
-                  </div>
-                </form>
+                </button>
 
-                <div className="space-y-2.5 max-h-[360px] overflow-y-auto pr-1">
+                {!isNotesCollapsed && (
+                  <form onSubmit={handleAddNote} className="space-y-2">
+                    <textarea
+                      rows={2}
+                      required
+                      placeholder="Add recruiter or interview feedback note..."
+                      value={newNoteText}
+                      onChange={(e) => setNewNoteText(e.target.value)}
+                      className="w-full rounded-lg border border-[#C3D9E8] p-2.5 text-xs text-[#17324A] outline-none focus:border-[#6FA6C9]"
+                    />
+                    <div className="flex justify-end">
+                      <button
+                        type="submit"
+                        disabled={isSubmittingNote}
+                        className="rounded-lg bg-[#17324A] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#315B76]"
+                      >
+                        {isSubmittingNote ? 'Saving...' : 'Add Note'}
+                      </button>
+                    </div>
+                  </form>
+                )}
+
+                {!isNotesCollapsed && (
+                  <div className="space-y-2.5 max-h-[360px] overflow-y-auto pr-1">
                   {notes.map((n) => (
                     <div key={n.id} className="rounded-lg border border-[#C3D9E8] bg-[#F8FAFC] p-3 text-xs">
                       <div className="flex items-center justify-between text-[10px] text-[#5D7D94]">
@@ -2581,14 +2711,32 @@ export default function RecruitmentPage() {
                   {notes.length === 0 && (
                     <p className="py-6 text-center text-xs text-[#5D7D94]">No recruiter notes yet.</p>
                   )}
-                </div>
+                  </div>
+                )}
               </div>
             )}
 
             {/* TAB CONTENT 3: ACTIVITY TIMELINE */}
             {activeTab === 'timeline' && (
-              <div className="mt-4 space-y-3 max-h-[450px] overflow-y-auto pr-1">
-                {timeline.map((evt, idx) => (
+              <div className="mt-4 space-y-3">
+                <button
+                  type="button"
+                  onClick={() => setIsTimelineCollapsed(!isTimelineCollapsed)}
+                  className="flex w-full items-center justify-between rounded-lg border border-[#C3D9E8] bg-[#F8FAFC] px-3 py-2 text-left"
+                  aria-expanded={!isTimelineCollapsed}
+                >
+                  <span className="flex items-center gap-1.5">
+                    <History className="h-3.5 w-3.5 text-[#17324A]" />
+                    <span className="text-xs font-bold text-[#17324A]">Activity Timeline ({timeline.length})</span>
+                  </span>
+                  <ChevronDown
+                    className={`h-3.5 w-3.5 text-[#64748B] transition-transform duration-200 ${isTimelineCollapsed ? '-rotate-90' : ''}`}
+                  />
+                </button>
+
+                {!isTimelineCollapsed && (
+                  <div className="space-y-3 max-h-[450px] overflow-y-auto pr-1">
+                    {timeline.map((evt, idx) => (
                   <div key={evt.id || idx} className="flex items-start gap-3 text-xs">
                     <div className="mt-0.5 rounded-full border border-[#9FC2DC] bg-[#E8F2FA] p-1 text-[#315B76]">
                       <Clock className="h-3 w-3" />
@@ -2611,8 +2759,10 @@ export default function RecruitmentPage() {
                   </div>
                 ))}
 
-                {timeline.length === 0 && (
-                  <p className="py-6 text-center text-xs text-[#5D7D94]">No timeline activity recorded.</p>
+                    {timeline.length === 0 && (
+                      <p className="py-6 text-center text-xs text-[#5D7D94]">No timeline activity recorded.</p>
+                    )}
+                  </div>
                 )}
               </div>
             )}
@@ -3230,47 +3380,27 @@ export default function RecruitmentPage() {
           RESUME UPLOAD MODAL
       ========================= */}
       {isUploadOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#17324A]/30 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-xl border border-[#9FC2DC] bg-white p-5 shadow-2xl">
-            <div className="flex items-start justify-between">
-              <div>
-                <h2 className="text-sm font-bold text-[#17324A]">Upload resumes</h2>
-                <p className="mt-1 text-xs text-[#5D7D94]">Queue resumes for requisition processing.</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsUploadOpen(false)}
-                className="rounded-md p-1.5 text-[#5D7D94] hover:bg-[#E8F2FA]"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
+        <ResumeReviewQueue
+          jobs={jobs}
+          defaultJobId={selectedJobId}
+          onClose={() => setIsUploadOpen(false)}
+          onCandidateCreated={(message) => {
+            showNotice(message);
+            void loadData();
+          }}
+        />
+      )}
 
-            <label className="mt-5 flex cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed border-[#6FA6C9] bg-[#E8F2FA] px-4 py-8 text-center transition-colors hover:bg-[#DCEAF4]">
-              <Upload className="h-7 w-7 text-[#315B76]" />
-              <span className="mt-2 text-xs font-semibold text-[#17324A]">Choose PDF or DOCX resumes</span>
-              <span className="mt-1 text-[10px] text-[#6F91A8]">Files stay in demo staging</span>
-              <input
-                type="file"
-                multiple
-                accept=".pdf,.doc,.docx"
-                className="sr-only"
-                onChange={() => {
-                  setIsUploadOpen(false);
-                  showNotice('Resume files queued for screening');
-                }}
-              />
-            </label>
-
-            <button
-              type="button"
-              onClick={() => setIsUploadOpen(false)}
-              className="mt-4 w-full rounded-lg border border-[#9FC2DC] bg-[#F4F9FC] px-3 py-2 text-xs font-semibold text-[#17324A] hover:bg-[#E8F2FA]"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
+      {isAddCandidateOpen && (
+        <AddCandidateManualModal
+          jobs={jobs}
+          defaultJobId={selectedJobId}
+          onClose={() => setIsAddCandidateOpen(false)}
+          onCreated={(message) => {
+            showNotice(message);
+            void loadData();
+          }}
+        />
       )}
 
       {/* =========================
@@ -4195,14 +4325,10 @@ export default function RecruitmentPage() {
             )}
 
             <div className="rounded-lg border border-[#9FC2DC] bg-[#F8FAFC] p-3 text-xs space-y-1.5">
-              <span className="font-semibold text-[#17324A] block">Configured Approval Chain:</span>
+              <span className="font-semibold text-[#17324A] block">Approval Route:</span>
               <div className="flex items-center gap-2 text-[11px] text-[#334155]">
                 <span className="rounded bg-[#17324A] text-white px-1.5 py-0.5 text-[9px] font-bold">1</span>
-                <span>Level 1: Hiring Manager (Review & Budget Alignment)</span>
-              </div>
-              <div className="flex items-center gap-2 text-[11px] text-[#334155]">
-                <span className="rounded bg-[#17324A] text-white px-1.5 py-0.5 text-[9px] font-bold">2</span>
-                <span>Level 2: HR / Admin Leadership (Final Authorization)</span>
+                <span>HR / Admin (Single-Level Final Authorization)</span>
               </div>
             </div>
 
