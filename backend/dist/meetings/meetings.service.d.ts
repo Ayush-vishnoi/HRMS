@@ -2,131 +2,112 @@ import { PrismaService } from '../prisma/prisma.service';
 export declare class MeetingsService {
     private prisma;
     constructor(prisma: PrismaService);
-    findAll(employeeId: string, from?: string, to?: string): Promise<({
-        attendees: ({
-            employee: {
-                id: string;
-                name: string;
-                avatarUrl: string | null;
-            };
-        } & {
-            id: string;
-            updatedAt: Date;
-            employeeId: string;
-            rsvp: import("@prisma/client").$Enums.RsvpStatus;
-            responseReason: string | null;
-            meetingId: string;
-        })[];
+    searchEmployees(query: string): Promise<{
+        id: string;
+        name: string;
+        avatarUrl: string | null;
+        department: string;
+        email: string;
+        role: string;
+    }[]>;
+    findOne(employeeId: string, id: string): Promise<{
+        id: any;
+        title: any;
+        type: any;
+        description: any;
+        startsAt: any;
+        endsAt: any;
+        allDay: any;
+        location: any;
+        videoLink: any;
+        department: any;
+        recurrence: any;
+        reminderMinutes: any;
+        status: any;
         organizer: {
-            id: string;
-            name: string;
-            avatarUrl: string | null;
+            id: any;
+            name: any;
+            avatarUrl: any;
+            department: any;
         };
-    } & {
-        id: string;
-        department: string | null;
-        status: import("@prisma/client").$Enums.MeetingStatus;
-        location: string | null;
-        createdAt: Date;
-        updatedAt: Date;
-        organizerId: string;
-        title: string;
-        type: import("@prisma/client").$Enums.MeetingType;
-        description: string | null;
-        startsAt: Date;
-        endsAt: Date;
-        allDay: boolean;
-        videoLink: string | null;
-        recurrence: import("@prisma/client").$Enums.Recurrence;
-        reminderMinutes: number | null;
-    })[]>;
-    findOne(id: string): Promise<{
-        attendees: ({
-            employee: {
-                id: string;
-                name: string;
-                avatarUrl: string | null;
-            };
-        } & {
-            id: string;
-            updatedAt: Date;
-            employeeId: string;
-            rsvp: import("@prisma/client").$Enums.RsvpStatus;
-            responseReason: string | null;
-            meetingId: string;
-        })[];
+        attendees: any;
+    }>;
+    findAll(employeeId: string, filters: {
+        from?: string;
+        to?: string;
+        type?: string;
+        department?: string;
+        mine?: string;
+    }): Promise<{
+        id: any;
+        title: any;
+        type: any;
+        description: any;
+        startsAt: any;
+        endsAt: any;
+        allDay: any;
+        location: any;
+        videoLink: any;
+        department: any;
+        recurrence: any;
+        reminderMinutes: any;
+        status: any;
         organizer: {
-            id: string;
-            name: string;
-            avatarUrl: string | null;
+            id: any;
+            name: any;
+            avatarUrl: any;
+            department: any;
         };
-    } & {
-        id: string;
-        department: string | null;
-        status: import("@prisma/client").$Enums.MeetingStatus;
-        location: string | null;
-        createdAt: Date;
-        updatedAt: Date;
-        organizerId: string;
-        title: string;
-        type: import("@prisma/client").$Enums.MeetingType;
-        description: string | null;
-        startsAt: Date;
-        endsAt: Date;
-        allDay: boolean;
-        videoLink: string | null;
-        recurrence: import("@prisma/client").$Enums.Recurrence;
-        reminderMinutes: number | null;
+        attendees: any;
+    }[]>;
+    create(organizerId: string, body: Record<string, unknown>): Promise<{
+        id: any;
+        title: any;
+        type: any;
+        description: any;
+        startsAt: any;
+        endsAt: any;
+        allDay: any;
+        location: any;
+        videoLink: any;
+        department: any;
+        recurrence: any;
+        reminderMinutes: any;
+        status: any;
+        organizer: {
+            id: any;
+            name: any;
+            avatarUrl: any;
+            department: any;
+        };
+        attendees: any;
     }>;
-    create(organizerId: string, data: any): Promise<{
-        attendees: ({
-            employee: {
-                id: string;
-                name: string;
-            };
-        } & {
-            id: string;
-            updatedAt: Date;
-            employeeId: string;
-            rsvp: import("@prisma/client").$Enums.RsvpStatus;
-            responseReason: string | null;
-            meetingId: string;
-        })[];
-    } & {
+    update(employeeId: string, body: Record<string, unknown> & {
         id: string;
-        department: string | null;
-        status: import("@prisma/client").$Enums.MeetingStatus;
-        location: string | null;
-        createdAt: Date;
-        updatedAt: Date;
-        organizerId: string;
-        title: string;
-        type: import("@prisma/client").$Enums.MeetingType;
-        description: string | null;
-        startsAt: Date;
-        endsAt: Date;
-        allDay: boolean;
-        videoLink: string | null;
-        recurrence: import("@prisma/client").$Enums.Recurrence;
-        reminderMinutes: number | null;
+        action?: string;
+        rsvp?: string;
+        reason?: string;
+    }): Promise<{
+        id: any;
+        title: any;
+        type: any;
+        description: any;
+        startsAt: any;
+        endsAt: any;
+        allDay: any;
+        location: any;
+        videoLink: any;
+        department: any;
+        recurrence: any;
+        reminderMinutes: any;
+        status: any;
+        organizer: {
+            id: any;
+            name: any;
+            avatarUrl: any;
+            department: any;
+        };
+        attendees: any;
     }>;
-    rsvp(meetingId: string, employeeId: string, status: 'ACCEPTED' | 'DECLINED', reason?: string): Promise<import("@prisma/client").Prisma.BatchPayload>;
-    cancel(id: string): Promise<{
-        id: string;
-        department: string | null;
-        status: import("@prisma/client").$Enums.MeetingStatus;
-        location: string | null;
-        createdAt: Date;
-        updatedAt: Date;
-        organizerId: string;
-        title: string;
-        type: import("@prisma/client").$Enums.MeetingType;
-        description: string | null;
-        startsAt: Date;
-        endsAt: Date;
-        allDay: boolean;
-        videoLink: string | null;
-        recurrence: import("@prisma/client").$Enums.Recurrence;
-        reminderMinutes: number | null;
-    }>;
+    private notifyUsers;
 }

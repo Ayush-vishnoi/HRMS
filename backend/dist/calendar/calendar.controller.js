@@ -22,11 +22,12 @@ let CalendarController = class CalendarController {
     constructor(calendarService) {
         this.calendarService = calendarService;
     }
-    getEvents(user, from, to) {
+    async getEvents(user, from, to) {
         if (!from || !to || !/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to) || from > to) {
             throw new common_1.BadRequestException('A valid date range is required');
         }
-        return this.calendarService.getEvents(user, from, to);
+        const data = await this.calendarService.getEvents(user, from, to);
+        return { success: true, data };
     }
 };
 exports.CalendarController = CalendarController;
@@ -37,7 +38,7 @@ __decorate([
     __param(2, (0, common_1.Query)('to')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object, String, String]),
-    __metadata("design:returntype", void 0)
+    __metadata("design:returntype", Promise)
 ], CalendarController.prototype, "getEvents", null);
 exports.CalendarController = CalendarController = __decorate([
     (0, common_1.Controller)('calendar'),

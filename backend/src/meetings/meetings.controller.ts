@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Body, Query, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Body, Query, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { MeetingsService } from './meetings.service';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -8,36 +8,50 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 export class MeetingsController {
   constructor(private meetingsService: MeetingsService) {}
 
+  /**
+   * GET /api/meetings
+   * - ?search=q  -> employee search (for attendee picker)
+   * - ?id=MTG-001 -> single meeting (attendee-scoped visibility)
+   * - ?from&to&type&department&mine -> filtered list
+   */
   @Get()
-  findAll(
+  async findAll(
     @CurrentUser('id') userId: string,
+    @Query('search') search?: string,
+    @Query('id') id?: string,
     @Query('from') from?: string,
     @Query('to') to?: string,
+    @Query('type') type?: string,
+    @Query('department') department?: string,
+    @Query('mine') mine?: string,
   ) {
-    return this.meetingsService.findAll(userId, from, to);
-  }
+    if (search !== undefined && search !== null) {
+      const data = await this.meetingsService.searchEmployees(search);
+      return { success: true, data };
+    }
 
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.meetingsService.findOne(id);
+    if (id) {
+      const data = await this.meetingsService.findOne(userId, id);
+      return { success: true, data };
+    }
+
+    const data = await this.meetingsService.findAll(userId, { from, to, type, department, mine });
+    return { success: true, data };
   }
 
   @Post()
-  create(@CurrentUser('id') userId: string, @Body() body: any) {
-    return this.meetingsService.create(userId, body);
+  async create(@CurrentUser('id') userId: string, @Body() body: any) {
+    const data = await this.meetingsService.create(userId, body);
+    return { success: true, data };
   }
 
-  @Patch(':id/rsvp')
-  rsvp(
-    @Param('id') id: string,
-    @CurrentUser('id') userId: string,
-    @Body() body: { status: 'ACCEPTED' | 'DECLINED'; reason?: string },
-  ) {
-    return this.meetingsService.rsvp(id, userId, body.status, body.reason);
-  }
-
-  @Patch(':id/cancel')
-  cancel(@Param('id') id: string) {
-    return this.meetingsService.cancel(id);
+  /**
+   * PATCH /api/meetings
+   * Body: { id, action: 'cancel' | 'rsvp', rsvp?, reason? } or a plain update { id, ...fields }
+   */
+  @Patch()
+  async update(@CurrentUser('id') userId: string, @Body() body: any) {
+    const data = await this.meetingsService.update(userId, body);
+    return { success: true, data };
   }
 }

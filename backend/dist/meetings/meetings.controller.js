@@ -22,63 +22,58 @@ let MeetingsController = class MeetingsController {
     constructor(meetingsService) {
         this.meetingsService = meetingsService;
     }
-    findAll(userId, from, to) {
-        return this.meetingsService.findAll(userId, from, to);
+    async findAll(userId, search, id, from, to, type, department, mine) {
+        if (search !== undefined && search !== null) {
+            const data = await this.meetingsService.searchEmployees(search);
+            return { success: true, data };
+        }
+        if (id) {
+            const data = await this.meetingsService.findOne(userId, id);
+            return { success: true, data };
+        }
+        const data = await this.meetingsService.findAll(userId, { from, to, type, department, mine });
+        return { success: true, data };
     }
-    findOne(id) {
-        return this.meetingsService.findOne(id);
+    async create(userId, body) {
+        const data = await this.meetingsService.create(userId, body);
+        return { success: true, data };
     }
-    create(userId, body) {
-        return this.meetingsService.create(userId, body);
-    }
-    rsvp(id, userId, body) {
-        return this.meetingsService.rsvp(id, userId, body.status, body.reason);
-    }
-    cancel(id) {
-        return this.meetingsService.cancel(id);
+    async update(userId, body) {
+        const data = await this.meetingsService.update(userId, body);
+        return { success: true, data };
     }
 };
 exports.MeetingsController = MeetingsController;
 __decorate([
     (0, common_1.Get)(),
     __param(0, (0, current_user_decorator_1.CurrentUser)('id')),
-    __param(1, (0, common_1.Query)('from')),
-    __param(2, (0, common_1.Query)('to')),
+    __param(1, (0, common_1.Query)('search')),
+    __param(2, (0, common_1.Query)('id')),
+    __param(3, (0, common_1.Query)('from')),
+    __param(4, (0, common_1.Query)('to')),
+    __param(5, (0, common_1.Query)('type')),
+    __param(6, (0, common_1.Query)('department')),
+    __param(7, (0, common_1.Query)('mine')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String, String]),
-    __metadata("design:returntype", void 0)
+    __metadata("design:paramtypes", [String, String, String, String, String, String, String, String]),
+    __metadata("design:returntype", Promise)
 ], MeetingsController.prototype, "findAll", null);
-__decorate([
-    (0, common_1.Get)(':id'),
-    __param(0, (0, common_1.Param)('id')),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
-    __metadata("design:returntype", void 0)
-], MeetingsController.prototype, "findOne", null);
 __decorate([
     (0, common_1.Post)(),
     __param(0, (0, current_user_decorator_1.CurrentUser)('id')),
     __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String, Object]),
-    __metadata("design:returntype", void 0)
+    __metadata("design:returntype", Promise)
 ], MeetingsController.prototype, "create", null);
 __decorate([
-    (0, common_1.Patch)(':id/rsvp'),
-    __param(0, (0, common_1.Param)('id')),
-    __param(1, (0, current_user_decorator_1.CurrentUser)('id')),
-    __param(2, (0, common_1.Body)()),
+    (0, common_1.Patch)(),
+    __param(0, (0, current_user_decorator_1.CurrentUser)('id')),
+    __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String, Object]),
-    __metadata("design:returntype", void 0)
-], MeetingsController.prototype, "rsvp", null);
-__decorate([
-    (0, common_1.Patch)(':id/cancel'),
-    __param(0, (0, common_1.Param)('id')),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
-    __metadata("design:returntype", void 0)
-], MeetingsController.prototype, "cancel", null);
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], MeetingsController.prototype, "update", null);
 exports.MeetingsController = MeetingsController = __decorate([
     (0, common_1.Controller)('meetings'),
     (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
