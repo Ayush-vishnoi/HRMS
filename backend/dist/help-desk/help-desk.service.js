@@ -45,16 +45,17 @@ let HelpDeskService = class HelpDeskService {
             },
         });
     }
-    async resolve(id, resolvedById, resolution) {
-        return this.prisma.helpDeskTicket.update({
-            where: { id },
-            data: {
-                status: 'Resolved',
-                resolution,
-                resolvedById,
-                resolvedAt: new Date().toISOString(),
-            },
-        });
+    async update(id, data) {
+        const updateData = {};
+        if (data.status)
+            updateData.status = data.status;
+        if (typeof data.resolution === 'string' && data.resolution.trim())
+            updateData.resolution = data.resolution;
+        if (data.status === 'Resolved') {
+            updateData.resolvedById = data.resolvedById;
+            updateData.resolvedAt = new Date().toISOString();
+        }
+        return this.prisma.helpDeskTicket.update({ where: { id }, data: updateData });
     }
 };
 exports.HelpDeskService = HelpDeskService;

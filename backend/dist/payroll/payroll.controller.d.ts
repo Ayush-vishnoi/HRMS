@@ -1,24 +1,288 @@
-import type { Request } from 'express';
+import type { Response } from 'express';
 import { PayrollService } from './payroll.service';
 export declare class PayrollController {
     private payrollService;
     constructor(payrollService: PayrollService);
-    private resolveUserId;
+    getOverview(user: any, view?: string): Promise<{
+        payslips: {
+            id: string;
+            employeeId: string;
+            employeeName: string;
+            employeeCode: string;
+            department: string;
+            roleTitle: string;
+            monthYear: string;
+            basicSalary: number;
+            hra: number;
+            conveyance: number;
+            specialAllowance: number;
+            medicalAllowance: number;
+            lta: number;
+            bonus: number;
+            incentives: number;
+            overtimePay: number;
+            arrears: number;
+            reimbursements: number;
+            pfDeduction: number;
+            esicDeduction: number;
+            ptDeduction: number;
+            taxDeduction: number;
+            lwfDeduction: number;
+            loanDeduction: number;
+            lossOfPayDeduction: number;
+            payableDays: number;
+            lossOfPayDays: number;
+            grossEarnings: number;
+            totalDeductions: number;
+            netPayable: number;
+            pfEmployer: number;
+            esicEmployer: number;
+            gratuityProvision: number;
+            taxRegime: string;
+            bankAccountMasked: string;
+            bankIfsc: string;
+            panNumber: string;
+            paymentDate: string;
+            status: import("@prisma/client").$Enums.PayslipStatus;
+        }[];
+        annualCtc: number;
+        totalDisbursed: number;
+        ytd: {
+            ytdGross: number;
+            ytdTax: number;
+            ytdPf: number;
+        };
+        recordCount: number;
+    }>;
+    getStructures(employeeId?: string): Promise<{
+        structure: {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            employeeId: string;
+            ctcAnnual: number;
+            basicMonthly: number;
+            hraMonthly: number;
+            conveyanceMonthly: number;
+            specialAllowanceMonthly: number;
+            medicalAllowanceMonthly: number;
+            ltaMonthly: number;
+            statutoryBonusMonthly: number;
+            pfEmployerMonthly: number;
+            pfEmployeeMonthly: number;
+            esicEmployerMonthly: number;
+            esicEmployeeMonthly: number;
+            ptMonthly: number;
+            gratuityMonthly: number;
+            variablePayAnnual: number;
+            effectiveFrom: string;
+            isActive: boolean;
+        } | null;
+        revisions: {
+            id: string;
+            createdAt: Date;
+            employeeId: string;
+            reason: string;
+            previousCtcAnnual: number;
+            newCtcAnnual: number;
+            previousBasicMonthly: number;
+            newBasicMonthly: number;
+            previousHraMonthly: number;
+            newHraMonthly: number;
+            previousSpecialMonthly: number;
+            newSpecialMonthly: number;
+            effectiveDate: string;
+            revisionType: string;
+            source: string;
+            approvedById: string | null;
+            approvedAt: Date | null;
+        }[];
+        success?: undefined;
+        data?: undefined;
+    } | {
+        success: boolean;
+        data: {
+            id: string;
+            employeeId: string;
+            employeeName: string;
+            employeeCode: string;
+            department: string;
+            roleTitle: string;
+            ctcAnnual: number;
+            basicMonthly: number;
+            hraMonthly: number;
+            conveyanceMonthly: number;
+            specialAllowanceMonthly: number;
+            medicalAllowanceMonthly: number;
+            pfEmployeeMonthly: number;
+            ptMonthly: number;
+            effectiveFrom: string;
+            isActive: boolean;
+        }[];
+        revisions: {
+            id: string;
+            createdAt: Date;
+            employeeId: string;
+            reason: string;
+            previousCtcAnnual: number;
+            newCtcAnnual: number;
+            previousBasicMonthly: number;
+            newBasicMonthly: number;
+            previousHraMonthly: number;
+            newHraMonthly: number;
+            previousSpecialMonthly: number;
+            newSpecialMonthly: number;
+            effectiveDate: string;
+            revisionType: string;
+            source: string;
+            approvedById: string | null;
+            approvedAt: Date | null;
+        }[];
+        structure?: undefined;
+    }>;
+    saveStructure(user: any, body: any): Promise<{
+        success: boolean;
+        data: {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            employeeId: string;
+            ctcAnnual: number;
+            basicMonthly: number;
+            hraMonthly: number;
+            conveyanceMonthly: number;
+            specialAllowanceMonthly: number;
+            medicalAllowanceMonthly: number;
+            ltaMonthly: number;
+            statutoryBonusMonthly: number;
+            pfEmployerMonthly: number;
+            pfEmployeeMonthly: number;
+            esicEmployerMonthly: number;
+            esicEmployeeMonthly: number;
+            ptMonthly: number;
+            gratuityMonthly: number;
+            variablePayAnnual: number;
+            effectiveFrom: string;
+            isActive: boolean;
+        };
+        revision: {
+            id: string;
+            createdAt: Date;
+            employeeId: string;
+            reason: string;
+            previousCtcAnnual: number;
+            newCtcAnnual: number;
+            previousBasicMonthly: number;
+            newBasicMonthly: number;
+            previousHraMonthly: number;
+            newHraMonthly: number;
+            previousSpecialMonthly: number;
+            newSpecialMonthly: number;
+            effectiveDate: string;
+            revisionType: string;
+            source: string;
+            approvedById: string | null;
+            approvedAt: Date | null;
+        };
+    }>;
+    getVariablePay(user: any, employeeId?: string, monthYear?: string, view?: string): Promise<{
+        id: string;
+        createdAt: Date;
+        status: string;
+        updatedAt: Date;
+        employeeId: string;
+        reason: string;
+        monthYear: string;
+        approvedById: string | null;
+        approvedAt: Date | null;
+        cycleId: string | null;
+        payType: string;
+        amount: number;
+        isTaxable: boolean;
+    }[]>;
+    createVariablePay(user: any, body: any): Promise<{
+        id: string;
+        createdAt: Date;
+        status: string;
+        updatedAt: Date;
+        employeeId: string;
+        reason: string;
+        monthYear: string;
+        approvedById: string | null;
+        approvedAt: Date | null;
+        cycleId: string | null;
+        payType: string;
+        amount: number;
+        isTaxable: boolean;
+    }>;
+    getStatutory(): Promise<{
+        config: import("./engines/types").StatutoryRuleConfig;
+        customRules: {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            effectiveFrom: string;
+            isActive: boolean;
+            financialYear: string;
+            country: string;
+            ruleType: string;
+            state: string;
+            effectiveTo: string | null;
+            rateEmployee: number;
+            rateEmployer: number;
+            ceilingLimit: number | null;
+            slabsJson: string;
+            configJson: string;
+        }[];
+        salaryComponents: import("./salary-components").SalaryComponentMetadata[] | {
+            id: string;
+            type: string;
+            createdAt: Date;
+            name: string;
+            updatedAt: Date;
+            effectiveFrom: string;
+            isActive: boolean;
+            isTaxable: boolean;
+            code: string;
+            calculationMethod: string;
+            formulaExpression: string | null;
+            isStatutory: boolean;
+            isEncashable: boolean;
+            isPartCTC: boolean;
+        }[];
+    }>;
+    createStatutory(user: any, body: any): Promise<{
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        effectiveFrom: string;
+        isActive: boolean;
+        financialYear: string;
+        country: string;
+        ruleType: string;
+        state: string;
+        effectiveTo: string | null;
+        rateEmployee: number;
+        rateEmployer: number;
+        ceilingLimit: number | null;
+        slabsJson: string;
+        configJson: string;
+    }>;
     getPayslips(employeeId?: string, monthYear?: string): Promise<{
         success: boolean;
         data: ({
             employee: {
                 id: string;
-                employeeCode: string;
                 name: string;
+                employeeCode: string;
                 roleTitle: string;
                 department: string;
                 location: string;
             };
         } & {
             id: string;
-            status: import("@prisma/client").$Enums.PayslipStatus;
             createdAt: Date;
+            status: import("@prisma/client").$Enums.PayslipStatus;
             employeeId: string;
             monthYear: string;
             basicSalary: import("@prisma/client/runtime/library").Decimal;
@@ -38,9 +302,9 @@ export declare class PayrollController {
         data: ({
             items: {
                 id: string;
+                createdAt: Date;
                 employeeCode: string;
                 department: string;
-                createdAt: Date;
                 employeeId: string;
                 hra: number;
                 conveyance: number;
@@ -80,11 +344,12 @@ export declare class PayrollController {
             }[];
         } & {
             id: string;
-            status: string;
             createdAt: Date;
+            status: string;
             updatedAt: Date;
             monthYear: string;
             totalDeductions: number;
+            approvedById: string | null;
             cycleStartDate: string;
             cycleEndDate: string;
             totalEmployees: number;
@@ -93,15 +358,14 @@ export declare class PayrollController {
             country: string;
             currency: string;
             processedById: string | null;
-            approvedById: string | null;
             lockedAt: Date | null;
             disbursedAt: Date | null;
         }) | ({
             items: {
                 id: string;
+                createdAt: Date;
                 employeeCode: string;
                 department: string;
-                createdAt: Date;
                 employeeId: string;
                 hra: number;
                 conveyance: number;
@@ -141,11 +405,12 @@ export declare class PayrollController {
             }[];
         } & {
             id: string;
-            status: string;
             createdAt: Date;
+            status: string;
             updatedAt: Date;
             monthYear: string;
             totalDeductions: number;
+            approvedById: string | null;
             cycleStartDate: string;
             cycleEndDate: string;
             totalEmployees: number;
@@ -154,7 +419,6 @@ export declare class PayrollController {
             country: string;
             currency: string;
             processedById: string | null;
-            approvedById: string | null;
             lockedAt: Date | null;
             disbursedAt: Date | null;
         })[] | null;
@@ -164,9 +428,9 @@ export declare class PayrollController {
         data: ({
             items: {
                 id: string;
+                createdAt: Date;
                 employeeCode: string;
                 department: string;
-                createdAt: Date;
                 employeeId: string;
                 hra: number;
                 conveyance: number;
@@ -206,11 +470,12 @@ export declare class PayrollController {
             }[];
         } & {
             id: string;
-            status: string;
             createdAt: Date;
+            status: string;
             updatedAt: Date;
             monthYear: string;
             totalDeductions: number;
+            approvedById: string | null;
             cycleStartDate: string;
             cycleEndDate: string;
             totalEmployees: number;
@@ -219,15 +484,14 @@ export declare class PayrollController {
             country: string;
             currency: string;
             processedById: string | null;
-            approvedById: string | null;
             lockedAt: Date | null;
             disbursedAt: Date | null;
         }) | ({
             items: {
                 id: string;
+                createdAt: Date;
                 employeeCode: string;
                 department: string;
-                createdAt: Date;
                 employeeId: string;
                 hra: number;
                 conveyance: number;
@@ -267,11 +531,12 @@ export declare class PayrollController {
             }[];
         } & {
             id: string;
-            status: string;
             createdAt: Date;
+            status: string;
             updatedAt: Date;
             monthYear: string;
             totalDeductions: number;
+            approvedById: string | null;
             cycleStartDate: string;
             cycleEndDate: string;
             totalEmployees: number;
@@ -280,19 +545,18 @@ export declare class PayrollController {
             country: string;
             currency: string;
             processedById: string | null;
-            approvedById: string | null;
             lockedAt: Date | null;
             disbursedAt: Date | null;
         })[] | null;
     }>;
-    calculateCycle(req: Request, body: any, headerUserId?: string): Promise<{
+    calculateCycle(user: any, body: any): Promise<{
         success: boolean;
         data: {
             items: {
                 id: string;
+                createdAt: Date;
                 employeeCode: string;
                 department: string;
-                createdAt: Date;
                 employeeId: string;
                 hra: number;
                 conveyance: number;
@@ -332,11 +596,12 @@ export declare class PayrollController {
             }[];
         } & {
             id: string;
-            status: string;
             createdAt: Date;
+            status: string;
             updatedAt: Date;
             monthYear: string;
             totalDeductions: number;
+            approvedById: string | null;
             cycleStartDate: string;
             cycleEndDate: string;
             totalEmployees: number;
@@ -345,19 +610,18 @@ export declare class PayrollController {
             country: string;
             currency: string;
             processedById: string | null;
-            approvedById: string | null;
             lockedAt: Date | null;
             disbursedAt: Date | null;
         };
     }>;
-    updateCycle(req: Request, body: any, headerUserId?: string): Promise<{
+    updateCycle(user: any, body: any): Promise<{
         success: boolean;
         data: {
             items: {
                 id: string;
+                createdAt: Date;
                 employeeCode: string;
                 department: string;
-                createdAt: Date;
                 employeeId: string;
                 hra: number;
                 conveyance: number;
@@ -397,11 +661,12 @@ export declare class PayrollController {
             }[];
         } & {
             id: string;
-            status: string;
             createdAt: Date;
+            status: string;
             updatedAt: Date;
             monthYear: string;
             totalDeductions: number;
+            approvedById: string | null;
             cycleStartDate: string;
             cycleEndDate: string;
             totalEmployees: number;
@@ -410,7 +675,6 @@ export declare class PayrollController {
             country: string;
             currency: string;
             processedById: string | null;
-            approvedById: string | null;
             lockedAt: Date | null;
             disbursedAt: Date | null;
         };
@@ -445,11 +709,11 @@ export declare class PayrollController {
         success: boolean;
         data: {
             id: string;
-            status: string;
             createdAt: Date;
+            status: string;
             updatedAt: Date;
-            notes: string | null;
             employeeId: string;
+            notes: string | null;
             approvedById: string | null;
             loanType: string;
             principalAmount: number;
@@ -469,6 +733,7 @@ export declare class PayrollController {
             createdAt: Date;
             updatedAt: Date;
             employeeId: string;
+            rejectionReason: string | null;
             regime: string;
             financialYear: string;
             section80C: number;
@@ -486,17 +751,128 @@ export declare class PayrollController {
             verifiedByAdminId: string | null;
             verifiedAmountJson: string | null;
             verificationRemarks: string | null;
-            rejectionReason: string | null;
             verifiedAt: Date | null;
-        }[];
+        } | {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            employeeId: string;
+            rejectionReason: string | null;
+            regime: string;
+            financialYear: string;
+            section80C: number;
+            section80D: number;
+            section80G: number;
+            section80CCD_1B: number;
+            section80E: number;
+            section80TTA: number;
+            hraExemptionRent: number;
+            homeLoanInterest: number;
+            otherExemptions: number;
+            declarationStatus: string;
+            otherDeductionsTotal: number;
+            proofUrls: string[];
+            verifiedByAdminId: string | null;
+            verifiedAmountJson: string | null;
+            verificationRemarks: string | null;
+            verifiedAt: Date | null;
+        }[] | null;
     }>;
+    saveTaxDeclaration(user: any, body: any): Promise<{
+        success: boolean;
+        data: {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            employeeId: string;
+            rejectionReason: string | null;
+            regime: string;
+            financialYear: string;
+            section80C: number;
+            section80D: number;
+            section80G: number;
+            section80CCD_1B: number;
+            section80E: number;
+            section80TTA: number;
+            hraExemptionRent: number;
+            homeLoanInterest: number;
+            otherExemptions: number;
+            declarationStatus: string;
+            otherDeductionsTotal: number;
+            proofUrls: string[];
+            verifiedByAdminId: string | null;
+            verifiedAmountJson: string | null;
+            verificationRemarks: string | null;
+            verifiedAt: Date | null;
+        };
+    }>;
+    verifyTaxDeclaration(user: any, body: any): Promise<{
+        success: boolean;
+        data: {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            employeeId: string;
+            rejectionReason: string | null;
+            regime: string;
+            financialYear: string;
+            section80C: number;
+            section80D: number;
+            section80G: number;
+            section80CCD_1B: number;
+            section80E: number;
+            section80TTA: number;
+            hraExemptionRent: number;
+            homeLoanInterest: number;
+            otherExemptions: number;
+            declarationStatus: string;
+            otherDeductionsTotal: number;
+            proofUrls: string[];
+            verifiedByAdminId: string | null;
+            verifiedAmountJson: string | null;
+            verificationRemarks: string | null;
+            verifiedAt: Date | null;
+        };
+    }>;
+    runReconciliation(user: any, body: any): Promise<{
+        success: boolean;
+        data: import("./engines/types").ReconciliationSummary;
+    }>;
+    generatePdf(user: any, body: any, res: Response): Promise<void>;
     getReconciliation(currentCycleId: string, previousCycleId?: string): Promise<{
         success: boolean;
         data: import("./engines/types").ReconciliationSummary;
     }>;
-    getReports(monthYear?: string): Promise<{
+    getReports(type?: string, monthYear?: string): Promise<{
         success: boolean;
-        data: import("./engines/reports-service").PayrollReportRow[];
+        data: import("./engines/reports-service").PayrollReportRow[] | {
+            UAN: any;
+            MemberName: any;
+            GrossWages: any;
+            EPFWages: number;
+            EPSWages: number;
+            EDLIWages: number;
+            EE_Share_12Pct: any;
+            EPS_Share_8_33Pct: number;
+            ER_EPF_Share: number;
+            NCPDays: any;
+            RefundOfAdvances: number;
+        }[] | {
+            IPNumber: any;
+            IPName: any;
+            NoOfDaysWorked: any;
+            TotalMonthlyWages: any;
+            IPContribution_0_75Pct: any;
+            EmployerContribution_3_25Pct: any;
+            TotalContribution: any;
+        }[] | {
+            department: string;
+            headcount: number;
+            grossSalaryCost: number;
+            employerStatutoryCost: number;
+            totalPayrollCost: number;
+            averageCostPerEmployee: number;
+        }[];
     }>;
     getForm16(employeeId: string, financialYear: string): Promise<{
         success: boolean;

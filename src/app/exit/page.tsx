@@ -298,7 +298,7 @@ export default function ExitPage() {
           ? '/api/exit'
           : `/api/exit?employeeId=${encodeURIComponent(currentUser.id)}`;
 
-        const res = await fetch(url);
+        const res = await authFetch<Response>(url, { raw: true });
         if (res.ok) {
           const json = await res.json();
           if (json.success && json.data) {

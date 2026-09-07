@@ -131,6 +131,42 @@ let EmployeeLifecycleService = class EmployeeLifecycleService {
             return { employee, onboarding, temporaryPassword: plainPassword };
         });
     }
+    async convertOffer(user, body) {
+        const { candidateId, customJoinDate, customManagerId, customProbationMonths } = body ?? {};
+        if (!candidateId)
+            throw new Error('candidateId is required.');
+        const candidate = await this.prisma.recruitmentCandidate.findUnique({
+            where: { id: candidateId },
+            include: {
+                onboarding: true,
+                job: { select: { id: true, title: true, department: true, location: true } },
+                recruitment_offers: { orderBy: { version: 'desc' }, take: 1 },
+            },
+        });
+        if (!candidate)
+            throw new Error('Candidate not found.');
+        if (candidate.onboarding)
+            throw new Error('Candidate already onboarded.');
+        const offer = candidate.recruitment_offers[0];
+        if (!offer)
+            throw new Error('Candidate has no recruitment offer to convert.');
+        const joinDate = customJoinDate || offer.proposed_join_date || new Date().toISOString().split('T')[0];
+        const salary = Number(offer.offered_ctc ?? 0);
+        return this.onboard(user, {
+            candidateId,
+            name: candidate.name,
+            email: candidate.email,
+            phone: candidate.phone,
+            avatarUrl: candidate.avatarUrl,
+            roleTitle: offer.offered_title || candidate.currentRole,
+            department: candidate.job?.department || 'General',
+            location: candidate.job?.location || candidate.location,
+            joinDate,
+            salary,
+            managerId: customManagerId || null,
+            probationMonths: Number(customProbationMonths || 6),
+        });
+    }
     async updateTask(taskId, status) {
         return this.prisma.onboardingTask.update({
             where: { id: taskId },

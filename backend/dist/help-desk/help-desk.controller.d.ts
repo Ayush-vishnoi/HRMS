@@ -5,8 +5,8 @@ export declare class HelpDeskController {
     findAll(employeeId?: string, status?: string, category?: string): Promise<({
         employee: {
             id: string;
-            employeeCode: string;
             name: string;
+            employeeCode: string;
             avatarUrl: string | null;
         };
         resolvedBy: {
@@ -15,11 +15,11 @@ export declare class HelpDeskController {
         } | null;
     } & {
         id: string;
-        status: import("@prisma/client").$Enums.TicketStatus;
         createdAt: string;
-        category: import("@prisma/client").$Enums.TicketCategory;
+        status: import("@prisma/client").$Enums.TicketStatus;
         employeeId: string;
         description: string;
+        category: import("@prisma/client").$Enums.TicketCategory;
         priority: import("@prisma/client").$Enums.TicketPriority;
         subject: string;
         resolution: string | null;
@@ -28,24 +28,29 @@ export declare class HelpDeskController {
     })[]>;
     create(userId: string, body: any): Promise<{
         id: string;
-        status: import("@prisma/client").$Enums.TicketStatus;
         createdAt: string;
-        category: import("@prisma/client").$Enums.TicketCategory;
+        status: import("@prisma/client").$Enums.TicketStatus;
         employeeId: string;
         description: string;
+        category: import("@prisma/client").$Enums.TicketCategory;
         priority: import("@prisma/client").$Enums.TicketPriority;
         subject: string;
         resolution: string | null;
         resolvedAt: string | null;
         resolvedById: string | null;
     }>;
-    resolve(id: string, userId: string, resolution: string): Promise<{
+    update(body: {
         id: string;
-        status: import("@prisma/client").$Enums.TicketStatus;
+        status?: 'Open' | 'In Progress' | 'Resolved';
+        resolution?: string;
+        resolvedById?: string;
+    }, userId: string): Promise<{
+        id: string;
         createdAt: string;
-        category: import("@prisma/client").$Enums.TicketCategory;
+        status: import("@prisma/client").$Enums.TicketStatus;
         employeeId: string;
         description: string;
+        category: import("@prisma/client").$Enums.TicketCategory;
         priority: import("@prisma/client").$Enums.TicketPriority;
         subject: string;
         resolution: string | null;

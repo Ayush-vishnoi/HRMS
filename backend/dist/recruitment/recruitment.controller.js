@@ -23,7 +23,7 @@ let RecruitmentController = class RecruitmentController {
         this.recruitmentService = recruitmentService;
     }
     findAll() { return this.recruitmentService.findAll(); }
-    getJobs(status) { return this.recruitmentService.getJobs(status); }
+    getJobs(status) { return this.recruitmentService.findAll(); }
     createJob(body) { return this.recruitmentService.createJob(body); }
     getCandidates(jobId, stage) {
         return this.recruitmentService.getCandidates(jobId, stage);

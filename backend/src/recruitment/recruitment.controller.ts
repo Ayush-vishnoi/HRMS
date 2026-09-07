@@ -12,7 +12,7 @@ export class RecruitmentController {
   findAll() { return this.recruitmentService.findAll(); }
 
   @Get('jobs')
-  getJobs(@Query('status') status?: string) { return this.recruitmentService.getJobs(status); }
+  getJobs(@Query('status') status?: string) { return this.recruitmentService.findAll(); }
 
   @Post('jobs')
   createJob(@Body() body: any) { return this.recruitmentService.createJob(body); }

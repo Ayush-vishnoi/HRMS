@@ -10,10 +10,15 @@ exports.AssetsModule = void 0;
 const common_1 = require("@nestjs/common");
 const assets_service_1 = require("./assets.service");
 const assets_controller_1 = require("./assets.controller");
+const my_assets_controller_1 = require("./my-assets.controller");
+const asset_requests_controller_1 = require("./asset-requests.controller");
 let AssetsModule = class AssetsModule {
 };
 exports.AssetsModule = AssetsModule;
 exports.AssetsModule = AssetsModule = __decorate([
-    (0, common_1.Module)({ providers: [assets_service_1.AssetsService], controllers: [assets_controller_1.AssetsController] })
+    (0, common_1.Module)({
+        providers: [assets_service_1.AssetsService],
+        controllers: [assets_controller_1.AssetsController, my_assets_controller_1.MyAssetsController, asset_requests_controller_1.AssetRequestsController],
+    })
 ], AssetsModule);
 //# sourceMappingURL=assets.module.js.map

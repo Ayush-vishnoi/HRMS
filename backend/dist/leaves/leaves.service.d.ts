@@ -16,8 +16,8 @@ export declare class LeavesService {
     getRequests(employeeId?: string, status?: string): Promise<({
         employee: {
             id: string;
-            employeeCode: string;
             name: string;
+            employeeCode: string;
             department: string;
             avatarUrl: string | null;
         };
@@ -27,15 +27,15 @@ export declare class LeavesService {
         } | null;
     } & {
         id: string;
-        status: import("@prisma/client").$Enums.LeaveRequestStatus;
         createdAt: Date;
+        status: import("@prisma/client").$Enums.LeaveRequestStatus;
         updatedAt: Date;
         days: number;
         employeeId: string;
         leaveType: import("@prisma/client").$Enums.LeaveType;
-        reason: string;
         startDate: string;
         endDate: string;
+        reason: string;
         appliedOn: string;
         reviewerId: string | null;
     })[]>;
@@ -48,29 +48,29 @@ export declare class LeavesService {
         reason: string;
     }): Promise<{
         id: string;
-        status: import("@prisma/client").$Enums.LeaveRequestStatus;
         createdAt: Date;
+        status: import("@prisma/client").$Enums.LeaveRequestStatus;
         updatedAt: Date;
         days: number;
         employeeId: string;
         leaveType: import("@prisma/client").$Enums.LeaveType;
-        reason: string;
         startDate: string;
         endDate: string;
+        reason: string;
         appliedOn: string;
         reviewerId: string | null;
     }>;
     reviewRequest(id: string, status: 'Approved' | 'Rejected', reviewerId: string): Promise<{
         id: string;
-        status: import("@prisma/client").$Enums.LeaveRequestStatus;
         createdAt: Date;
+        status: import("@prisma/client").$Enums.LeaveRequestStatus;
         updatedAt: Date;
         days: number;
         employeeId: string;
         leaveType: import("@prisma/client").$Enums.LeaveType;
-        reason: string;
         startDate: string;
         endDate: string;
+        reason: string;
         appliedOn: string;
         reviewerId: string | null;
     }>;

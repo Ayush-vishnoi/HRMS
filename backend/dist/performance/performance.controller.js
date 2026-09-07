@@ -22,20 +22,55 @@ let PerformanceController = class PerformanceController {
     constructor(performanceService) {
         this.performanceService = performanceService;
     }
-    findAll(user, employeeId) {
-        return this.performanceService.findAll(user.id, user.userRole, employeeId);
+    findAll(user) {
+        return this.performanceService.findAll(user);
     }
-    handleAction(user, body) {
-        return this.performanceService.handleAction(user.id, body);
+    createKra(user, body) {
+        return this.performanceService.createKra(user, body);
+    }
+    updateKra(user, body) {
+        return this.performanceService.updateKra(user, body);
+    }
+    getGoalsData(user, employeeId, _role) {
+        return this.performanceService.getGoalsData(user, employeeId);
+    }
+    handleGoalAction(user, body) {
+        return this.performanceService.handleGoalAction(user, body);
+    }
+    updateGoalTarget(user, body) {
+        return this.performanceService.updateGoalTarget(user, body);
+    }
+    getCyclesData(user, employeeId, cycleId) {
+        return this.performanceService.getCyclesData(user, employeeId, cycleId);
+    }
+    handleCycleAction(user, body) {
+        return this.performanceService.handleCycleAction(user, body);
+    }
+    getCompetenciesData(user, employeeId, cycleId) {
+        return this.performanceService.getCompetenciesData(user, employeeId, cycleId);
+    }
+    handleCompetencyAction(user, body) {
+        return this.performanceService.handleCompetencyAction(user, body);
+    }
+    getPips(user, employeeId) {
+        return this.performanceService.getPips(user, employeeId);
+    }
+    handlePipAction(user, body) {
+        return this.performanceService.handlePipAction(user, body);
+    }
+    getCalibrationData(user, cycleId, departmentId) {
+        return this.performanceService.getCalibrationData(user, cycleId, departmentId);
+    }
+    handleCalibrationAction(user, body) {
+        return this.performanceService.handleCalibrationAction(user, body);
     }
 };
 exports.PerformanceController = PerformanceController;
 __decorate([
     (0, common_1.Get)(),
     __param(0, (0, current_user_decorator_1.CurrentUser)()),
-    __param(1, (0, common_1.Query)('employeeId')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", void 0)
 ], PerformanceController.prototype, "findAll", null);
 __decorate([
@@ -45,7 +80,107 @@ __decorate([
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object, Object]),
     __metadata("design:returntype", void 0)
-], PerformanceController.prototype, "handleAction", null);
+], PerformanceController.prototype, "createKra", null);
+__decorate([
+    (0, common_1.Patch)(),
+    __param(0, (0, current_user_decorator_1.CurrentUser)()),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", void 0)
+], PerformanceController.prototype, "updateKra", null);
+__decorate([
+    (0, common_1.Get)('goals'),
+    __param(0, (0, current_user_decorator_1.CurrentUser)()),
+    __param(1, (0, common_1.Query)('employeeId')),
+    __param(2, (0, common_1.Query)('role')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, String]),
+    __metadata("design:returntype", void 0)
+], PerformanceController.prototype, "getGoalsData", null);
+__decorate([
+    (0, common_1.Post)('goals'),
+    __param(0, (0, current_user_decorator_1.CurrentUser)()),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", void 0)
+], PerformanceController.prototype, "handleGoalAction", null);
+__decorate([
+    (0, common_1.Patch)('goals'),
+    __param(0, (0, current_user_decorator_1.CurrentUser)()),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", void 0)
+], PerformanceController.prototype, "updateGoalTarget", null);
+__decorate([
+    (0, common_1.Get)('cycles'),
+    __param(0, (0, current_user_decorator_1.CurrentUser)()),
+    __param(1, (0, common_1.Query)('employeeId')),
+    __param(2, (0, common_1.Query)('cycleId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, String]),
+    __metadata("design:returntype", void 0)
+], PerformanceController.prototype, "getCyclesData", null);
+__decorate([
+    (0, common_1.Post)('cycles'),
+    __param(0, (0, current_user_decorator_1.CurrentUser)()),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", void 0)
+], PerformanceController.prototype, "handleCycleAction", null);
+__decorate([
+    (0, common_1.Get)('competencies'),
+    __param(0, (0, current_user_decorator_1.CurrentUser)()),
+    __param(1, (0, common_1.Query)('employeeId')),
+    __param(2, (0, common_1.Query)('cycleId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, String]),
+    __metadata("design:returntype", void 0)
+], PerformanceController.prototype, "getCompetenciesData", null);
+__decorate([
+    (0, common_1.Post)('competencies'),
+    __param(0, (0, current_user_decorator_1.CurrentUser)()),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", void 0)
+], PerformanceController.prototype, "handleCompetencyAction", null);
+__decorate([
+    (0, common_1.Get)('pip'),
+    __param(0, (0, current_user_decorator_1.CurrentUser)()),
+    __param(1, (0, common_1.Query)('employeeId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:returntype", void 0)
+], PerformanceController.prototype, "getPips", null);
+__decorate([
+    (0, common_1.Post)('pip'),
+    __param(0, (0, current_user_decorator_1.CurrentUser)()),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", void 0)
+], PerformanceController.prototype, "handlePipAction", null);
+__decorate([
+    (0, common_1.Get)('calibration'),
+    __param(0, (0, current_user_decorator_1.CurrentUser)()),
+    __param(1, (0, common_1.Query)('cycleId')),
+    __param(2, (0, common_1.Query)('departmentId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, String]),
+    __metadata("design:returntype", void 0)
+], PerformanceController.prototype, "getCalibrationData", null);
+__decorate([
+    (0, common_1.Post)('calibration'),
+    __param(0, (0, current_user_decorator_1.CurrentUser)()),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", void 0)
+], PerformanceController.prototype, "handleCalibrationAction", null);
 exports.PerformanceController = PerformanceController = __decorate([
     (0, common_1.Controller)('performance'),
     (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),

@@ -52,10 +52,10 @@ export declare class ChatController {
             } | null;
             messages: {
                 id: string;
-                status: import("@prisma/client").$Enums.MessageStatus;
                 createdAt: Date;
-                content: string;
+                status: import("@prisma/client").$Enums.MessageStatus;
                 receiverId: string;
+                content: string;
                 conversationId: string;
                 senderId: string;
             }[];
@@ -73,11 +73,11 @@ export declare class ChatController {
         success: boolean;
         data: {
             id: string;
-            status: import("@prisma/client").$Enums.MessageStatus;
             createdAt: Date;
+            status: import("@prisma/client").$Enums.MessageStatus;
             updatedAt: Date;
-            content: string;
             receiverId: string;
+            content: string;
             conversationId: string;
             senderId: string;
         };

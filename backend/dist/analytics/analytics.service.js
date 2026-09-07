@@ -18,13 +18,14 @@ let AnalyticsService = class AnalyticsService {
         this.prisma = prisma;
     }
     async getMetrics() {
-        const [totalHeadcount, openTicketsCount, pendingLeavesCount, pendingDocRequestsCount, attendanceRecords, candidates] = await Promise.all([
+        const [totalHeadcount, openTicketsCount, pendingLeavesCount, pendingDocRequestsCount, attendanceRecords, candidates, employeesByDept] = await Promise.all([
             this.prisma.employee.count(),
             this.prisma.helpDeskTicket.count({ where: { status: { in: ['Open', 'InProgress'] } } }),
             this.prisma.leaveRequest.count({ where: { status: 'Pending' } }),
             this.prisma.documentRequest.count({ where: { status: { in: ['Pending', 'InProgress'] } } }),
             this.prisma.attendanceRecord.findMany({ select: { date: true, status: true }, take: 100, orderBy: { createdAt: 'desc' } }),
             this.prisma.recruitmentCandidate.findMany({ select: { stage: true } }),
+            this.prisma.employee.groupBy({ by: ['department'], _count: { id: true } }),
         ]);
         const openHrActions = openTicketsCount + pendingLeavesCount + pendingDocRequestsCount;
         let attendanceRate = 96.4;
@@ -61,7 +62,17 @@ let AnalyticsService = class AnalyticsService {
             { day: 'Thu', onTime: Math.min(100, Math.max(86, avgOnTime + 1)), late: Math.max(4, avgLate) },
             { day: 'Fri', onTime: Math.min(100, Math.max(80, avgOnTime - 5)), late: Math.max(7, avgLate + 4) },
         ];
-        return { totalHeadcount, openHrActions, attendanceRate: `${attendanceRate}%`, recruitmentPipeline, attendanceTrends };
+        const DEPT_COLORS = {
+            Engineering: '#17324A', 'AI/ML': '#8B3A4A', Product: '#A04456',
+            Design: '#B86B78', 'Human Resources': '#10b981', Marketing: '#f59e0b',
+            Finance: '#5E6673',
+        };
+        const headcountByDept = employeesByDept.map((d) => ({
+            name: d.department || 'Other',
+            count: typeof d._count === 'object' && d._count !== null ? d._count.id ?? 0 : 0,
+            color: DEPT_COLORS[d.department || ''] || '#8B9BAA',
+        }));
+        return { totalHeadcount, openHrActions, attendanceRate: `${attendanceRate}%`, recruitmentPipeline, attendanceTrends, headcountByDept };
     }
 };
 exports.AnalyticsService = AnalyticsService;

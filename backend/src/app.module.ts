@@ -1,6 +1,10 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
+import { LegacyResponseInterceptor } from './common/interceptors/legacy-response.interceptor';
+import { LegacyExceptionFilter } from './common/filters/legacy-exception.filter';
 import { PrismaModule } from './prisma/prisma.module';
+import { NotifyModule } from './common/notifications/notify.module';
 import { AuthModule } from './auth/auth.module';
 import { EmployeesModule } from './employees/employees.module';
 import { AttendanceModule } from './attendance/attendance.module';
@@ -31,9 +35,20 @@ import { AnnouncementsModule } from './announcements/announcements.module';
 import { TasksModule } from './tasks/tasks.module';
 
 @Module({
+  providers: [
+    {
+      provide: APP_FILTER,
+      useClass: LegacyExceptionFilter,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: LegacyResponseInterceptor,
+    },
+  ],
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     PrismaModule,
+    NotifyModule,
     AuthModule,
     EmployeesModule,
     AttendanceModule,

@@ -13,6 +13,17 @@ export class EmployeeLifecycleController {
     return this.lifecycleService.findAll(employeeId);
   }
 
+  /**
+   * POST /api/employee-lifecycle/convert — offer-based onboarding.
+   * Frontend (handleOnboardSubmit) calls this when the selected candidate
+   * has recruitment_offers, passing {candidateId, customJoinDate,
+   * customManagerId, customProbationMonths}.
+   */
+  @Post('convert')
+  convert(@CurrentUser() user: any, @Body() body: any) {
+    return this.lifecycleService.convertOffer(user, body);
+  }
+
   @Post()
   handleAction(@CurrentUser() user: any, @Body() body: any) {
     switch (body.action) {

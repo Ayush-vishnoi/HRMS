@@ -9,6 +9,7 @@ import {
   Upload,
   X,
 } from 'lucide-react';
+import { authFetch } from '@/lib/api-client';
 import type { RecruitmentJob } from '@/features/recruitment/data/recruitment';
 
 /* ============================================================
@@ -229,16 +230,19 @@ export default function ResumeReviewQueue({
     try {
       const fd = new FormData();
       fd.append('file', item.file);
-      const res = await fetch('/api/recruitment/candidates/parse-draft', {
+      const json = await authFetch<{
+        success: boolean;
+        error?: string;
+        parsedData: ParsedDraft;
+      }>('/api/recruitment/candidates/parse-draft', {
         method: 'POST',
         body: fd,
       });
-      const json = await res.json().catch(() => null);
-      if (!res.ok || !json?.success) {
-        patch('failed', json?.error || `Resume could not be parsed (HTTP ${res.status}).`);
+      if (!json?.success) {
+        patch('failed', json?.error || 'Resume could not be parsed.');
         return;
       }
-      patch('ready', undefined, json.parsedData as ParsedDraft);
+      patch('ready', undefined, json.parsedData);
     } catch (err: any) {
       patch('failed', err?.message || 'Network error while parsing resume.');
     }
@@ -293,16 +297,19 @@ export default function ResumeReviewQueue({
             .filter(Boolean),
         })
       );
-      const res = await fetch('/api/recruitment/candidates/from-resume', {
+      const json = await authFetch<{
+        success: boolean;
+        error?: string;
+        warning?: string;
+      }>('/api/recruitment/candidates/from-resume', {
         method: 'POST',
         body: fd,
       });
-      const json = await res.json().catch(() => null);
-      if (!res.ok || !json?.success) {
+      if (!json?.success) {
         setQueue((prev) =>
           prev.map((q) =>
             q.id === activeItem.id
-              ? { ...q, status: 'ready', error: json?.error || `Failed to create candidate (HTTP ${res.status}).` }
+              ? { ...q, status: 'ready', error: json?.error || 'Failed to create candidate.' }
               : q
           )
         );

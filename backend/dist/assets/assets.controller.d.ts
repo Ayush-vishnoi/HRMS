@@ -2,91 +2,10 @@ import { AssetsService } from './assets.service';
 export declare class AssetsController {
     private assetsService;
     constructor(assetsService: AssetsService);
-    findAll(user: any): Promise<({
-        assignedTo: {
-            id: string;
-            employeeCode: string;
-            name: string;
-            department: string;
-        } | null;
-    } & {
+    findAll(user: any): Promise<any[]>;
+    create(user: any, body: any): Promise<any>;
+    update(user: any, body: any): Promise<any>;
+    remove(user: any, body: any, queryId?: string): Promise<{
         id: string;
-        name: string;
-        status: import("@prisma/client").$Enums.AssetStatus;
-        location: string;
-        createdAt: Date;
-        updatedAt: Date;
-        assetTag: string;
-        category: import("@prisma/client").$Enums.AssetCategory;
-        brand: string;
-        model: string;
-        serialNumber: string;
-        purchaseDate: string;
-        purchaseCost: string | null;
-        warrantyUntil: string | null;
-        assignedToId: string | null;
-        condition: import("@prisma/client").$Enums.AssetCondition;
-        lastChecked: string;
-        allocationDate: string | null;
-        acknowledgedAt: Date | null;
-        notes: string | null;
-    })[]>;
-    create(body: any): Promise<{
-        assignedTo: {
-            id: string;
-            employeeCode: string;
-            name: string;
-            department: string;
-        } | null;
-    } & {
-        id: string;
-        name: string;
-        status: import("@prisma/client").$Enums.AssetStatus;
-        location: string;
-        createdAt: Date;
-        updatedAt: Date;
-        assetTag: string;
-        category: import("@prisma/client").$Enums.AssetCategory;
-        brand: string;
-        model: string;
-        serialNumber: string;
-        purchaseDate: string;
-        purchaseCost: string | null;
-        warrantyUntil: string | null;
-        assignedToId: string | null;
-        condition: import("@prisma/client").$Enums.AssetCondition;
-        lastChecked: string;
-        allocationDate: string | null;
-        acknowledgedAt: Date | null;
-        notes: string | null;
-    }>;
-    update(body: any): Promise<{
-        assignedTo: {
-            id: string;
-            employeeCode: string;
-            name: string;
-            department: string;
-        } | null;
-    } & {
-        id: string;
-        name: string;
-        status: import("@prisma/client").$Enums.AssetStatus;
-        location: string;
-        createdAt: Date;
-        updatedAt: Date;
-        assetTag: string;
-        category: import("@prisma/client").$Enums.AssetCategory;
-        brand: string;
-        model: string;
-        serialNumber: string;
-        purchaseDate: string;
-        purchaseCost: string | null;
-        warrantyUntil: string | null;
-        assignedToId: string | null;
-        condition: import("@prisma/client").$Enums.AssetCondition;
-        lastChecked: string;
-        allocationDate: string | null;
-        acknowledgedAt: Date | null;
-        notes: string | null;
     }>;
 }

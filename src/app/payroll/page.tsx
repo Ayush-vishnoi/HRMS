@@ -159,11 +159,8 @@ export default function PayrollPage() {
   const fetchPayslips = async () => {
     try {
       setLoading(true);
-      const url =
-        viewScope === 'all' && isPrivileged
-          ? `/api/payroll?view=all`
-          : `/api/payroll?view=my`;
-      const res = await fetch(url);
+      const url = viewScope === 'all' && isPrivileged ? `/api/payroll?view=all` : `/api/payroll?view=my`;
+      const res = await authFetch<Response>(url, { raw: true });
       if (res.ok) {
         const json = await res.json();
         if (json.success && json.data) {
@@ -247,28 +244,23 @@ export default function PayrollPage() {
   const fetchLoans = async () => {
     try {
       const url = isPrivileged ? '/api/payroll/loans?view=all' : `/api/payroll/loans?employeeId=${currentUser.id}`;
-      const res = await fetch(url);
+      const res = await authFetch<Response>(url, { raw: true });
       if (res.ok) {
         const json = await res.json();
-        if (json.success && Array.isArray(json.data)) {
-          setLoans(json.data);
-        }
+        if (json.success && Array.isArray(json.data)) setLoans(json.data);
       }
     } catch {
       handleLoadFailure();
     }
   };
 
-  // 6. Fetch Variable Pay
   const fetchVariablePay = async () => {
     try {
       const url = isPrivileged ? '/api/payroll/variable-pay?view=all' : `/api/payroll/variable-pay?employeeId=${currentUser.id}`;
-      const res = await fetch(url);
+      const res = await authFetch<Response>(url, { raw: true });
       if (res.ok) {
         const json = await res.json();
-        if (json.success && Array.isArray(json.data)) {
-          setVariablePays(json.data);
-        }
+        if (json.success && Array.isArray(json.data)) setVariablePays(json.data);
       }
     } catch {
       handleLoadFailure();

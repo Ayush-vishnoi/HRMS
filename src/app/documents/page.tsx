@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { authFetch } from '@/lib/api-client';
 import {
   CheckCircle2,
   Clock3,
@@ -210,10 +211,26 @@ export default function DocumentsPage() {
   const isAdmin = currentUser.userRole === 'admin';
   const canSubmit = currentUser.userRole === 'employee' || currentUser.userRole === 'manager';
 
-  const [documents, setDocuments] = useState<EmployeeDocument[]>(INITIAL_DOCUMENTS);
-  const [requests, setRequests] = useState<DocumentRequest[]>(INITIAL_REQUESTS);
-  const [templates] = useState<Template[]>(STATIC_TEMPLATES);
-  const [staff] = useState<StaffMember[]>(STATIC_STAFF);
+  const [documents, setDocuments] = useState<EmployeeDocument[]>([]);
+  const [requests, setRequests] = useState<DocumentRequest[]>([]);
+  const [templates, setTemplates] = useState<Template[]>(STATIC_TEMPLATES);
+  const [staff, setStaff] = useState<StaffMember[]>(STATIC_STAFF);
+
+  useEffect(() => {
+    authFetch<{ success: boolean; data: any }>('/api/documents')
+      .then((res) => {
+        if (res?.success && res.data) {
+          setDocuments(res.data.documents || []);
+          setRequests(res.data.requests || []);
+          if (res.data.templates?.length) setTemplates(res.data.templates);
+          if (res.data.staff?.length) setStaff(res.data.staff);
+        }
+      })
+      .catch(() => {
+        setDocuments(INITIAL_DOCUMENTS);
+        setRequests(INITIAL_REQUESTS);
+      });
+  }, [currentUser.id]);
 
   const [showUpload, setShowUpload] = useState(false);
   const [showRequest, setShowRequest] = useState(false);

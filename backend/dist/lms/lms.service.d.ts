@@ -6,20 +6,20 @@ export declare class LmsService {
         courses: ({
             modules: {
                 id: string;
-                createdAt: Date;
                 title: string;
-                orderIndex: number;
+                createdAt: Date;
                 courseId: string;
+                orderIndex: number;
                 contentType: string;
                 contentUrl: string | null;
                 estimatedMinutes: number;
             }[];
         } & {
             id: string;
-            createdAt: Date;
-            category: string;
             title: string;
+            createdAt: Date;
             description: string;
+            category: string;
             durationHours: number;
             level: string;
             isMandatory: boolean;
@@ -30,20 +30,20 @@ export declare class LmsService {
             course: {
                 modules: {
                     id: string;
-                    createdAt: Date;
                     title: string;
-                    orderIndex: number;
+                    createdAt: Date;
                     courseId: string;
+                    orderIndex: number;
                     contentType: string;
                     contentUrl: string | null;
                     estimatedMinutes: number;
                 }[];
             } & {
                 id: string;
-                createdAt: Date;
-                category: string;
                 title: string;
+                createdAt: Date;
                 description: string;
+                category: string;
                 durationHours: number;
                 level: string;
                 isMandatory: boolean;
@@ -54,9 +54,9 @@ export declare class LmsService {
             id: string;
             status: string;
             employeeId: string;
+            dueDate: string;
             courseId: string;
             enrolledAt: Date;
-            dueDate: string;
             progressPercentage: number;
             completionDate: string | null;
             scorePercentage: number | null;
@@ -67,9 +67,9 @@ export declare class LmsService {
         id: string;
         status: string;
         employeeId: string;
+        dueDate: string;
         courseId: string;
         enrolledAt: Date;
-        dueDate: string;
         progressPercentage: number;
         completionDate: string | null;
         scorePercentage: number | null;

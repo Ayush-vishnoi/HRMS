@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -100,5 +100,153 @@ export class EmployeesService {
     const employee = await this.prisma.employee.findUnique({ where: { id } });
     if (!employee) throw new NotFoundException('Employee not found');
     return this.prisma.employee.update({ where: { id }, data });
+  }
+
+  /**
+   * GET /api/employees/:id/360?role=&currentUserId=
+   * Aggregated 360° profile consumed by the employee detail page.
+   * Access: self, manager, admin.
+   */
+  async get360(id: string, access?: { role?: string; currentUserId?: string }) {
+    const employee = await this.prisma.employee.findUnique({
+      where: { id },
+      include: {
+        manager: { select: { id: true, name: true, roleTitle: true, avatarUrl: true } },
+        directReports: { select: { id: true, name: true, roleTitle: true, avatarUrl: true } },
+      },
+    });
+    if (!employee) throw new NotFoundException('Employee not found');
+
+    if (access && access.role !== 'admin' && access.currentUserId !== id && employee.managerId !== access.currentUserId) {
+      throw new ForbiddenException('You do not have permission to view this employee profile');
+    }
+
+    const [
+      attendanceSummary,
+      leaveBalances,
+      leaveRequests,
+      payslips,
+      kras,
+      assignedAssets,
+      documents,
+      salaryStructure,
+      skills,
+      courseEnrollments,
+      benefitEnrollments,
+      exitRequest,
+      salaryRevisions,
+      disciplinaryWarnings,
+      employmentProfile,
+      changeRequests,
+      recognitions,
+      goals,
+      kpis,
+      reviewAssignments,
+      competencyAssessments,
+      pips,
+      careerAspirations,
+      feedback,
+    ] = await Promise.all([
+      this.prisma.attendanceRecord.findMany({
+        where: { employeeId: id },
+        orderBy: { date: 'desc' },
+        take: 30,
+      }),
+      this.prisma.leaveBalance.findMany({ where: { employeeId: id } }),
+      this.prisma.leaveRequest.findMany({
+        where: { employeeId: id },
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.payslip.findMany({
+        where: { employeeId: id },
+        orderBy: { monthYear: 'desc' },
+      }),
+      this.prisma.performanceKra.findMany({
+        where: { assignedToId: id },
+        include: {
+          assignedTo: { select: { id: true, name: true } },
+          assignedBy: { select: { id: true, name: true } },
+        },
+      }),
+      this.prisma.asset.findMany({ where: { assignedToId: id } }),
+      this.prisma.employeeDocument.findMany({ where: { employeeId: id } }),
+      this.prisma.salaryStructure.findFirst({ where: { employeeId: id, isActive: true } }),
+      this.prisma.employeeSkill.findMany({
+        where: { employeeId: id },
+        include: { skill: true },
+      }),
+      this.prisma.employeeCourseEnrollment.findMany({
+        where: { employeeId: id },
+        include: { course: true },
+      }),
+      this.prisma.employeeBenefitEnrollment.findMany({
+        where: { employeeId: id },
+        include: { plan: true },
+      }),
+      this.prisma.exitRequest.findFirst({ where: { employeeId: id } }),
+      this.prisma.salaryRevisionHistory.findMany({
+        where: { employeeId: id },
+        orderBy: { effectiveDate: 'desc' },
+      }),
+      this.prisma.employeeWarning.findMany({
+        where: { employeeId: id },
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.employee_employment_profiles.findFirst({ where: { employee_id: id } }),
+      this.prisma.employee_change_requests.findMany({
+        where: { employee_id: id },
+        orderBy: { created_at: 'desc' },
+      }),
+      this.prisma.employeeRecognition.findMany({
+        where: { receiverId: id },
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.performanceGoal.findMany({
+        where: { owner_employee_id: id },
+      }),
+      this.prisma.performance_kpis.findMany({ where: { employee_id: id } }),
+      this.prisma.performance_review_assignments.findMany({
+        where: { employee_id: id },
+      }),
+      this.prisma.performance_competency_assessments.findMany({
+        where: { employee_id: id },
+      }),
+      this.prisma.performance_improvement_plans.findMany({
+        where: { employee_id: id },
+      }),
+      this.prisma.career_aspirations.findFirst({ where: { employee_id: id } }),
+      this.prisma.performance_feedback.findMany({
+        where: { recipient_id: id },
+        orderBy: { created_at: 'desc' },
+      }),
+    ]);
+
+    return {
+      employee,
+      attendanceSummary,
+      leaveBalances,
+      leaveRequests,
+      payslips,
+      kras,
+      assets: assignedAssets,
+      documents,
+      salaryStructure: salaryStructure ?? null,
+      skills,
+      courseEnrollments,
+      benefitEnrollments,
+      exitRequest: exitRequest ?? null,
+      salaryRevisions,
+      disciplinaryWarnings,
+      employmentProfile: employmentProfile ?? null,
+      changeRequests,
+      recognitions,
+      goals,
+      kpis,
+      reviewAssignments,
+      competencyAssessments,
+      pips,
+      careerAspirations: careerAspirations ?? null,
+      feedback,
+    };
   }
 }

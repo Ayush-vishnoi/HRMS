@@ -12,10 +12,10 @@ export declare class PoliciesController {
         }[];
     } & {
         id: string;
+        title: string;
         createdAt: Date;
         updatedAt: Date;
         category: import("@prisma/client").$Enums.PolicyCategory;
-        title: string;
         effectiveDate: string;
         summary: string;
         version: string;
@@ -34,10 +34,10 @@ export declare class PoliciesController {
         acknowledgedOn: string;
     } | {
         id: string;
+        title: string;
         createdAt: Date;
         updatedAt: Date;
         category: import("@prisma/client").$Enums.PolicyCategory;
-        title: string;
         effectiveDate: string;
         summary: string;
         version: string;

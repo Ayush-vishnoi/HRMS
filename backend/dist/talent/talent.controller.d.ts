@@ -7,6 +7,7 @@ export declare class TalentController {
             id: string;
             department: string;
             organization_id: string;
+            created_at: Date;
             updated_at: Date;
             current_role_title: string;
             next_role_title: string;
@@ -17,13 +18,12 @@ export declare class TalentController {
             performance_expectation: string;
             recommended_training_ids: string[];
             is_active: boolean;
-            created_at: Date;
         }[];
         aspiration: {
             id: string;
-            updated_at: Date;
-            created_at: Date;
             employee_id: string;
+            created_at: Date;
+            updated_at: Date;
             target_role: string;
             target_department: string | null;
             target_timeline: string;
@@ -35,17 +35,17 @@ export declare class TalentController {
         benchmarks: ({
             skill: {
                 id: string;
-                name: string;
                 createdAt: Date;
-                category: string;
+                name: string;
                 description: string | null;
+                category: string;
             };
         } & {
             id: string;
             designation_id: string | null;
-            updated_at: Date;
             priority: string;
             created_at: Date;
+            updated_at: Date;
             role_title: string;
             skill_id: string;
             required_proficiency: string;
@@ -57,9 +57,9 @@ export declare class TalentController {
     }>;
     handleAction(user: any, body: any): Promise<{
         id: string;
-        updated_at: Date;
-        created_at: Date;
         employee_id: string;
+        created_at: Date;
+        updated_at: Date;
         target_role: string;
         target_department: string | null;
         target_timeline: string;
@@ -71,12 +71,12 @@ export declare class TalentController {
         id: string;
         name: string;
         organization_id: string;
-        category: string;
         description: string | null;
-        updated_at: Date;
+        category: string;
         created_at: Date;
-        is_confidential: boolean;
+        updated_at: Date;
         created_by_id: string | null;
+        is_confidential: boolean;
     } | {
         id: string;
         notes: string | null;
@@ -88,8 +88,8 @@ export declare class TalentController {
         id: string;
         department: string;
         organization_id: string;
-        updated_at: Date;
         created_at: Date;
+        updated_at: Date;
         critical_role_title: string;
         incumbent_employee_id: string | null;
         emergency_successor_id: string | null;

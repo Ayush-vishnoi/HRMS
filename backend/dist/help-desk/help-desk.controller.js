@@ -26,10 +26,15 @@ let HelpDeskController = class HelpDeskController {
         return this.helpDeskService.findAll(employeeId, status, category);
     }
     create(userId, body) {
-        return this.helpDeskService.create(userId, body);
+        const { employeeId, ...rest } = body;
+        return this.helpDeskService.create(employeeId || userId, rest);
     }
-    resolve(id, userId, resolution) {
-        return this.helpDeskService.resolve(id, userId, resolution);
+    update(body, userId) {
+        return this.helpDeskService.update(body.id, {
+            status: body.status,
+            resolution: body.resolution,
+            resolvedById: body.resolvedById || userId,
+        });
     }
 };
 exports.HelpDeskController = HelpDeskController;
@@ -51,14 +56,13 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], HelpDeskController.prototype, "create", null);
 __decorate([
-    (0, common_1.Patch)(':id/resolve'),
-    __param(0, (0, common_1.Param)('id')),
+    (0, common_1.Patch)(),
+    __param(0, (0, common_1.Body)()),
     __param(1, (0, current_user_decorator_1.CurrentUser)('id')),
-    __param(2, (0, common_1.Body)('resolution')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String, String]),
+    __metadata("design:paramtypes", [Object, String]),
     __metadata("design:returntype", void 0)
-], HelpDeskController.prototype, "resolve", null);
+], HelpDeskController.prototype, "update", null);
 exports.HelpDeskController = HelpDeskController = __decorate([
     (0, common_1.Controller)('help-desk'),
     (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),

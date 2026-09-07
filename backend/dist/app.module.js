@@ -9,7 +9,11 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.AppModule = void 0;
 const common_1 = require("@nestjs/common");
 const config_1 = require("@nestjs/config");
+const core_1 = require("@nestjs/core");
+const legacy_response_interceptor_1 = require("./common/interceptors/legacy-response.interceptor");
+const legacy_exception_filter_1 = require("./common/filters/legacy-exception.filter");
 const prisma_module_1 = require("./prisma/prisma.module");
+const notify_module_1 = require("./common/notifications/notify.module");
 const auth_module_1 = require("./auth/auth.module");
 const employees_module_1 = require("./employees/employees.module");
 const attendance_module_1 = require("./attendance/attendance.module");
@@ -43,9 +47,20 @@ let AppModule = class AppModule {
 exports.AppModule = AppModule;
 exports.AppModule = AppModule = __decorate([
     (0, common_1.Module)({
+        providers: [
+            {
+                provide: core_1.APP_FILTER,
+                useClass: legacy_exception_filter_1.LegacyExceptionFilter,
+            },
+            {
+                provide: core_1.APP_INTERCEPTOR,
+                useClass: legacy_response_interceptor_1.LegacyResponseInterceptor,
+            },
+        ],
         imports: [
             config_1.ConfigModule.forRoot({ isGlobal: true }),
             prisma_module_1.PrismaModule,
+            notify_module_1.NotifyModule,
             auth_module_1.AuthModule,
             employees_module_1.EmployeesModule,
             attendance_module_1.AttendanceModule,

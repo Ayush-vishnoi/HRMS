@@ -6,20 +6,20 @@ export declare class EngagementService {
         surveys: ({
             responses: {
                 id: string;
+                feedback: string | null;
                 surveyId: string;
                 respondentId: string | null;
                 npsScore: number;
                 answersJson: string;
-                feedback: string | null;
                 submittedAt: Date;
             }[];
         } & {
             id: string;
-            status: string;
+            title: string;
             createdAt: Date;
+            status: string;
             startDate: string;
             endDate: string;
-            title: string;
             description: string;
             surveyType: string;
             isAnonymous: boolean;
@@ -27,23 +27,22 @@ export declare class EngagementService {
         })[];
         feedPosts: {
             id: string;
-            createdAt: Date;
             title: string;
+            createdAt: Date;
+            likesCount: number;
+            content: string;
             authorId: string;
             authorName: string;
             authorAvatar: string | null;
             postType: string;
-            content: string;
             mediaUrl: string | null;
             pinned: boolean;
-            likesCount: number;
             commentsCount: number;
         }[];
         recognitions: {
             message: string;
             id: string;
             createdAt: Date;
-            likesCount: number;
             giverId: string;
             giverName: string;
             receiverId: string;
@@ -51,38 +50,25 @@ export declare class EngagementService {
             recognitionType: string;
             badgeIcon: string;
             isPublic: boolean;
+            likesCount: number;
         }[];
         suggestions: {
             id: string;
-            status: string;
-            createdAt: Date;
-            category: string;
-            employeeId: string | null;
             title: string;
+            createdAt: Date;
+            status: string;
+            employeeId: string | null;
             description: string;
+            category: string;
             employeeName: string | null;
             upvotesCount: number;
             hrResponse: string | null;
         }[];
     }>;
     handleAction(body: any): Promise<{
-        id: string;
-        createdAt: Date;
-        title: string;
-        authorId: string;
-        authorName: string;
-        authorAvatar: string | null;
-        postType: string;
-        content: string;
-        mediaUrl: string | null;
-        pinned: boolean;
-        likesCount: number;
-        commentsCount: number;
-    } | {
         message: string;
         id: string;
         createdAt: Date;
-        likesCount: number;
         giverId: string;
         giverName: string;
         receiverId: string;
@@ -90,24 +76,38 @@ export declare class EngagementService {
         recognitionType: string;
         badgeIcon: string;
         isPublic: boolean;
+        likesCount: number;
     } | {
         id: string;
-        status: string;
-        createdAt: Date;
-        category: string;
-        employeeId: string | null;
         title: string;
+        createdAt: Date;
+        likesCount: number;
+        content: string;
+        authorId: string;
+        authorName: string;
+        authorAvatar: string | null;
+        postType: string;
+        mediaUrl: string | null;
+        pinned: boolean;
+        commentsCount: number;
+    } | {
+        id: string;
+        title: string;
+        createdAt: Date;
+        status: string;
+        employeeId: string | null;
         description: string;
+        category: string;
         employeeName: string | null;
         upvotesCount: number;
         hrResponse: string | null;
     } | {
         id: string;
+        feedback: string | null;
         surveyId: string;
         respondentId: string | null;
         npsScore: number;
         answersJson: string;
-        feedback: string | null;
         submittedAt: Date;
     }>;
 }

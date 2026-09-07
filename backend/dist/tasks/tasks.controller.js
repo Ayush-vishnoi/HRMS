@@ -62,10 +62,13 @@ let TasksController = class TasksController {
         const data = await this.tasksService.update(userId, body);
         return { success: true, data };
     }
-    async delete(req, id, headerUserId) {
+    async delete(req, body, headerUserId) {
         const userId = this.resolveUserId(req, headerUserId);
         if (!userId)
             return { success: false, error: 'Unauthorized' };
+        const id = body?.id;
+        if (!id)
+            return { success: false, error: 'Task id is required' };
         return this.tasksService.delete(userId, id);
     }
 };
@@ -109,10 +112,10 @@ __decorate([
 __decorate([
     (0, common_1.Delete)(),
     __param(0, (0, common_1.Req)()),
-    __param(1, (0, common_1.Query)('id')),
+    __param(1, (0, common_1.Body)()),
     __param(2, (0, common_1.Headers)('x-user-id')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, String, String]),
+    __metadata("design:paramtypes", [Object, Object, String]),
     __metadata("design:returntype", Promise)
 ], TasksController.prototype, "delete", null);
 exports.TasksController = TasksController = __decorate([

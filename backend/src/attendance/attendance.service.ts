@@ -20,24 +20,44 @@ export class AttendanceService {
     });
   }
 
-  async clockIn(employeeId: string, location: string) {
-    const today = new Date().toISOString().split('T')[0];
-    const checkIn = new Date().toTimeString().slice(0, 5);
-    return this.prisma.attendanceRecord.create({
-      data: { employeeId, date: today, checkIn, checkOut: '', location },
-    });
+  /**
+   * POST /api/attendance body: { id?, date, checkIn, status, location }
+   * The frontend generates the record id client-side (e.g. "ATT-1690..."),
+   * so when an id is provided we upsert on it to stay idempotent.
+   */
+  async create(
+    employeeId: string,
+    data: { id?: string; date: string; checkIn: string; status?: string; location?: string },
+  ) {
+    const payload: any = {
+      employeeId,
+      date: data.date,
+      checkIn: data.checkIn,
+      checkOut: '',
+      hoursWorked: '0h 0m',
+      status: (data.status as any) || 'OnTime',
+      location: data.location || 'Office - HQ',
+    };
+    if (data.id) {
+      payload.id = data.id;
+      const existing = await this.prisma.attendanceRecord.findUnique({ where: { id: data.id } });
+      if (existing) {
+        return this.prisma.attendanceRecord.update({ where: { id: data.id }, data: payload });
+      }
+    }
+    return this.prisma.attendanceRecord.create({ data: payload });
   }
 
-  async clockOut(employeeId: string) {
-    const today = new Date().toISOString().split('T')[0];
-    const checkOut = new Date().toTimeString().slice(0, 5);
-    const record = await this.prisma.attendanceRecord.findFirst({
-      where: { employeeId, date: today },
-    });
-    if (!record) return null;
+  /**
+   * PATCH /api/attendance body: { id, checkOut, hoursWorked }
+   */
+  async update(id: string, data: { checkOut?: string; hoursWorked?: string }) {
     return this.prisma.attendanceRecord.update({
-      where: { id: record.id },
-      data: { checkOut },
+      where: { id },
+      data: {
+        ...(data.checkOut !== undefined ? { checkOut: data.checkOut } : {}),
+        ...(data.hoursWorked !== undefined ? { hoursWorked: data.hoursWorked } : {}),
+      },
     });
   }
 

@@ -4,12 +4,12 @@ export declare class ExpensesService {
     constructor(prisma: PrismaService);
     findAll(userId: string, userRole: string, view: string, employeeId?: string): Promise<{
         id: string;
+        title: string;
         createdAt: Date;
         updatedAt: Date;
-        category: string;
         employeeId: string;
-        title: string;
         description: string;
+        category: string;
         currency: string;
         paymentStatus: string;
         amount: number;
@@ -26,12 +26,12 @@ export declare class ExpensesService {
     }[]>;
     create(employeeId: string, data: any): Promise<{
         id: string;
+        title: string;
         createdAt: Date;
         updatedAt: Date;
-        category: string;
         employeeId: string;
-        title: string;
         description: string;
+        category: string;
         currency: string;
         paymentStatus: string;
         amount: number;
@@ -48,12 +48,12 @@ export declare class ExpensesService {
     }>;
     update(id: string, data: any): Promise<{
         id: string;
+        title: string;
         createdAt: Date;
         updatedAt: Date;
-        category: string;
         employeeId: string;
-        title: string;
         description: string;
+        category: string;
         currency: string;
         paymentStatus: string;
         amount: number;

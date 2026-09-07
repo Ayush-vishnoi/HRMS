@@ -117,7 +117,7 @@ export default function ExpensesPage() {
       // review queue via `view=all`, everyone else gets their own claims.
       const url = activeTab === 'all' && isApprover ? '/api/expenses?view=all' : '/api/expenses?view=my';
 
-      const res = await fetch(url);
+      const res = await authFetch<Response>(url, { raw: true });
       if (res.ok) {
         const json = await res.json();
         if (json.success && Array.isArray(json.data)) {

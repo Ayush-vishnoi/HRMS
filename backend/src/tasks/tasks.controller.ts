@@ -53,9 +53,11 @@ export class TasksController {
   }
 
   @Delete()
-  async delete(@Req() req: Request, @Query('id') id: string, @Headers('x-user-id') headerUserId?: string) {
+  async delete(@Req() req: Request, @Body() body: any, @Headers('x-user-id') headerUserId?: string) {
     const userId = this.resolveUserId(req, headerUserId);
     if (!userId) return { success: false, error: 'Unauthorized' };
+    const id = body?.id;
+    if (!id) return { success: false, error: 'Task id is required' };
     return this.tasksService.delete(userId, id);
   }
 }

@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { AlertTriangle, UserPlus, X } from 'lucide-react';
+import { authFetch } from '@/lib/api-client';
 import type { RecruitmentJob } from '@/features/recruitment/data/recruitment';
 
 /* ============================================================
@@ -50,22 +51,23 @@ export default function AddCandidateManualModal({
     setIsSubmitting(true);
     setError(null);
     try {
-      const res = await fetch('/api/recruitment/candidates', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          jobId: form.jobId,
-          name: form.name.trim(),
-          email: form.email.trim(),
-          phone: form.phone.trim() || undefined,
-          currentRole: form.currentRole.trim() || undefined,
-          location: form.location.trim() || undefined,
-          experience: form.experience.trim() || undefined,
-          summary: form.summary.trim() || undefined,
-        }),
-      });
-      const json = await res.json().catch(() => null);
-      if (!res.ok || !json?.success) {
+      const json = await authFetch<{ success: boolean; error?: string }>(
+        '/api/recruitment/candidates',
+        {
+          method: 'POST',
+          body: {
+            jobId: form.jobId,
+            name: form.name.trim(),
+            email: form.email.trim(),
+            phone: form.phone.trim() || undefined,
+            currentRole: form.currentRole.trim() || undefined,
+            location: form.location.trim() || undefined,
+            experience: form.experience.trim() || undefined,
+            summary: form.summary.trim() || undefined,
+          },
+        },
+      );
+      if (!json?.success) {
         setError(json?.error || 'Failed to create candidate.');
         return;
       }

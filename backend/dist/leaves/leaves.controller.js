@@ -22,6 +22,14 @@ let LeavesController = class LeavesController {
     constructor(leavesService) {
         this.leavesService = leavesService;
     }
+    async getAll(userId, employeeId, status) {
+        const targetId = employeeId || userId;
+        const [requests, balances] = await Promise.all([
+            this.leavesService.getRequests(employeeId, status),
+            this.leavesService.getBalances(targetId),
+        ]);
+        return { requests, balances };
+    }
     getBalances(employeeId, userId) {
         return this.leavesService.getBalances(employeeId || userId);
     }
@@ -29,13 +37,23 @@ let LeavesController = class LeavesController {
         return this.leavesService.getRequests(employeeId, status);
     }
     createRequest(userId, body) {
-        return this.leavesService.createRequest({ ...body, employeeId: userId });
+        const { employeeId, ...rest } = body;
+        return this.leavesService.createRequest({ ...rest, employeeId: employeeId || userId });
     }
-    reviewRequest(id, body, userId) {
-        return this.leavesService.reviewRequest(id, body.status, userId);
+    reviewRequest(body, userId) {
+        return this.leavesService.reviewRequest(body.id, body.status, body.reviewerId || userId);
     }
 };
 exports.LeavesController = LeavesController;
+__decorate([
+    (0, common_1.Get)(),
+    __param(0, (0, current_user_decorator_1.CurrentUser)('id')),
+    __param(1, (0, common_1.Query)('employeeId')),
+    __param(2, (0, common_1.Query)('status')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, String]),
+    __metadata("design:returntype", Promise)
+], LeavesController.prototype, "getAll", null);
 __decorate([
     (0, common_1.Get)('balances'),
     __param(0, (0, common_1.Query)('employeeId')),
@@ -45,7 +63,7 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], LeavesController.prototype, "getBalances", null);
 __decorate([
-    (0, common_1.Get)(),
+    (0, common_1.Get)('requests'),
     __param(0, (0, common_1.Query)('employeeId')),
     __param(1, (0, common_1.Query)('status')),
     __metadata("design:type", Function),
@@ -61,12 +79,11 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], LeavesController.prototype, "createRequest", null);
 __decorate([
-    (0, common_1.Patch)(':id'),
-    __param(0, (0, common_1.Param)('id')),
-    __param(1, (0, common_1.Body)()),
-    __param(2, (0, current_user_decorator_1.CurrentUser)('id')),
+    (0, common_1.Patch)(),
+    __param(0, (0, common_1.Body)()),
+    __param(1, (0, current_user_decorator_1.CurrentUser)('id')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, Object, String]),
+    __metadata("design:paramtypes", [Object, String]),
     __metadata("design:returntype", void 0)
 ], LeavesController.prototype, "reviewRequest", null);
 exports.LeavesController = LeavesController = __decorate([

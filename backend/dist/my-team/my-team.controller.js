@@ -25,8 +25,14 @@ let MyTeamController = class MyTeamController {
     findAll(user, managerId) {
         return this.myTeamService.findAll(user.id, user.userRole, managerId);
     }
-    updateMetadata(user, body) {
-        return this.myTeamService.updateMetadata(user.id, user.userRole, body);
+    createTeam(user, body) {
+        return this.myTeamService.createTeam(user, body);
+    }
+    deleteTeam(user, teamId) {
+        return this.myTeamService.deleteTeam(user, teamId);
+    }
+    handleAction(user, body) {
+        return this.myTeamService.handleAction(user, body);
     }
 };
 exports.MyTeamController = MyTeamController;
@@ -39,13 +45,29 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], MyTeamController.prototype, "findAll", null);
 __decorate([
+    (0, common_1.Post)(),
+    __param(0, (0, current_user_decorator_1.CurrentUser)()),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", void 0)
+], MyTeamController.prototype, "createTeam", null);
+__decorate([
+    (0, common_1.Delete)(),
+    __param(0, (0, current_user_decorator_1.CurrentUser)()),
+    __param(1, (0, common_1.Query)('teamId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:returntype", void 0)
+], MyTeamController.prototype, "deleteTeam", null);
+__decorate([
     (0, common_1.Patch)(),
     __param(0, (0, current_user_decorator_1.CurrentUser)()),
     __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object, Object]),
     __metadata("design:returntype", void 0)
-], MyTeamController.prototype, "updateMetadata", null);
+], MyTeamController.prototype, "handleAction", null);
 exports.MyTeamController = MyTeamController = __decorate([
     (0, common_1.Controller)('my-team'),
     (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),

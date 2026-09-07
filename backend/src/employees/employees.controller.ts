@@ -25,6 +25,15 @@ export class EmployeesController {
     return this.employeesService.create(body);
   }
 
+  @Get(':id/360')
+  get360(
+    @Param('id') id: string,
+    @Query('role') role?: string,
+    @Query('currentUserId') currentUserId?: string,
+  ) {
+    return this.employeesService.get360(id, { role, currentUserId });
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.employeesService.findOne(id);

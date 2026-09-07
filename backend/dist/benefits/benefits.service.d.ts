@@ -5,8 +5,8 @@ export declare class BenefitsService {
     findAll(employeeId?: string): Promise<{
         plans: {
             id: string;
-            name: string;
             createdAt: Date;
+            name: string;
             description: string;
             isActive: boolean;
             planType: string;
@@ -19,8 +19,8 @@ export declare class BenefitsService {
         enrollments: ({
             plan: {
                 id: string;
-                name: string;
                 createdAt: Date;
+                name: string;
                 description: string;
                 isActive: boolean;
                 planType: string;
@@ -32,8 +32,8 @@ export declare class BenefitsService {
             };
             dependents: {
                 id: string;
-                name: string;
                 createdAt: Date;
+                name: string;
                 enrollmentId: string;
                 relationship: string;
                 dateOfBirth: string;
@@ -41,20 +41,20 @@ export declare class BenefitsService {
             }[];
             claims: {
                 id: string;
-                status: string;
                 createdAt: Date;
+                status: string;
                 employeeId: string;
+                incidentDate: string;
                 enrollmentId: string;
                 claimType: string;
                 claimAmount: number;
                 hospital: string;
-                incidentDate: string;
                 settledAmount: number | null;
             }[];
         } & {
             id: string;
-            status: string;
             createdAt: Date;
+            status: string;
             employeeId: string;
             benefitPlanId: string;
             enrollmentDate: string;
@@ -63,32 +63,32 @@ export declare class BenefitsService {
         })[];
         claims: {
             id: string;
-            status: string;
             createdAt: Date;
+            status: string;
             employeeId: string;
+            incidentDate: string;
             enrollmentId: string;
             claimType: string;
             claimAmount: number;
             hospital: string;
-            incidentDate: string;
             settledAmount: number | null;
         }[];
     }>;
     handleAction(body: any): Promise<{
         id: string;
-        status: string;
         createdAt: Date;
+        status: string;
         employeeId: string;
+        incidentDate: string;
         enrollmentId: string;
         claimType: string;
         claimAmount: number;
         hospital: string;
-        incidentDate: string;
         settledAmount: number | null;
     } | {
         id: string;
-        name: string;
         createdAt: Date;
+        name: string;
         enrollmentId: string;
         relationship: string;
         dateOfBirth: string;
@@ -96,8 +96,8 @@ export declare class BenefitsService {
     } | ({
         plan: {
             id: string;
-            name: string;
             createdAt: Date;
+            name: string;
             description: string;
             isActive: boolean;
             planType: string;
@@ -109,8 +109,8 @@ export declare class BenefitsService {
         };
     } & {
         id: string;
-        status: string;
         createdAt: Date;
+        status: string;
         employeeId: string;
         benefitPlanId: string;
         enrollmentDate: string;

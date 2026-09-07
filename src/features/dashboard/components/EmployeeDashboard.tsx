@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ClockInPermissionModal } from '@/features/attendance/components/ClockInPermissionModal';
 import {
@@ -11,11 +11,10 @@ import {
   FileText,
   Sparkles
 } from 'lucide-react';
+import { authFetch } from '@/lib/api-client';
 import { useHRMS } from '@/shared/providers/HRMSContext';
 import { ApplyLeaveModal } from '@/features/leaves/components/ApplyLeaveModal';
 import { PayslipModal } from '@/features/payroll/components/PayslipModal';
-import { MOCK_PAYSLIPS } from '@/features/payroll/data/payroll';
-import type { Payslip } from '@/features/payroll/data/payroll';
 import { UpcomingMeetingsCard } from '@/features/dashboard/components/UpcomingMeetingsCard';
 import { TasksSummaryCard } from '@/features/dashboard/components/TasksSummaryCard';
 import { CompanyAnnouncementsCard } from '@/features/announcements/components/CompanyAnnouncementsCard';
@@ -44,9 +43,20 @@ export const EmployeeDashboard: React.FC = () => {
   } = useHRMS();
 
   const [isLeaveModalOpen, setIsLeaveModalOpen] = useState(false);
-  const [selectedPayslip, setSelectedPayslip] = useState<Payslip | null>(null);
+  const [selectedPayslip, setSelectedPayslip] = useState<any | null>(null);
+  const [latestPayslip, setLatestPayslip] = useState<any | null>(null);
   const [isPermissionModalOpen, setIsPermissionModalOpen] = useState(false);
   const [clockNotice, setClockNotice] = useState('');
+
+  useEffect(() => {
+    authFetch<{ success: boolean; data: any }>('/api/payroll?view=my')
+      .then((res) => {
+        if (res?.success && res.data?.payslips?.length > 0) {
+          setLatestPayslip(res.data.payslips[0]);
+        }
+      })
+      .catch(() => {});
+  }, [currentUser.id]);
 
   const handleClockAction = () => {
     const result = toggleClockIn();
@@ -108,11 +118,12 @@ export const EmployeeDashboard: React.FC = () => {
 
             <button
               type="button"
-              onClick={() => setSelectedPayslip(MOCK_PAYSLIPS[0])}
-              className="px-4 py-2.5 rounded-xl bg-[#B0D0EA] hover:bg-[#9FC5E2] text-[#3e678b] border border-[#9FC5E2] text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer"
+              onClick={() => latestPayslip && setSelectedPayslip(latestPayslip)}
+              disabled={!latestPayslip}
+              className="px-4 py-2.5 rounded-xl bg-[#B0D0EA] hover:bg-[#9FC5E2] text-[#3e678b] border border-[#9FC5E2] text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer disabled:opacity-50"
             >
               <FileText className="w-4 h-4 text-[#17324A]" />
-              July Payslip
+              {latestPayslip ? `${latestPayslip.monthYear} Payslip` : 'Payslip'}
             </button>
 
           </div>

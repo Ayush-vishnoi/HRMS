@@ -15,5 +15,10 @@ export declare class AnalyticsController {
             onTime: number;
             late: number;
         }[];
+        headcountByDept: {
+            name: string;
+            count: any;
+            color: string;
+        }[];
     }>;
 }

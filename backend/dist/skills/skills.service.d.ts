@@ -5,18 +5,18 @@ export declare class SkillsService {
     findAll(employeeId?: string): Promise<{
         allSkills: {
             id: string;
-            name: string;
             createdAt: Date;
-            category: string;
+            name: string;
             description: string | null;
+            category: string;
         }[];
         employeeSkills: ({
             skill: {
                 id: string;
-                name: string;
                 createdAt: Date;
-                category: string;
+                name: string;
                 description: string | null;
+                category: string;
             };
         } & {
             id: string;
@@ -31,10 +31,10 @@ export declare class SkillsService {
     upsertSkill(body: any): Promise<{
         skill: {
             id: string;
-            name: string;
             createdAt: Date;
-            category: string;
+            name: string;
             description: string | null;
+            category: string;
         };
     } & {
         id: string;

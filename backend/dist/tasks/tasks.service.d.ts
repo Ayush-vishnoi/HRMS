@@ -59,8 +59,8 @@ export declare class TasksService {
     }>;
     getDirectReports(userId: string): Promise<{
         id: string;
-        name: string;
         email: string;
+        name: string;
         roleTitle: string;
         avatarUrl: string | null;
     }[]>;

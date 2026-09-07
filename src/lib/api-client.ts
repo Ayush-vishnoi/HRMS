@@ -113,6 +113,7 @@ export async function authFetch<T = unknown>(
 
   const init: RequestInit = {
     ...rest,
+    credentials: 'include',
     headers: finalHeaders,
     body:
       body === undefined
@@ -126,12 +127,15 @@ export async function authFetch<T = unknown>(
 
   const response = await fetch(backendUrl(path), init);
 
+  // In raw mode the caller inspects the Response itself (e.g. candidate
+  // portal pages handle 401 by redirecting to /candidate/login), so never
+  // hijack the response here.
+  if (raw) return response as unknown as T;
+
   if (response.status === 401) {
     handleUnauthorized();
     throw new Error('Unauthorized');
   }
-
-  if (raw) return response as unknown as T;
 
   if (!response.ok) {
     let message = `Request failed: ${response.status} ${response.statusText}`;

@@ -102,7 +102,8 @@ let TasksService = class TasksService {
         const title = (body.title || '').trim();
         if (!title)
             throw new common_1.BadRequestException('Title is required');
-        let assignedToId = typeof body.assignedToId === 'string' ? body.assignedToId.trim() : employee.id;
+        const assignedToId = typeof body.assignedToId === 'string' ? body.assignedToId.trim() : employee.id;
+        const isSelfTask = assignedToId === employee.id;
         const count = await this.prisma.task.count();
         const newId = `TSK-${String(count + 1).padStart(4, '0')}`;
         const created = await this.prisma.task.create({
@@ -112,9 +113,9 @@ let TasksService = class TasksService {
                 description: (body.description || '').trim(),
                 dueDate: body.dueDate ? new Date(body.dueDate) : null,
                 priority: (body.priority || 'Medium'),
-                status: (body.status || 'Todo'),
+                status: (body.status || 'ToDo'),
                 assignedToId,
-                assignedById: employee.id,
+                assignedById: isSelfTask ? null : employee.id,
             },
             include: taskInclude,
         });

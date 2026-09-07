@@ -1276,7 +1276,7 @@ export declare class TasksController {
         };
         error?: undefined;
     }>;
-    delete(req: Request, id: string, headerUserId?: string): Promise<{
+    delete(req: Request, body: any, headerUserId?: string): Promise<{
         success: boolean;
         id: string;
     } | {

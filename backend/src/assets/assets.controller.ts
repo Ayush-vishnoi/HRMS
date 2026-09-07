@@ -1,4 +1,15 @@
-import { Controller, Get, Post, Patch, Body, UseGuards } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Delete,
+  ForbiddenException,
+  Get,
+  Patch,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { AssetsService } from './assets.service';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -14,13 +25,31 @@ export class AssetsController {
   }
 
   @Post()
-  create(@Body() body: any) {
+  create(@CurrentUser() user: any, @Body() body: any) {
+    if (user.userRole !== 'admin') {
+      throw new ForbiddenException('Admin access required');
+    }
     return this.assetsService.create(body);
   }
 
   @Patch()
-  update(@Body() body: any) {
+  update(@CurrentUser() user: any, @Body() body: any) {
+    if (user.userRole !== 'admin') {
+      throw new ForbiddenException('Admin access required');
+    }
     const { id, ...data } = body;
     return this.assetsService.update(id, data);
+  }
+
+  @Delete()
+  remove(@CurrentUser() user: any, @Body() body: any, @Query('id') queryId?: string) {
+    if (user.userRole !== 'admin') {
+      throw new ForbiddenException('Admin access required');
+    }
+    const id = typeof body?.id === 'string' ? body.id : queryId;
+    if (!id) {
+      throw new BadRequestException('Asset id is required');
+    }
+    return this.assetsService.remove(id);
   }
 }

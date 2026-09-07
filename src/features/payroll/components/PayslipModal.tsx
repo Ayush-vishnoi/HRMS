@@ -1,9 +1,9 @@
 'use client';
 
 import { authFetch } from '@/lib/api-client';
+import { useHRMS } from '@/shared/providers/HRMSContext';
 import React, { useState } from 'react';
 import { X, Printer, Download, Building2, CheckCircle2, ShieldCheck, FileText, Loader2 } from 'lucide-react';
-import { CURRENT_USER } from '@/features/employees/data/employees';
 
 interface PayslipModalProps {
   payslip: any | null;
@@ -12,14 +12,15 @@ interface PayslipModalProps {
 }
 
 export const PayslipModal: React.FC<PayslipModalProps> = ({ payslip, showAmounts, onClose }) => {
+  const { currentUser } = useHRMS();
   const [downloading, setDownloading] = useState(false);
 
   if (!payslip) return null;
 
-  const employeeName = payslip.employeeName || CURRENT_USER.name;
-  const employeeCode = payslip.employeeCode || CURRENT_USER.employeeCode;
-  const department = payslip.department || CURRENT_USER.department;
-  const designation = payslip.roleTitle || CURRENT_USER.role;
+  const employeeName = payslip.employeeName || currentUser.name;
+  const employeeCode = payslip.employeeCode || currentUser.employeeCode;
+  const department = payslip.department || currentUser.department;
+  const designation = payslip.roleTitle || currentUser.role;
 
   const basicSalary = Number(payslip.basicSalary || 0);
   const hra = Number(payslip.hra || 0);

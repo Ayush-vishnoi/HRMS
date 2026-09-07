@@ -17,14 +17,27 @@ export class AttendanceController {
     return this.attendanceService.findAll(employeeId, from, to);
   }
 
-  @Post('clock-in')
-  clockIn(@CurrentUser('id') userId: string, @Body('location') location: string) {
-    return this.attendanceService.clockIn(userId, location || 'Office - HQ');
+  /**
+   * POST /api/attendance  body: { id?, employeeId, date, checkIn, status, location }
+   * Frontend (HRMSContext.startClockIn) creates the full record client-side
+   * (with its own id) and asks the backend to persist it as-is.
+   */
+  @Post()
+  create(@CurrentUser('id') userId: string, @Body() body: any) {
+    const { employeeId, ...rest } = body ?? {};
+    return this.attendanceService.create(employeeId || userId, rest);
   }
 
-  @Post('clock-out')
-  clockOut(@CurrentUser('id') userId: string) {
-    return this.attendanceService.clockOut(userId);
+  /**
+   * PATCH /api/attendance  body: { id, checkOut, hoursWorked }
+   * Frontend (HRMSContext.finishClockOut) updates an existing record by body id.
+   */
+  @Patch()
+  update(@Body() body: { id: string; checkOut?: string; hoursWorked?: string }) {
+    return this.attendanceService.update(body.id, {
+      checkOut: body.checkOut,
+      hoursWorked: body.hoursWorked,
+    });
   }
 
   @Get('late-requests')

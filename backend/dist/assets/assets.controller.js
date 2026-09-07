@@ -25,12 +25,28 @@ let AssetsController = class AssetsController {
     findAll(user) {
         return this.assetsService.findAll(user.id, user.userRole === 'admin');
     }
-    create(body) {
+    create(user, body) {
+        if (user.userRole !== 'admin') {
+            throw new common_1.ForbiddenException('Admin access required');
+        }
         return this.assetsService.create(body);
     }
-    update(body) {
+    update(user, body) {
+        if (user.userRole !== 'admin') {
+            throw new common_1.ForbiddenException('Admin access required');
+        }
         const { id, ...data } = body;
         return this.assetsService.update(id, data);
+    }
+    remove(user, body, queryId) {
+        if (user.userRole !== 'admin') {
+            throw new common_1.ForbiddenException('Admin access required');
+        }
+        const id = typeof body?.id === 'string' ? body.id : queryId;
+        if (!id) {
+            throw new common_1.BadRequestException('Asset id is required');
+        }
+        return this.assetsService.remove(id);
     }
 };
 exports.AssetsController = AssetsController;
@@ -43,18 +59,29 @@ __decorate([
 ], AssetsController.prototype, "findAll", null);
 __decorate([
     (0, common_1.Post)(),
-    __param(0, (0, common_1.Body)()),
+    __param(0, (0, current_user_decorator_1.CurrentUser)()),
+    __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
+    __metadata("design:paramtypes", [Object, Object]),
     __metadata("design:returntype", void 0)
 ], AssetsController.prototype, "create", null);
 __decorate([
     (0, common_1.Patch)(),
-    __param(0, (0, common_1.Body)()),
+    __param(0, (0, current_user_decorator_1.CurrentUser)()),
+    __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
+    __metadata("design:paramtypes", [Object, Object]),
     __metadata("design:returntype", void 0)
 ], AssetsController.prototype, "update", null);
+__decorate([
+    (0, common_1.Delete)(),
+    __param(0, (0, current_user_decorator_1.CurrentUser)()),
+    __param(1, (0, common_1.Body)()),
+    __param(2, (0, common_1.Query)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object, String]),
+    __metadata("design:returntype", void 0)
+], AssetsController.prototype, "remove", null);
 exports.AssetsController = AssetsController = __decorate([
     (0, common_1.Controller)('assets'),
     (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),

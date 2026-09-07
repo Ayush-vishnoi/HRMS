@@ -1,0 +1,36 @@
+import { PrismaService } from '../../prisma/prisma.service';
+export type KpiCalculationResult = {
+    kpiId?: string;
+    name: string;
+    metric: string;
+    target: number;
+    actual: number;
+    unit: string;
+    achievementPercentage: number;
+    sourceModule: 'Manual' | 'Attendance' | 'Leave' | 'LMS' | 'Timesheet';
+    isSystemCalculated: boolean;
+    metadata: Record<string, any>;
+};
+export declare function calculateAttendanceKpi(prisma: PrismaService, employeeId: string, startDate?: Date, endDate?: Date): Promise<KpiCalculationResult>;
+export declare function calculateLmsTrainingKpi(prisma: PrismaService, employeeId: string): Promise<KpiCalculationResult>;
+export declare function calculateTimesheetKpi(prisma: PrismaService, employeeId: string): Promise<KpiCalculationResult>;
+export declare function syncEmployeeKpis(prisma: PrismaService, organizationId: string, employeeId: string, cycleId?: string): Promise<{
+    id: string;
+    name: string;
+    organization_id: string;
+    description: string | null;
+    weightage: number;
+    employee_id: string;
+    created_at: Date;
+    updated_at: Date;
+    metric: string;
+    cycle_id: string | null;
+    target: import("@prisma/client/runtime/library").Decimal;
+    actual: import("@prisma/client/runtime/library").Decimal;
+    unit: string;
+    frequency: string;
+    source_module: string;
+    is_system_calculated: boolean;
+    calculation_metadata: import("@prisma/client/runtime/library").JsonValue | null;
+    last_calculated_at: Date | null;
+}[]>;

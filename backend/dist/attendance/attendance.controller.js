@@ -25,11 +25,15 @@ let AttendanceController = class AttendanceController {
     findAll(employeeId, from, to) {
         return this.attendanceService.findAll(employeeId, from, to);
     }
-    clockIn(userId, location) {
-        return this.attendanceService.clockIn(userId, location || 'Office - HQ');
+    create(userId, body) {
+        const { employeeId, ...rest } = body ?? {};
+        return this.attendanceService.create(employeeId || userId, rest);
     }
-    clockOut(userId) {
-        return this.attendanceService.clockOut(userId);
+    update(body) {
+        return this.attendanceService.update(body.id, {
+            checkOut: body.checkOut,
+            hoursWorked: body.hoursWorked,
+        });
     }
     getLateRequests(status) {
         return this.attendanceService.getLateRequests(status);
@@ -52,20 +56,20 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], AttendanceController.prototype, "findAll", null);
 __decorate([
-    (0, common_1.Post)('clock-in'),
+    (0, common_1.Post)(),
     __param(0, (0, current_user_decorator_1.CurrentUser)('id')),
-    __param(1, (0, common_1.Body)('location')),
+    __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", void 0)
-], AttendanceController.prototype, "clockIn", null);
+], AttendanceController.prototype, "create", null);
 __decorate([
-    (0, common_1.Post)('clock-out'),
-    __param(0, (0, current_user_decorator_1.CurrentUser)('id')),
+    (0, common_1.Patch)(),
+    __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
+    __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", void 0)
-], AttendanceController.prototype, "clockOut", null);
+], AttendanceController.prototype, "update", null);
 __decorate([
     (0, common_1.Get)('late-requests'),
     __param(0, (0, common_1.Query)('status')),

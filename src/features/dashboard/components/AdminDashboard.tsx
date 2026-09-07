@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Users,
   TrendingUp,
@@ -15,8 +15,10 @@ import {
   X,
 } from 'lucide-react';
 
-import { MOCK_ANALYTICS } from '@/features/analytics/data/analytics';
+import { authFetch } from '@/lib/api-client';
 import { useHRMS } from '@/shared/providers/HRMSContext';
+
+type DeptCount = { name: string; count: number; color: string };
 
 export const AdminDashboard: React.FC = () => {
   const {
@@ -26,6 +28,21 @@ export const AdminDashboard: React.FC = () => {
     reviewLateClockInRequest,
   } = useHRMS();
   const [resolutionNotes, setResolutionNotes] = useState<Record<string, string>>({});
+  const [headcountByDept, setHeadcountByDept] = useState<DeptCount[]>([]);
+  const [totalHeadcount, setTotalHeadcount] = useState(0);
+
+  useEffect(() => {
+    authFetch<{ success: boolean; data: any }>('/api/analytics')
+      .then((res) => {
+        if (res?.success && res.data) {
+          setHeadcountByDept(res.data.headcountByDept || []);
+          setTotalHeadcount(res.data.totalHeadcount || 0);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const maxCount = Math.max(...headcountByDept.map((d) => d.count), 1);
   const askHrTickets = helpDeskTickets.filter((ticket) => ticket.category !== 'Grievance / Complaint');
   const complaintTickets = helpDeskTickets.filter((ticket) => ticket.category === 'Grievance / Complaint');
   const openTicketCount = helpDeskTickets.filter((ticket) => ticket.status !== 'Resolved').length;
@@ -60,7 +77,7 @@ export const AdminDashboard: React.FC = () => {
           </div>
 
           <div className="text-2xl font-black text-[#17324A] mt-2">
-            105
+            {totalHeadcount || '—'}
           </div>
 
           <span className="text-[11px] text-[#17324A]/70 font-medium">
@@ -119,25 +136,23 @@ export const AdminDashboard: React.FC = () => {
           </div>
 
           <div className="space-y-3">
-            {MOCK_ANALYTICS.headcountByDept.map((dept) => (
+            {headcountByDept.map((dept) => (
               <div key={dept.name} className="space-y-1">
-
                 <div className="flex justify-between text-xs font-semibold text-[#17324A]/70">
                   <span>{dept.name}</span>
                   <span>{dept.count} Employees</span>
                 </div>
-
                 <div className="w-full bg-[#B0D0EA]/40 rounded-full h-2 overflow-hidden">
                   <div
                     className="h-2 rounded-full transition-all bg-[#17324A]"
-                    style={{
-                      width: `${(dept.count / 42) * 100}%`,
-                    }}
+                    style={{ width: `${(dept.count / maxCount) * 100}%` }}
                   />
                 </div>
-
               </div>
             ))}
+            {headcountByDept.length === 0 && (
+              <p className="text-xs text-[#17324A]/50">Loading department data...</p>
+            )}
           </div>
         </div>
 

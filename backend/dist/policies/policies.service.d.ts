@@ -12,10 +12,10 @@ export declare class PoliciesService {
         }[];
     } & {
         id: string;
+        title: string;
         createdAt: Date;
         updatedAt: Date;
         category: import("@prisma/client").$Enums.PolicyCategory;
-        title: string;
         effectiveDate: string;
         summary: string;
         version: string;
@@ -35,10 +35,10 @@ export declare class PoliciesService {
     }>;
     create(data: any, uploadedById: string): Promise<{
         id: string;
+        title: string;
         createdAt: Date;
         updatedAt: Date;
         category: import("@prisma/client").$Enums.PolicyCategory;
-        title: string;
         effectiveDate: string;
         summary: string;
         version: string;

@@ -34,24 +34,32 @@ let AttendanceService = class AttendanceService {
             orderBy: { date: 'desc' },
         });
     }
-    async clockIn(employeeId, location) {
-        const today = new Date().toISOString().split('T')[0];
-        const checkIn = new Date().toTimeString().slice(0, 5);
-        return this.prisma.attendanceRecord.create({
-            data: { employeeId, date: today, checkIn, checkOut: '', location },
-        });
+    async create(employeeId, data) {
+        const payload = {
+            employeeId,
+            date: data.date,
+            checkIn: data.checkIn,
+            checkOut: '',
+            hoursWorked: '0h 0m',
+            status: data.status || 'OnTime',
+            location: data.location || 'Office - HQ',
+        };
+        if (data.id) {
+            payload.id = data.id;
+            const existing = await this.prisma.attendanceRecord.findUnique({ where: { id: data.id } });
+            if (existing) {
+                return this.prisma.attendanceRecord.update({ where: { id: data.id }, data: payload });
+            }
+        }
+        return this.prisma.attendanceRecord.create({ data: payload });
     }
-    async clockOut(employeeId) {
-        const today = new Date().toISOString().split('T')[0];
-        const checkOut = new Date().toTimeString().slice(0, 5);
-        const record = await this.prisma.attendanceRecord.findFirst({
-            where: { employeeId, date: today },
-        });
-        if (!record)
-            return null;
+    async update(id, data) {
         return this.prisma.attendanceRecord.update({
-            where: { id: record.id },
-            data: { checkOut },
+            where: { id },
+            data: {
+                ...(data.checkOut !== undefined ? { checkOut: data.checkOut } : {}),
+                ...(data.hoursWorked !== undefined ? { hoursWorked: data.hoursWorked } : {}),
+            },
         });
     }
     async getLateRequests(status) {

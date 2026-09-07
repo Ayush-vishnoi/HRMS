@@ -7,11 +7,11 @@ export declare class WorkforceService {
             id: string;
             status: import("@prisma/client").$Enums.TimesheetStatus;
             description: string | null;
+            employee_id: string;
+            created_at: Date;
+            updated_at: Date;
             reviewer_id: string | null;
             reviewed_at: Date | null;
-            updated_at: Date;
-            created_at: Date;
-            employee_id: string;
             project_id: string | null;
             work_date: Date;
             expected_minutes: number;
@@ -20,9 +20,9 @@ export declare class WorkforceService {
         }[];
         attendance: {
             id: string;
+            createdAt: Date;
             status: import("@prisma/client").$Enums.AttendanceStatus;
             location: string;
-            createdAt: Date;
             employeeId: string;
             date: string;
             checkIn: string;
@@ -33,9 +33,9 @@ export declare class WorkforceService {
             id: string;
             name: string;
             organization_id: string;
-            is_active: boolean;
             created_at: Date;
             code: string;
+            is_active: boolean;
             client_name: string | null;
             is_billable: boolean;
         }[];
@@ -44,11 +44,11 @@ export declare class WorkforceService {
         id: string;
         status: import("@prisma/client").$Enums.TimesheetStatus;
         description: string | null;
+        employee_id: string;
+        created_at: Date;
+        updated_at: Date;
         reviewer_id: string | null;
         reviewed_at: Date | null;
-        updated_at: Date;
-        created_at: Date;
-        employee_id: string;
         project_id: string | null;
         work_date: Date;
         expected_minutes: number;

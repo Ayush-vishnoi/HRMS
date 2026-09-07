@@ -5,22 +5,22 @@ export declare class NotificationsController {
     findAll(userId: string): Promise<{
         message: string;
         id: string;
-        createdAt: Date;
+        userId: string;
         title: string;
         type: string;
-        userId: string;
         linkUrl: string | null;
         isRead: boolean;
+        createdAt: Date;
     }[]>;
     markRead(id: string): Promise<{
         message: string;
         id: string;
-        createdAt: Date;
+        userId: string;
         title: string;
         type: string;
-        userId: string;
         linkUrl: string | null;
         isRead: boolean;
+        createdAt: Date;
     }>;
     markAllRead(userId: string): Promise<import("@prisma/client").Prisma.BatchPayload>;
 }

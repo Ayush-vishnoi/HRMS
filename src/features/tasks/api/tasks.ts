@@ -30,10 +30,10 @@ export async function getTeamTasks(filters: TeamTaskFilters = {}): Promise<{ tas
   if (filters.status) params.set('status', filters.status);
 
   const res = await authFetch<Response>(`/api/tasks?${params.toString()}`, { raw: true });
-  const json = await res.json().catch(() => ({})) as ApiResponse<Task[]>;
+  const json = await res.json().catch(() => ({})) as ApiResponse<Task[]> & { overdueCount?: number };
   if (!res.ok) throw new Error(json.error || 'Failed to fetch team tasks');
   if (json.data === undefined) throw new Error('Failed to fetch team tasks');
-  return { tasks: json.data, meta: json.meta ?? { overdueCount: 0 } };
+  return { tasks: json.data, meta: json.meta ?? { overdueCount: json.overdueCount ?? 0 } };
 }
 
 export async function createTask(input: CreateTaskInput): Promise<Task> {

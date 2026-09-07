@@ -10,10 +10,11 @@ exports.ExpensesModule = void 0;
 const common_1 = require("@nestjs/common");
 const expenses_service_1 = require("./expenses.service");
 const expenses_controller_1 = require("./expenses.controller");
+const uploads_controller_1 = require("./uploads.controller");
 let ExpensesModule = class ExpensesModule {
 };
 exports.ExpensesModule = ExpensesModule;
 exports.ExpensesModule = ExpensesModule = __decorate([
-    (0, common_1.Module)({ providers: [expenses_service_1.ExpensesService], controllers: [expenses_controller_1.ExpensesController] })
+    (0, common_1.Module)({ providers: [expenses_service_1.ExpensesService], controllers: [expenses_controller_1.ExpensesController, uploads_controller_1.UploadsController] })
 ], ExpensesModule);
 //# sourceMappingURL=expenses.module.js.map

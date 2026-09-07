@@ -243,10 +243,20 @@ export const HRMSProvider: React.FC<HRMSProviderProps> = ({ children }) => {
       }
 
       try {
-        const session = await authFetch<{
-          id: string;
-          email: string;
-          name: string;
+        const res = await authFetch<{
+          success?: boolean;
+          data?: {
+            id: string;
+            email: string;
+            name: string;
+            employeeCode?: string;
+            userRole?: string;
+            department?: string | null;
+            avatarUrl?: string | null;
+          } | null;
+          id?: string;
+          email?: string;
+          name?: string;
           employeeCode?: string;
           userRole?: string;
           department?: string | null;
@@ -254,6 +264,9 @@ export const HRMSProvider: React.FC<HRMSProviderProps> = ({ children }) => {
         } | null>('/api/auth/session');
 
         if (cancelled) return;
+
+        // Backend wraps response as { success, data } via LegacyResponseInterceptor
+        const session = (res as any)?.data ?? res;
 
         if (session?.id) {
           const mapped = mapBackendUser(session);
@@ -458,9 +471,8 @@ export const HRMSProvider: React.FC<HRMSProviderProps> = ({ children }) => {
       activeController = controller;
 
       try {
-        const session = await authFetch<{
-          id: string;
-        } | null>('/api/auth/session', { signal: controller.signal });
+        const res = await authFetch<any>('/api/auth/session', { signal: controller.signal });
+        const session = res?.data ?? res;
 
         const tabUserId = window.sessionStorage.getItem('hrms_tab_user_id');
         // If the token now belongs to a different user (another tab), log this tab out

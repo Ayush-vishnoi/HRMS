@@ -15,8 +15,26 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.ExpensesController = void 0;
 const common_1 = require("@nestjs/common");
 const passport_1 = require("@nestjs/passport");
+const multer_1 = require("@nestjs/platform-express/multer");
+const multer_2 = require("multer");
+const node_path_1 = require("node:path");
 const expenses_service_1 = require("./expenses.service");
 const current_user_decorator_1 = require("../common/decorators/current-user.decorator");
+const ALLOWED_RECEIPT_MIMES = new Set([
+    'application/pdf',
+    'image/jpeg',
+    'image/jpg',
+    'image/png',
+    'image/webp',
+]);
+const MAX_RECEIPT_BYTES = 10 * 1024 * 1024;
+const receiptStorage = (0, multer_2.diskStorage)({
+    destination: './uploads/receipts',
+    filename: (_req, file, cb) => {
+        const unique = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+        cb(null, `${unique}${(0, node_path_1.extname)(file.originalname).toLowerCase()}`);
+    },
+});
 let ExpensesController = class ExpensesController {
     expensesService;
     constructor(expensesService) {
@@ -24,6 +42,18 @@ let ExpensesController = class ExpensesController {
     }
     findAll(user, view = 'my', employeeId) {
         return this.expensesService.findAll(user.id, user.userRole, view, employeeId);
+    }
+    uploadReceipt(user, file) {
+        if (!file) {
+            throw new common_1.BadRequestException('A receipt file is required.');
+        }
+        if (!ALLOWED_RECEIPT_MIMES.has(file.mimetype)) {
+            throw new common_1.BadRequestException('Only PDF, JPG, PNG, and WEBP receipts are supported.');
+        }
+        if (file.size > MAX_RECEIPT_BYTES) {
+            throw new common_1.BadRequestException('Receipt must be 10 MB or smaller.');
+        }
+        return { receiptUrl: `/api/uploads/receipts/${file.filename}`, uploadedBy: user.id };
     }
     create(user, body) {
         return this.expensesService.create(body.employeeId || user.id, body);
@@ -43,6 +73,14 @@ __decorate([
     __metadata("design:paramtypes", [Object, Object, String]),
     __metadata("design:returntype", void 0)
 ], ExpensesController.prototype, "findAll", null);
+__decorate([
+    (0, common_1.Post)('upload'),
+    (0, common_1.UseInterceptors)((0, multer_1.FileInterceptor)('receipt', { storage: receiptStorage })),
+    __param(0, (0, current_user_decorator_1.CurrentUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", void 0)
+], ExpensesController.prototype, "uploadReceipt", null);
 __decorate([
     (0, common_1.Post)(),
     __param(0, (0, current_user_decorator_1.CurrentUser)()),

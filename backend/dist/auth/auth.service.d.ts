@@ -19,8 +19,8 @@ export declare class AuthService {
     }>;
     getSession(userId: string): Promise<{
         id: string;
-        employeeCode: string;
         name: string;
+        employeeCode: string;
         email: string;
         userRole: import("@prisma/client").$Enums.UserRole;
         department: string;

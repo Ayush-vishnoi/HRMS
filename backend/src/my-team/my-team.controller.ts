@@ -1,4 +1,13 @@
-import { Controller, Get, Patch, Body, Query, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Delete,
+  Body,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { MyTeamService } from './my-team.service';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -13,8 +22,18 @@ export class MyTeamController {
     return this.myTeamService.findAll(user.id, user.userRole, managerId);
   }
 
+  @Post()
+  createTeam(@CurrentUser() user: any, @Body() body: any) {
+    return this.myTeamService.createTeam(user, body);
+  }
+
+  @Delete()
+  deleteTeam(@CurrentUser() user: any, @Query('teamId') teamId?: string) {
+    return this.myTeamService.deleteTeam(user, teamId);
+  }
+
   @Patch()
-  updateMetadata(@CurrentUser() user: any, @Body() body: any) {
-    return this.myTeamService.updateMetadata(user.id, user.userRole, body);
+  handleAction(@CurrentUser() user: any, @Body() body: any) {
+    return this.myTeamService.handleAction(user, body);
   }
 }

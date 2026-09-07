@@ -32,15 +32,22 @@ export class HelpDeskService {
     });
   }
 
-  async resolve(id: string, resolvedById: string, resolution: string) {
-    return this.prisma.helpDeskTicket.update({
-      where: { id },
-      data: {
-        status: 'Resolved',
-        resolution,
-        resolvedById,
-        resolvedAt: new Date().toISOString(),
-      },
-    });
+  /**
+   * PATCH /api/help-desk body: { id, status, resolution?, resolvedById? }
+   * Handles status transitions (Open / In Progress / Resolved) and,
+   * when resolving, persists resolution + resolver + resolvedAt.
+   */
+  async update(
+    id: string,
+    data: { status?: 'Open' | 'In Progress' | 'Resolved'; resolution?: string; resolvedById?: string },
+  ) {
+    const updateData: any = {};
+    if (data.status) updateData.status = data.status;
+    if (typeof data.resolution === 'string' && data.resolution.trim()) updateData.resolution = data.resolution;
+    if (data.status === 'Resolved') {
+      updateData.resolvedById = data.resolvedById;
+      updateData.resolvedAt = new Date().toISOString();
+    }
+    return this.prisma.helpDeskTicket.update({ where: { id }, data: updateData });
   }
 }

@@ -30,8 +30,8 @@ export declare class ExitService {
             } | null;
             settlement: {
                 id: string;
-                status: string;
                 createdAt: Date;
+                status: string;
                 employeeId: string;
                 taxDeduction: number;
                 exitRequestId: string;
@@ -46,28 +46,27 @@ export declare class ExitService {
             } | null;
             ktTasks: {
                 id: string;
-                status: string;
-                createdAt: Date;
-                updatedAt: Date;
-                notes: string | null;
                 title: string;
+                createdAt: Date;
+                status: string;
+                updatedAt: Date;
                 description: string;
-                verifiedAt: Date | null;
                 dueDate: string;
+                notes: string | null;
+                attachmentUrl: string | null;
+                verifiedAt: Date | null;
+                verifiedById: string | null;
                 exitRequestId: string;
                 recipientEmployeeId: string;
                 recipientName: string;
                 completedAt: Date | null;
-                verifiedById: string | null;
-                attachmentUrl: string | null;
             }[];
         } & {
             id: string;
-            status: string;
             createdAt: Date;
+            status: string;
             updatedAt: Date;
             employeeId: string;
-            rejectionReason: string | null;
             resignationDate: string;
             requestedRelievingDate: string;
             approvedRelievingDate: string | null;
@@ -77,17 +76,18 @@ export declare class ExitService {
             hrApproval: string;
             managerApprovedAt: Date | null;
             hrApprovedAt: Date | null;
+            rejectionReason: string | null;
             workflowStage: string;
             noticePeriodDays: number;
         })[];
         alumniRecords: {
             id: string;
-            employeeCode: string;
+            createdAt: Date;
             name: string;
+            employeeCode: string;
             department: string;
             phone: string | null;
             joinDate: string;
-            createdAt: Date;
             employeeId: string;
             personalEmail: string;
             lastDesignation: string;
@@ -100,8 +100,8 @@ export declare class ExitService {
             id: string;
             name: string;
             status: import("@prisma/client").$Enums.AssetStatus;
-            assetTag: string;
             category: import("@prisma/client").$Enums.AssetCategory;
+            assetTag: string;
             serialNumber: string;
         }[];
     }>;
@@ -118,8 +118,8 @@ export declare class ExitService {
         remarks: string | null;
     } | {
         id: string;
-        status: string;
         createdAt: Date;
+        status: string;
         employeeId: string;
         taxDeduction: number;
         exitRequestId: string;
@@ -146,28 +146,27 @@ export declare class ExitService {
         }[];
         ktTasks: {
             id: string;
-            status: string;
-            createdAt: Date;
-            updatedAt: Date;
-            notes: string | null;
             title: string;
+            createdAt: Date;
+            status: string;
+            updatedAt: Date;
             description: string;
-            verifiedAt: Date | null;
             dueDate: string;
+            notes: string | null;
+            attachmentUrl: string | null;
+            verifiedAt: Date | null;
+            verifiedById: string | null;
             exitRequestId: string;
             recipientEmployeeId: string;
             recipientName: string;
             completedAt: Date | null;
-            verifiedById: string | null;
-            attachmentUrl: string | null;
         }[];
     } & {
         id: string;
-        status: string;
         createdAt: Date;
+        status: string;
         updatedAt: Date;
         employeeId: string;
-        rejectionReason: string | null;
         resignationDate: string;
         requestedRelievingDate: string;
         approvedRelievingDate: string | null;
@@ -177,6 +176,7 @@ export declare class ExitService {
         hrApproval: string;
         managerApprovedAt: Date | null;
         hrApprovedAt: Date | null;
+        rejectionReason: string | null;
         workflowStage: string;
         noticePeriodDays: number;
     })>;

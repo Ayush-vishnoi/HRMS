@@ -27,7 +27,6 @@ import { useHRMS } from '@/shared/providers/HRMSContext';
 import { useChat } from '@/shared/providers/ChatContext';
 import { authFetch } from '@/lib/api-client';
 import { HRHelpDeskModal } from '@/features/help-desk/components/HRHelpDeskModal';
-import { MOCK_EMPLOYEES } from '@/features/employees/data/employees';
 import { getTimeGreeting } from '@/shared/lib/formatters';
 
 interface HeaderProps {
@@ -115,7 +114,23 @@ export const Header: React.FC<HeaderProps> = ({ onClockAction }) => {
   const [greeting, setGreeting] = useState('Good Morning');
   const [isGreetingReady, setIsGreetingReady] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement>(null);
-  const employeeProfile = MOCK_EMPLOYEES.find((employee) => employee.id === currentUser.id);
+  const [employeeProfile, setEmployeeProfile] = useState({ phone: '', location: '', joinDate: '', manager: '' });
+
+  useEffect(() => {
+    if (!currentUser.id) return;
+    authFetch<{ success: boolean; data: any }>(`/api/employees/${currentUser.id}`)
+      .then((res) => {
+        if (res?.success && res.data) {
+          setEmployeeProfile({
+            phone: res.data.phone || '',
+            location: res.data.location || '',
+            joinDate: res.data.joinDate || '',
+            manager: typeof res.data.manager === 'string' ? res.data.manager : '',
+          });
+        }
+      })
+      .catch(() => {});
+  }, [currentUser.id]);
   const roleLabel = currentUser.userRole === 'admin'
     ? 'HR Admin'
     : currentUser.userRole === 'manager'

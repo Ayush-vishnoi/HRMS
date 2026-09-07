@@ -4,36 +4,36 @@ export declare class DisciplinaryController {
     constructor(disciplinaryService: DisciplinaryService);
     findAll(user: any, employeeId?: string): Promise<{
         id: string;
-        status: string;
+        type: string;
         createdAt: Date;
+        status: string;
         updatedAt: Date;
-        acknowledgedAt: Date | null;
         employeeId: string;
         reason: string;
-        type: string;
-        incidentDate: string;
-        attachmentUrl: string | null;
+        acknowledgedAt: Date | null;
         severity: string;
+        incidentDate: string;
         issuedById: string;
         issuedByName: string;
         actionRequired: string;
         isEmployeeVisible: boolean;
+        attachmentUrl: string | null;
     }[]>;
     create(user: any, body: any): Promise<{
         id: string;
-        status: string;
+        type: string;
         createdAt: Date;
+        status: string;
         updatedAt: Date;
-        acknowledgedAt: Date | null;
         employeeId: string;
         reason: string;
-        type: string;
-        incidentDate: string;
-        attachmentUrl: string | null;
+        acknowledgedAt: Date | null;
         severity: string;
+        incidentDate: string;
         issuedById: string;
         issuedByName: string;
         actionRequired: string;
         isEmployeeVisible: boolean;
+        attachmentUrl: string | null;
     }>;
 }

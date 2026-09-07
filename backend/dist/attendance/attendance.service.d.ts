@@ -5,79 +5,88 @@ export declare class AttendanceService {
     findAll(employeeId?: string, from?: string, to?: string): Promise<({
         employee: {
             id: string;
-            employeeCode: string;
             name: string;
+            employeeCode: string;
             avatarUrl: string | null;
         };
     } & {
         id: string;
+        createdAt: Date;
         status: import("@prisma/client").$Enums.AttendanceStatus;
         location: string;
-        createdAt: Date;
         employeeId: string;
         date: string;
         checkIn: string;
         checkOut: string;
         hoursWorked: string;
     })[]>;
-    clockIn(employeeId: string, location: string): Promise<{
+    create(employeeId: string, data: {
+        id?: string;
+        date: string;
+        checkIn: string;
+        status?: string;
+        location?: string;
+    }): Promise<{
         id: string;
+        createdAt: Date;
         status: import("@prisma/client").$Enums.AttendanceStatus;
         location: string;
-        createdAt: Date;
         employeeId: string;
         date: string;
         checkIn: string;
         checkOut: string;
         hoursWorked: string;
     }>;
-    clockOut(employeeId: string): Promise<{
+    update(id: string, data: {
+        checkOut?: string;
+        hoursWorked?: string;
+    }): Promise<{
         id: string;
+        createdAt: Date;
         status: import("@prisma/client").$Enums.AttendanceStatus;
         location: string;
-        createdAt: Date;
         employeeId: string;
         date: string;
         checkIn: string;
         checkOut: string;
         hoursWorked: string;
-    } | null>;
+    }>;
     getLateRequests(status?: string): Promise<({
         requester: {
             id: string;
-            employeeCode: string;
             name: string;
+            employeeCode: string;
             avatarUrl: string | null;
         };
     } & {
         id: string;
-        status: import("@prisma/client").$Enums.LateClockInStatus;
         createdAt: Date;
+        status: import("@prisma/client").$Enums.LateClockInStatus;
+        reason: string;
         requesterId: string;
         requestDate: string;
-        reason: string;
         requestedAt: string;
         reviewedById: string | null;
         reviewedAt: string | null;
     })[]>;
     createLateRequest(requesterId: string, requestDate: string, reason: string): Promise<{
         id: string;
-        status: import("@prisma/client").$Enums.LateClockInStatus;
         createdAt: Date;
+        status: import("@prisma/client").$Enums.LateClockInStatus;
+        reason: string;
         requesterId: string;
         requestDate: string;
-        reason: string;
         requestedAt: string;
         reviewedById: string | null;
         reviewedAt: string | null;
     }>;
     reviewLateRequest(id: string, status: 'approved' | 'rejected', reviewedById: string): Promise<{
         id: string;
-        status: import("@prisma/client").$Enums.LateClockInStatus;
         createdAt: Date;
+        status: import("@prisma/client").$Enums.LateClockInStatus;
+        reason: string;
         requesterId: string;
         requestDate: string;
-        reason: string;
         requestedAt: string;
         reviewedById: string | null;
         reviewedAt: string | null;
