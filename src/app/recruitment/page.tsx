@@ -1,6 +1,6 @@
 'use client';
 
-import { authFetch } from '@/lib/api-client';
+import { authFetch, tokenStore } from '@/lib/api-client';
 import React, { useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -62,7 +62,6 @@ const stages = [
   'Interview',
   'Selected',
   'Offer',
-  'Joined',
   'Rejected',
   'Withdrawn',
 ] as const;
@@ -259,6 +258,8 @@ export default function RecruitmentPage() {
     requirements: '',
     responsibilities: '',
     targetCloseDate: '',
+    hiringManagerId: '',
+    recruiterId: '',
   });
 
   // Phase 4C-B: Scorecards, Feedback & Candidate Selection
@@ -325,7 +326,6 @@ export default function RecruitmentPage() {
   const [isGeneratingDoc, setIsGeneratingDoc] = useState(false);
   const [isPreviewingDoc, setIsPreviewingDoc] = useState(false);
   const [isSendingOffer, setIsSendingOffer] = useState(false);
-  const [offerPortalUrl, setOfferPortalUrl] = useState<{ url: string; expiresAt: string } | null>(null);
   const [docActionError, setDocActionError] = useState<string | null>(null);
 
   // Live weighted score calculation
@@ -393,7 +393,8 @@ export default function RecruitmentPage() {
           openings: Number(j.openings) || 1,
           applicants: Number(j.applicants) || 0,
           status: j.status === 'PendingApproval' ? 'Pending Approval' : j.status === 'OnHold' ? 'On hold' : j.status,
-          postedOn: j.postedOn || '01 Aug 2026',
+          createdAt: j.createdAt,
+          postedOn: j.postedOn || (j.createdAt ? new Date(j.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : ''),
           description: j.description || '',
           requirements: Array.isArray(j.requirements) ? j.requirements : [],
           responsibilities: Array.isArray(j.responsibilities) ? j.responsibilities : [],
@@ -411,6 +412,7 @@ export default function RecruitmentPage() {
           approvals: (j.recruitment_job_approvals || []).map((a: any) => ({
             id: a.id,
             sequence: a.sequence,
+            approverId: a.employees?.id || null,
             approverName: a.employees?.name || 'Reviewer',
             status: a.status,
             note: a.note,
@@ -426,9 +428,10 @@ export default function RecruitmentPage() {
           avatar:
             c.avatarUrl ||
             'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80',
-          appliedOn: c.appliedOn || '06 Aug 2026',
+          appliedOn: c.appliedOn || (c.createdAt ? new Date(c.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : ''),
+          createdAt: c.createdAt,
           stage: c.stage === 'New' ? 'Applied' : c.stage,
-          score: Number(c.score) || 75,
+          score: Number(c.score ?? c.ai_match_score) || 0,
           experience: c.experience || '',
           currentRole: c.currentRole || '',
           location: c.location || '',
@@ -452,9 +455,12 @@ export default function RecruitmentPage() {
         }));
 
         setJobs(nextJobs);
-        setAllCandidates(nextCandidates);
+        // Joined candidates have converted to employees — they belong to
+        // onboarding/employee-lifecycle, not the active recruitment pipeline.
+        const activeCandidates = nextCandidates.filter((c) => c.stage !== 'Joined');
+        setAllCandidates(activeCandidates);
         setSelectedJobId((current) => current || nextJobs[0]?.id || '');
-        setSelectedCandidateId((current) => current || nextCandidates[0]?.id || '');
+        setSelectedCandidateId((current) => current || activeCandidates[0]?.id || '');
       }
     } catch (err: any) {
       if (err.name !== 'AbortError') console.error('Failed to load recruitment data:', err);
@@ -518,15 +524,16 @@ export default function RecruitmentPage() {
   }, [selectedCandidateId]);
 
   const selectedJob = jobs.find((j) => j.id === selectedJobId) ?? jobs[0] ?? {
-    id: 'JOB-001',
-    title: 'Senior Frontend Engineer',
-    department: 'Engineering',
-    location: 'Bengaluru / Hybrid',
+    id: '',
+    title: 'No requisition selected',
+    department: '',
+    location: '',
     employmentType: 'Full-time',
-    openings: 1,
+    openings: 0,
     applicants: 0,
-    status: 'Open',
-    postedOn: '01 Aug 2026',
+    status: 'Draft' as JobStatusType,
+    createdAt: '',
+    postedOn: '',
     description: '',
     requirements: [],
   };
@@ -540,14 +547,20 @@ export default function RecruitmentPage() {
     const list = jobCandidates.filter((candidate) => {
       const searchText = `${candidate.name} ${candidate.currentRole} ${candidate.location} ${(candidate.tags || []).join(' ')}`;
       const matchesSearch = searchText.toLowerCase().includes(query.toLowerCase());
-      const matchesStage = stageFilter === 'All' || candidate.stage === stageFilter;
+      // "All" = active pipeline only. Closed stages (Rejected/Withdrawn/Archived)
+      // and converted candidates (Joined) stay reachable via their filter pills.
+      const matchesStage =
+        stageFilter === 'All'
+          ? !['Rejected', 'Withdrawn', 'Archived', 'Joined'].includes(candidate.stage)
+          : candidate.stage === stageFilter;
       return matchesSearch && matchesStage;
     });
 
     if (sortBy === 'matchScore') {
       list.sort((a, b) => b.score - a.score);
     } else if (sortBy === 'newest') {
-      list.sort((a, b) => b.appliedOn.localeCompare(a.appliedOn));
+      const appliedEpoch = (iso?: string) => (iso ? new Date(iso).getTime() : 0);
+      list.sort((a, b) => appliedEpoch(b.createdAt) - appliedEpoch(a.createdAt));
     } else if (sortBy === 'experience') {
       const parseExp = (e: string) => {
         const m = e.match(/(\d+(?:\.\d+)?)/);
@@ -1234,9 +1247,6 @@ export default function RecruitmentPage() {
             ? `${json.document.templateName || json.document.documentType} generated — offer auto-sent to candidate!`
             : `Official ${json.document.templateName || json.document.documentType} generated successfully!`
         );
-        if (json.autoSentToCandidate && json.portalUrl) {
-          setOfferPortalUrl({ url: json.portalUrl, expiresAt: json.portalUrlExpiresAt });
-        }
         setIsDocGenModalOpen(false);
         if (selectedCandidate) {
           await loadOffers(selectedCandidate.id);
@@ -1272,9 +1282,6 @@ export default function RecruitmentPage() {
       const json = await res.json();
       if (json.success) {
         showNotice(json.message || 'Offer sent to candidate.');
-        if (json.portalUrl) {
-          setOfferPortalUrl({ url: json.portalUrl, expiresAt: json.portalUrlExpiresAt });
-        }
         await loadOffers(selectedCandidate.id);
         const tlRes = await authFetch<Response>(`/api/recruitment/candidates/${selectedCandidate.id}/timeline`, { raw: true });
         const tlJson = await tlRes.json();
@@ -1290,7 +1297,8 @@ export default function RecruitmentPage() {
   };
 
   const handleDownloadDocument = (offerId: string, documentId: string) => {
-    window.open(`/api/recruitment/offers/${offerId}/documents/${documentId}`, '_blank');
+    const token = encodeURIComponent(tokenStore.get() || '');
+    window.open(`/api/recruitment/offers/${offerId}/documents/${documentId}?token=${token}`, '_blank');
   };
 
   /* -----------------------------
@@ -1312,9 +1320,15 @@ export default function RecruitmentPage() {
 
       const json = await res.json();
       if (json.success) {
-        setAllCandidates((prev) =>
-          prev.map((c) => (c.id === selectedCandidate.id ? { ...c, stage: nextStage } : c))
-        );
+        if (nextStage === 'Joined') {
+          // Joined = converted to employee; drop them from the active pipeline.
+          setAllCandidates((prev) => prev.filter((c) => c.id !== selectedCandidate.id));
+          setSelectedCandidateId('');
+        } else {
+          setAllCandidates((prev) =>
+            prev.map((c) => (c.id === selectedCandidate.id ? { ...c, stage: nextStage } : c))
+          );
+        }
         showNotice(`${selectedCandidate.name} moved to ${nextStage}`);
         setTransitionNote('');
 
@@ -1473,15 +1487,34 @@ export default function RecruitmentPage() {
           requirements: requirementsArr,
           responsibilities: responsibilitiesArr,
           targetCloseDate: jdForm.targetCloseDate || null,
-          status: submitForApproval ? 'PendingApproval' : currentUser.userRole === 'admin' ? 'Open' : 'Draft',
+          hiringManagerId: jdForm.hiringManagerId || null,
+          recruiterId: jdForm.recruiterId || null,
+          status: currentUser.userRole === 'admin' && !submitForApproval ? 'Open' : 'Draft',
         }),
       });
 
       const json = await res.json();
       if (json.success && json.data) {
+        const createdJobId = json.data.id;
+        if (submitForApproval) {
+          // Create as Draft first, then run the submit_approval action so the
+          // backend builds the L1 (hiring manager) → L2 (admin) approval chain.
+          const submitRes = await authFetch<Response>(`/api/recruitment/jobs/${createdJobId}`, { raw: true,
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'submit_approval' }),
+          });
+          const submitJson = await submitRes.json();
+          if (!submitJson.success) {
+            showNotice(submitJson.error || 'Job created, but failed to submit for approval');
+            await loadData();
+            setSelectedJobId(createdJobId);
+            return;
+          }
+        }
         showNotice(`${jdForm.title} requisition created`);
         await loadData();
-        setSelectedJobId(json.data.id);
+        setSelectedJobId(createdJobId);
         setIsAddJdOpen(false);
       } else {
         showNotice(json.error || 'Failed to create job');
@@ -1656,29 +1689,56 @@ export default function RecruitmentPage() {
               </div>
             )}
 
-            {selectedJob.status === 'Pending Approval' && (
-              <div className="mt-3 rounded-lg border border-[#E1C58C] bg-[#FFF4D8] p-2.5 text-xs text-[#8A641B]">
-                <div className="flex items-center justify-between font-semibold">
-                  <span>Pending Approval Review</span>
-                  <div className="flex gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => handleJobAction(selectedJob.id, 'APPROVE')}
-                      className="rounded bg-[#287047] px-2 py-0.5 text-[10px] font-semibold text-white hover:bg-[#1E5736]"
-                    >
-                      Approve
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleJobAction(selectedJob.id, 'REJECT', 'Revisions requested')}
-                      className="rounded border border-[#D9A3A3] bg-white px-2 py-0.5 text-[10px] font-semibold text-[#A45A5A]"
-                    >
-                      Reject
-                    </button>
+            {selectedJob.status === 'Pending Approval' &&
+              (() => {
+                const chain = [...(selectedJob.approvals || [])].sort((a, b) => a.sequence - b.sequence);
+                const myPendingStep = chain.find(
+                  (a) => a.approverId === currentUser?.id && a.status === 'Pending',
+                );
+                return (
+                  <div className="mt-3 rounded-lg border border-[#E1C58C] bg-[#FFF4D8] p-2.5 text-xs text-[#8A641B]">
+                    <div className="flex items-center justify-between font-semibold">
+                      <span>Pending Approval Review</span>
+                      {myPendingStep ? (
+                        <div className="flex gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => handleJobAction(selectedJob.id, 'APPROVE')}
+                            className="rounded bg-[#287047] px-2 py-0.5 text-[10px] font-semibold text-white hover:bg-[#1E5736]"
+                          >
+                            Approve
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleJobAction(selectedJob.id, 'REJECT', 'Revisions requested')}
+                            className="rounded border border-[#D9A3A3] bg-white px-2 py-0.5 text-[10px] font-semibold text-[#A45A5A]"
+                          >
+                            Reject
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="text-[10px] font-medium">
+                          {chain.some((a) => a.status === 'Pending')
+                            ? 'Awaiting other approvers'
+                            : 'Finalizing'}
+                        </span>
+                      )}
+                    </div>
+                    {chain.length > 0 && (
+                      <div className="mt-1.5 space-y-0.5 text-[10px] font-normal">
+                        {chain.map((a) => (
+                          <p key={a.id}>
+                            {a.status === 'Approved' ? '✓' : a.status === 'Pending' ? '⏳' : '✕'} L
+                            {a.sequence} {a.approverName}
+                            {a.approverId === currentUser?.id ? ' (you)' : ''} —{' '}
+                            {a.status === 'Pending' ? 'awaiting action' : a.status.toLowerCase()}
+                          </p>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                </div>
-              </div>
-            )}
+                );
+              })()}
 
             {selectedJob.status === 'Approved' && (
               <div className="mt-3 flex items-center justify-between rounded-lg border border-[#9CC9AC] bg-[#DDEFE4] p-2 text-xs text-[#287047]">
@@ -1974,12 +2034,12 @@ export default function RecruitmentPage() {
                 )}
 
                 {/* Direct 1-Click Onboarding Bridge */}
-                {selectedCandidate.onboardingEmployeeCode ? (
+                {selectedCandidate.onboardingEmployeeCode || selectedCandidate.onboardingId ? (
                   <span className="rounded bg-[#DDEFE4] px-2 py-1 text-[10px] font-bold text-[#287047]">
-                    Onboarded · {selectedCandidate.onboardingEmployeeCode}
+                    Onboarded{selectedCandidate.onboardingEmployeeCode ? ` · ${selectedCandidate.onboardingEmployeeCode}` : ''}
                   </span>
                 ) : (
-                  candidateOffers[0]?.status === 'Accepted' &&
+                  ['Sent', 'Viewed', 'Accepted'].includes(candidateOffers[0]?.status) &&
                   (selectedCandidate.stage === 'Shortlisted' ||
                     selectedCandidate.stage === 'Selected' ||
                     selectedCandidate.stage === 'Offer') && (
@@ -2116,21 +2176,60 @@ export default function RecruitmentPage() {
                         </span>
                       </div>
 
-                      {/* Single Approval Status Display */}
+                      {/* Approval Chain Status Display (L1 manager + L2 admin) */}
                       <div
                         className={`rounded p-2.5 border text-[11px] ${
-                          (latestOffer.approvalSummary?.completedLevels || 0) >= 1
+                          (latestOffer.approvalSummary?.completedLevels || 0) >=
+                            (latestOffer.approvalSummary?.totalLevels || 1) &&
+                          (latestOffer.approvalSummary?.totalLevels || 0) > 0
                             ? 'bg-[#DCFCE7] border-[#BBF7D0] text-[#166534]'
                             : 'bg-[#FEF3C7] border-[#FDE68A] text-[#92400E]'
                         }`}
                       >
                         <span className="font-bold block">HR / Admin Review</span>
-                        <span>
-                          {(latestOffer.approvalSummary?.completedLevels || 0) >= 1
-                            ? '✓ Approved'
-                            : '⏳ Pending Action'}
-                        </span>
+                        {latestOffer.approvalSummary?.totalLevels ? (
+                          <span>
+                            {(latestOffer.approvalSummary?.completedLevels || 0) >=
+                            latestOffer.approvalSummary.totalLevels
+                              ? '✓ Approved by all levels'
+                              : `⏳ Approved ${latestOffer.approvalSummary.completedLevels} of ${latestOffer.approvalSummary.totalLevels} levels`}
+                          </span>
+                        ) : (
+                          <span>⏳ Pending Action</span>
+                        )}
                       </div>
+                      {(latestOffer.recruitment_offer_approvals?.length || 0) > 0 && (
+                        <div className="space-y-1">
+                          {latestOffer.recruitment_offer_approvals
+                            .slice()
+                            .sort((a: any, b: any) => (a.sequence || 0) - (b.sequence || 0))
+                            .map((step: any) => (
+                              <div
+                                key={step.id}
+                                className="flex items-center justify-between rounded border border-[#E2E8F0] bg-[#F8FAFC] px-2 py-1 text-[10px]"
+                              >
+                                <span className="text-[#17324A] font-semibold">
+                                  L{step.sequence || '-'} · {step.employees?.name || 'Approver'}
+                                </span>
+                                <span
+                                  className={
+                                    step.status === 'Approved'
+                                      ? 'text-[#166534] font-semibold'
+                                      : step.status === 'Pending'
+                                        ? 'text-[#92400E] font-semibold'
+                                        : 'text-[#9F1239] font-semibold'
+                                  }
+                                >
+                                  {step.status === 'Approved'
+                                    ? '✓ Approved'
+                                    : step.status === 'Pending'
+                                      ? '⏳ Pending'
+                                      : `✕ ${step.status}`}
+                                </span>
+                              </div>
+                            ))}
+                        </div>
+                      )}
 
                       {/* Approver Action Triggers */}
                       <div className="flex items-center justify-between border-t border-[#E2E8F0] pt-2">
@@ -2234,14 +2333,21 @@ export default function RecruitmentPage() {
                           Last sent: {new Date(latestOffer.sent_at).toLocaleString('en-GB')}
                         </p>
                       )}
-                      {offerPortalUrl && (
-                        <div className="rounded border border-[#9FC2DC] bg-[#E8F2FA] p-2 text-[10px] text-[#17324A] break-all">
-                          <span className="font-bold">Candidate portal link (single-use, expires {new Date(offerPortalUrl.expiresAt).toLocaleTimeString('en-GB')}):</span>{' '}
-                          <a href={offerPortalUrl.url} target="_blank" rel="noreferrer" className="underline text-[#23587E]">
-                            {offerPortalUrl.url}
-                          </a>
-                        </div>
-                      )}
+                      <div className="flex items-center justify-between gap-2 rounded border border-[#9FC2DC] bg-[#E8F2FA] px-2.5 py-2">
+                        <span className="flex items-center gap-1 text-[10px] font-bold text-[#17324A]">
+                          <CheckCircle2 className="h-3 w-3 text-[#287047]" />
+                          Offer dispatched — proceed to onboarding once the candidate joins.
+                        </span>
+                        {!selectedCandidate.onboardingId && (
+                          <Link
+                            href={{ pathname: '/employee-lifecycle', query: { candidateId: selectedCandidate.id } }}
+                            className="inline-flex shrink-0 items-center gap-1 rounded bg-[#17324A] px-2.5 py-1 text-[10px] font-semibold text-white shadow-xs hover:bg-[#315B76]"
+                          >
+                            <UserPlus className="h-3 w-3" />
+                            Start Onboarding
+                          </Link>
+                        )}
+                      </div>
                     </div>
                   )}
 
@@ -2306,7 +2412,7 @@ export default function RecruitmentPage() {
                         </div>
 
                         {!isOfferDocsCollapsed && (docs.length > 0 ? (
-                          <div className="space-y-1.5 pt-1">
+                          <div className="space-y-1.5 pt-1 max-h-[300px] overflow-y-auto pr-1">
                             {docs.map((doc: any) => (
                               <div
                                 key={doc.id}
@@ -2483,7 +2589,7 @@ export default function RecruitmentPage() {
                     {selectedCandidate.resumeUrl ? (
                       <>
                         <a
-                          href={selectedCandidate.resumeUrl}
+                          href={`${selectedCandidate.resumeUrl}?token=${encodeURIComponent(tokenStore.get() || '')}`}
                           target="_blank"
                           rel="noreferrer"
                           className="rounded border border-[#9FC2DC] bg-white px-2.5 py-1 text-[10px] font-semibold text-[#17324A] hover:bg-[#F4F9FC]"
@@ -2554,13 +2660,13 @@ export default function RecruitmentPage() {
                       <div className="flex justify-between text-[11px]">
                         <span className="text-[#17324A]">Technical Skills (50% weight)</span>
                         <span className="font-semibold text-[#17324A]">
-                          {selectedCandidate.matchBreakdown?.skillScore ?? 85}%
+                          {selectedCandidate.matchBreakdown?.skillScore ?? 0}%
                         </span>
                       </div>
                       <div className="h-1.5 w-full overflow-hidden rounded-full bg-[#C3D9E8]">
                         <div
                           className="h-full rounded-full bg-[#17324A]"
-                          style={{ width: `${selectedCandidate.matchBreakdown?.skillScore ?? 85}%` }}
+                          style={{ width: `${selectedCandidate.matchBreakdown?.skillScore ?? 0}%` }}
                         />
                       </div>
                     </div>
@@ -2570,13 +2676,13 @@ export default function RecruitmentPage() {
                       <div className="flex justify-between text-[11px]">
                         <span className="text-[#17324A]">Experience & Seniority (30% weight)</span>
                         <span className="font-semibold text-[#17324A]">
-                          {selectedCandidate.matchBreakdown?.experienceScore ?? 90}%
+                          {selectedCandidate.matchBreakdown?.experienceScore ?? 0}%
                         </span>
                       </div>
                       <div className="h-1.5 w-full overflow-hidden rounded-full bg-[#C3D9E8]">
                         <div
                           className="h-full rounded-full bg-[#4F86A8]"
-                          style={{ width: `${selectedCandidate.matchBreakdown?.experienceScore ?? 90}%` }}
+                          style={{ width: `${selectedCandidate.matchBreakdown?.experienceScore ?? 0}%` }}
                         />
                       </div>
                     </div>
@@ -2586,13 +2692,13 @@ export default function RecruitmentPage() {
                       <div className="flex justify-between text-[11px]">
                         <span className="text-[#17324A]">Location & Education Fit (20% weight)</span>
                         <span className="font-semibold text-[#17324A]">
-                          {selectedCandidate.matchBreakdown?.locationScore ?? 100}%
+                          {selectedCandidate.matchBreakdown?.locationScore ?? 0}%
                         </span>
                       </div>
                       <div className="h-1.5 w-full overflow-hidden rounded-full bg-[#C3D9E8]">
                         <div
                           className="h-full rounded-full bg-[#6FA6C9]"
-                          style={{ width: `${selectedCandidate.matchBreakdown?.locationScore ?? 100}%` }}
+                          style={{ width: `${selectedCandidate.matchBreakdown?.locationScore ?? 0}%` }}
                         />
                       </div>
                     </div>
@@ -3281,6 +3387,46 @@ export default function RecruitmentPage() {
                   <option>Medium</option>
                   <option>High</option>
                   <option>Urgent</option>
+                </select>
+              </label>
+
+              <label className="flex flex-col gap-1 text-[11px] font-semibold text-[#315B76]">
+                Hiring Manager (L1 Approver)
+                <select
+                  value={jdForm.hiringManagerId}
+                  onChange={(e) => setJdForm({ ...jdForm, hiringManagerId: e.target.value })}
+                  className="rounded-lg border border-[#C3D9E8] bg-white px-3 py-2 text-xs font-normal text-[#17324A] outline-none"
+                >
+                  <option value="">Auto-assign (fallback approver)</option>
+                  {[...employeesList]
+                    .filter((emp) => emp.status !== 'Inactive' && emp.status !== 'Terminated')
+                    .sort((a, b) => (a.userRole === 'manager' ? 0 : 1) - (b.userRole === 'manager' ? 0 : 1))
+                    .map((emp) => (
+                      <option key={emp.id} value={emp.id}>
+                        {emp.name}
+                        {emp.roleTitle ? ` — ${emp.roleTitle}` : ''}
+                        {emp.userRole === 'manager' ? ' (Manager)' : ''}
+                      </option>
+                    ))}
+                </select>
+              </label>
+
+              <label className="flex flex-col gap-1 text-[11px] font-semibold text-[#315B76]">
+                Recruiter
+                <select
+                  value={jdForm.recruiterId}
+                  onChange={(e) => setJdForm({ ...jdForm, recruiterId: e.target.value })}
+                  className="rounded-lg border border-[#C3D9E8] bg-white px-3 py-2 text-xs font-normal text-[#17324A] outline-none"
+                >
+                  <option value="">Unassigned</option>
+                  {employeesList
+                    .filter((emp) => emp.status !== 'Inactive' && emp.status !== 'Terminated')
+                    .map((emp) => (
+                      <option key={emp.id} value={emp.id}>
+                        {emp.name}
+                        {emp.roleTitle ? ` — ${emp.roleTitle}` : ''}
+                      </option>
+                    ))}
                 </select>
               </label>
 

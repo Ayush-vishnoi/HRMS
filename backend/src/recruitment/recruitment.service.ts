@@ -37,6 +37,22 @@ const STAGES = [
 
 const ACTIVE_OFFER_STATUSES = ['Draft', 'PendingApproval', 'Approved', 'Sent', 'Viewed'];
 
+/**
+ * Safe projection for employee relations. Explicitly omits credential fields
+ * (passwordHash) so recruitment API responses never leak them.
+ */
+const EMPLOYEE_SUMMARY_SELECT = {
+  id: true,
+  employeeCode: true,
+  name: true,
+  email: true,
+  roleTitle: true,
+  userRole: true,
+  department: true,
+  avatarUrl: true,
+  status: true,
+};
+
 interface UploadedResumeFile {
   fieldname: string;
   originalname: string;
@@ -62,9 +78,9 @@ export class RecruitmentService {
       this.prisma.recruitmentJob.findMany({
         orderBy: { createdAt: 'desc' },
         include: {
-          recruitment_job_approvals: { include: { employees: true } },
-          hiringManager: true,
-          recruiter: true,
+          recruitment_job_approvals: { include: { employees: { select: EMPLOYEE_SUMMARY_SELECT } } },
+          hiringManager: { select: EMPLOYEE_SUMMARY_SELECT },
+          recruiter: { select: EMPLOYEE_SUMMARY_SELECT },
           candidates: { select: { id: true, stage: true } },
         },
       }),
@@ -72,10 +88,10 @@ export class RecruitmentService {
         orderBy: { createdAt: 'desc' },
         include: {
           job: true,
-          onboarding: true,
+          onboarding: { include: { employee: { select: EMPLOYEE_SUMMARY_SELECT } } },
           resumeDocument: true,
           matches: true,
-          assignedRecruiter: true,
+          assignedRecruiter: { select: EMPLOYEE_SUMMARY_SELECT },
         },
       }),
     ]);
@@ -86,7 +102,6 @@ export class RecruitmentService {
     if (!data.title || !data.department || !data.location || !data.description) {
       throw new BadRequestException('title, department, location and description are required.');
     }
-    const status = STAGES.includes(data.status) ? data.status : 'Open';
     const job = await this.prisma.recruitmentJob.create({
       data: {
         id: crypto.randomUUID(),
@@ -95,7 +110,7 @@ export class RecruitmentService {
         location: String(data.location),
         employmentType: data.employmentType === 'Contract' ? 'Contract' : 'FullTime',
         openings: Number(data.openings) > 0 ? Math.round(Number(data.openings)) : 1,
-        status: data.status === 'PendingApproval' ? 'PendingApproval' : data.status === 'Draft' ? 'Draft' : 'Open',
+        status: data.status === 'Draft' ? 'Draft' : 'Open',
         postedOn: new Date().toISOString().slice(0, 10),
         description: String(data.description),
         requirements: Array.isArray(data.requirements) ? data.requirements.map(String) : [],
@@ -130,8 +145,27 @@ export class RecruitmentService {
     if (body.responsibilities != null) data.responsibilities = body.responsibilities.map(String);
     if (body.priority != null) data.priority = String(body.priority);
     if (body.openings != null) data.openings = Math.max(1, Math.round(Number(body.openings) || 1));
+    if (body.hiringManagerId !== undefined) data.hiring_manager_id = body.hiringManagerId || null;
+    if (body.recruiterId !== undefined) data.recruiter_id = body.recruiterId || null;
     if (Object.keys(data).length === 0) return job;
     return this.prisma.recruitmentJob.update({ where: { id: jobId }, data });
+  }
+
+  /**
+   * Resolve a fallback approver id when a job has no hiring manager:
+   * prefer any active manager, else any admin.
+   */
+  private async resolveFallbackApproverId(): Promise<string | null> {
+    const manager = await this.prisma.employee.findFirst({
+      where: { userRole: 'manager', status: 'Active' },
+      select: { id: true },
+    });
+    if (manager) return manager.id;
+    const admin = await this.prisma.employee.findFirst({
+      where: { userRole: 'admin' },
+      select: { id: true },
+    });
+    return admin?.id ?? null;
   }
 
   private async handleJobAction(job: any, body: Record<string, any>) {
@@ -140,30 +174,32 @@ export class RecruitmentService {
       if (job.status !== 'Draft' && job.status !== 'Open') {
         throw new BadRequestException(`Cannot submit job in "${job.status}" status for approval.`);
       }
-      const hiringManagerId = job.hiring_manager_id;
+      const hiringManagerId = job.hiring_manager_id || (await this.resolveFallbackApproverId());
       if (!hiringManagerId) {
         throw new BadRequestException('Job must have a hiring manager before submitting for approval.');
       }
-      const admins = await this.prisma.employee.findMany({
-        where: { userRole: 'admin' },
+      const admin = await this.prisma.employee.findFirst({
+        where: { userRole: 'admin', id: { not: hiringManagerId } },
         select: { id: true },
       });
-      const admin = admins[0];
       if (!admin) {
-        throw new BadRequestException('No admin approver available. Configure an admin first.');
+        throw new BadRequestException(
+          'No distinct admin approver available for L2. Assign a hiring manager and configure an admin first.',
+        );
       }
+      const adminId = admin.id;
       const updated = await this.prisma.$transaction(async (tx: any) => {
         await tx.recruitment_job_approvals.deleteMany({ where: { job_id: job.id } });
         await tx.recruitment_job_approvals.create({
           data: { job_id: job.id, sequence: 1, approver_id: hiringManagerId, status: 'Pending', note: body.note || null },
         });
         await tx.recruitment_job_approvals.create({
-          data: { job_id: job.id, sequence: 2, approver_id: admin.id, status: 'Pending' },
+          data: { job_id: job.id, sequence: 2, approver_id: adminId, status: 'Pending' },
         });
         return tx.recruitmentJob.update({
           where: { id: job.id },
           data: { status: 'PendingApproval' },
-          include: { recruitment_job_approvals: { include: { employees: true } } },
+          include: { recruitment_job_approvals: { include: { employees: { select: EMPLOYEE_SUMMARY_SELECT } } } },
         });
       });
       this.notify
@@ -171,7 +207,7 @@ export class RecruitmentService {
           userId: hiringManagerId,
           title: 'Job approval requested',
           message: `Job "${job.title}" is awaiting your L1 approval.`,
-          type: 'recruitment',
+          type: 'Recruitment',
           linkUrl: '/recruitment',
         })
         .catch(() => undefined);
@@ -212,16 +248,41 @@ export class RecruitmentService {
     const action = String(body.action);
     const myStep = job.recruitment_job_approvals.find((a: any) => a.approver_id === actorId);
     if (!myStep) throw new ForbiddenException('You are not an approver for this job.');
-    if (myStep.status !== 'Pending') {
-      throw new BadRequestException('You have already acted on this approval.');
+    // Idempotent APPROVE: an already-approved senior re-submitting APPROVE is
+    // allowed so the supersede logic below can finalize any still-pending
+    // junior steps (heals chains stuck by the pre-supersede behavior).
+    if (myStep.status !== 'Pending' && !(action === 'APPROVE' && myStep.status === 'Approved')) {
+      throw new BadRequestException(
+        'You have already acted on this approval. The requisition is still awaiting other approvers.',
+      );
     }
 
     if (action === 'APPROVE') {
       const updated = await this.prisma.$transaction(async (tx: any) => {
-        await tx.recruitment_job_approvals.update({
-          where: { id: myStep.id },
-          data: { status: 'Approved', note: body.note || null, acted_at: new Date() },
+        if (myStep.status === 'Pending') {
+          await tx.recruitment_job_approvals.update({
+            where: { id: myStep.id },
+            data: { status: 'Approved', note: body.note || null, acted_at: new Date() },
+          });
+        }
+        // Senior-approval supersede: when a higher-sequence approver (e.g. the
+        // L2 admin) approves, auto-approve any still-pending lower-sequence
+        // steps. Without this the requisition stays stuck in PendingApproval
+        // forever when a junior step (often an auto-assigned fallback manager)
+        // never acts, even though the senior approver has final authority.
+        const supersededSteps = await tx.recruitment_job_approvals.findMany({
+          where: { job_id: job.id, status: 'Pending', sequence: { lt: myStep.sequence } },
         });
+        for (const step of supersededSteps) {
+          await tx.recruitment_job_approvals.update({
+            where: { id: step.id },
+            data: {
+              status: 'Approved',
+              note: `Auto-approved: superseded by L${myStep.sequence} approval.`,
+              acted_at: new Date(),
+            },
+          });
+        }
         const steps = await tx.recruitment_job_approvals.findMany({
           where: { job_id: job.id },
           orderBy: { sequence: 'asc' },
@@ -231,14 +292,37 @@ export class RecruitmentService {
           return tx.recruitmentJob.update({
             where: { id: job.id },
             data: { status: 'Approved' },
-            include: { recruitment_job_approvals: { include: { employees: true } } },
+            include: { recruitment_job_approvals: { include: { employees: { select: EMPLOYEE_SUMMARY_SELECT } } } },
           });
         }
         return tx.recruitmentJob.findUnique({
           where: { id: job.id },
-          include: { recruitment_job_approvals: { include: { employees: true } } },
+          include: { recruitment_job_approvals: { include: { employees: { select: EMPLOYEE_SUMMARY_SELECT } } } },
         });
       });
+
+      const stepsAfter = updated?.recruitment_job_approvals ?? [];
+      const allStepsApproved = stepsAfter.every((s: any) => s.status === 'Approved');
+      const nextPendingStep = stepsAfter.find((s: any) => s.status === 'Pending');
+      if (allStepsApproved) {
+        if (job.hiring_manager_id && job.hiring_manager_id !== actorId) {
+          await this.notify.notifyUser({
+            userId: job.hiring_manager_id,
+            title: 'Job approved',
+            message: `Job "${job.title}" has been fully approved and is ready to publish.`,
+            type: 'Recruitment',
+            linkUrl: '/recruitment',
+          });
+        }
+      } else if (nextPendingStep && nextPendingStep.approver_id !== actorId) {
+        await this.notify.notifyUser({
+          userId: nextPendingStep.approver_id,
+          title: 'Job approval requested',
+          message: `Job "${job.title}" is awaiting your L${nextPendingStep.sequence} approval.`,
+          type: 'Recruitment',
+          linkUrl: '/recruitment',
+        });
+      }
       return updated;
     }
 
@@ -252,9 +336,19 @@ export class RecruitmentService {
         return tx.recruitmentJob.update({
           where: { id: job.id },
           data: { status: action === 'REJECT' ? 'Draft' : 'Draft' },
-          include: { recruitment_job_approvals: { include: { employees: true } } },
+          include: { recruitment_job_approvals: { include: { employees: { select: EMPLOYEE_SUMMARY_SELECT } } } },
         });
       });
+
+      if (job.hiring_manager_id && job.hiring_manager_id !== actorId) {
+        await this.notify.notifyUser({
+          userId: job.hiring_manager_id,
+          title: action === 'REJECT' ? 'Job rejected' : 'Job sent back for changes',
+          message: `Job "${job.title}" was ${action === 'REJECT' ? 'rejected' : 'sent back for changes'} and moved to Draft.${body.note ? ` Note: ${body.note}` : ''}`,
+          type: 'Recruitment',
+          linkUrl: '/recruitment',
+        });
+      }
       return updated;
     }
 
@@ -274,10 +368,10 @@ export class RecruitmentService {
       orderBy: { createdAt: 'desc' },
       include: {
         job: true,
-        onboarding: true,
+        onboarding: { include: { employee: { select: EMPLOYEE_SUMMARY_SELECT } } },
         resumeDocument: true,
         matches: true,
-        assignedRecruiter: true,
+        assignedRecruiter: { select: EMPLOYEE_SUMMARY_SELECT },
       },
     });
   }
@@ -287,10 +381,10 @@ export class RecruitmentService {
       where: { id },
       include: {
         job: true,
-        onboarding: true,
+        onboarding: { include: { employee: { select: EMPLOYEE_SUMMARY_SELECT } } },
         resumeDocument: true,
         matches: true,
-        assignedRecruiter: true,
+        assignedRecruiter: { select: EMPLOYEE_SUMMARY_SELECT },
       },
     });
     if (!candidate) throw new NotFoundException('Candidate not found.');
@@ -623,6 +717,45 @@ export class RecruitmentService {
     return { candidateId, match };
   }
 
+  /**
+   * Reads the stored resume file for a candidate so the controller can stream
+   * it back on GET /api/recruitment/candidates/:id/resume (opened by the
+   * frontend as a plain anchor, so that route is intentionally unguarded).
+   */
+  async getResumeFile(candidateId: string) {
+    const candidate = await this.prisma.recruitmentCandidate.findUnique({
+      where: { id: candidateId },
+      include: { resumeDocument: true },
+    });
+    if (!candidate) throw new NotFoundException('Candidate not found.');
+    if (!candidate.resumeDocument) {
+      throw new NotFoundException('No resume uploaded for this candidate yet.');
+    }
+
+    let buffer: Buffer;
+    try {
+      buffer = await readFile(candidate.resumeDocument.storagePath);
+    } catch {
+      throw new NotFoundException('Stored resume file is no longer available on disk.');
+    }
+
+    const fileName = candidate.resumeDocument.fileName || `resume-${candidateId}`;
+    const ext = fileName.split('.').pop()?.toLowerCase() || '';
+    const EXT_MIME: Record<string, string> = {
+      pdf: 'application/pdf',
+      docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      doc: 'application/msword',
+      txt: 'text/plain',
+      rtf: 'application/rtf',
+    };
+    const storedType = candidate.resumeDocument.fileType || '';
+    const mimeType = storedType.includes('/')
+      ? storedType
+      : EXT_MIME[ext] || EXT_MIME[storedType.toLowerCase()] || 'application/octet-stream';
+
+    return { buffer, fileName, mimeType };
+  }
+
   private async recomputeMatch(
     candidate: any,
     skills: string[],
@@ -793,9 +926,168 @@ export class RecruitmentService {
       where: { candidate_id: candidateId },
       orderBy: [{ round: 'asc' }, { starts_at: 'asc' }],
       include: {
-        interview_panel_members: { include: { employees: true } },
-        interview_feedback: { include: { employees: true } },
+        interview_panel_members: { include: { employees: { select: EMPLOYEE_SUMMARY_SELECT } } },
+        interview_feedback: { include: { employees: { select: EMPLOYEE_SUMMARY_SELECT } } },
       },
+    });
+  }
+
+  /* ============================================================
+     MY APPROVALS (Meetings panel)
+     ============================================================ */
+
+  /** GET my-approvals — pending job/offer approval steps the approver can act on right now. */
+  async getMyApprovals(actorId: string) {
+    const [jobSteps, offerSteps] = await Promise.all([
+      this.prisma.recruitment_job_approvals.findMany({
+        where: { approver_id: actorId, status: 'Pending', recruitment_jobs: { status: 'PendingApproval' } },
+        include: {
+          recruitment_jobs: {
+            select: {
+              id: true,
+              title: true,
+              department: true,
+              recruitment_job_approvals: { select: { sequence: true, status: true }, orderBy: { sequence: 'asc' } },
+            },
+          },
+        },
+        orderBy: { sequence: 'asc' },
+      }),
+      this.prisma.recruitment_offer_approvals.findMany({
+        where: { approver_id: actorId, status: 'Pending', recruitment_offers: { status: 'PendingApproval' } },
+        include: {
+          recruitment_offers: {
+            select: {
+              id: true,
+              offered_title: true,
+              recruitment_candidates: { select: { name: true, currentRole: true } },
+              recruitment_offer_approvals: { select: { sequence: true, status: true }, orderBy: { sequence: 'asc' } },
+            },
+          },
+        },
+        orderBy: { sequence: 'asc' },
+      }),
+    ]);
+
+    // Chain rule (same as the recruitment UI): a step is actionable only when
+    // every earlier step has been approved.
+    const isMyTurn = (siblings: any[], sequence: number) =>
+      siblings.filter((step) => step.sequence < sequence).every((step) => step.status === 'Approved');
+
+    return {
+      jobs: jobSteps
+        .filter((step: any) => isMyTurn(step.recruitment_jobs.recruitment_job_approvals, step.sequence))
+        .map((step: any) => ({
+          id: step.recruitment_jobs.id,
+          level: step.sequence,
+          title: step.recruitment_jobs.title,
+          context: step.recruitment_jobs.department,
+        })),
+      offers: offerSteps
+        .filter((step: any) => isMyTurn(step.recruitment_offers.recruitment_offer_approvals, step.sequence))
+        .map((step: any) => ({
+          id: step.recruitment_offers.id,
+          level: step.sequence,
+          title: step.recruitment_offers.offered_title,
+          candidate: step.recruitment_offers.recruitment_candidates.name,
+          context: step.recruitment_offers.recruitment_candidates.currentRole,
+        })),
+    };
+  }
+
+  /* ============================================================
+     INTERVIEW ↔ MEETINGS SYNC
+     Every interview is mirrored into Meetings & Calendar under a
+     deterministic id — "i" + the first 31 hex chars of
+     sha256(interviewId) — so panel members see it on their calendar.
+     Recruitment ATS stays the source of truth; the meetings module
+     blocks manual edits/cancels of these mirror rows.
+     ============================================================ */
+
+  private interviewMeetingId(interviewId: string): string {
+    return `i${createHash('sha256').update(interviewId).digest('hex').slice(1, 32)}`;
+  }
+
+  private interviewMeetingStatus(status: string): 'UPCOMING' | 'ONGOING' | 'COMPLETED' | 'CANCELLED' {
+    if (status === 'Cancelled') return 'CANCELLED';
+    if (status === 'Completed' || status === 'NoShow' || status === 'No Show') return 'COMPLETED';
+    if (status === 'InProgress') return 'ONGOING';
+    return 'UPCOMING';
+  }
+
+  /** Create or refresh the Meetings & Calendar mirror of an interview. */
+  private async syncInterviewMeeting(interviewId: string) {
+    const interview = await this.prisma.recruitment_interviews.findUnique({
+      where: { id: interviewId },
+      include: {
+        interview_panel_members: true,
+        recruitment_candidates: { select: { name: true } },
+      },
+    });
+    if (!interview) return;
+
+    const lead =
+      interview.interview_panel_members.find((member: any) => member.is_lead) ??
+      interview.interview_panel_members[0];
+    if (!lead) return;
+
+    const meetingId = this.interviewMeetingId(interviewId);
+    const panelIds = [...new Set(interview.interview_panel_members.map((member: any) => member.employee_id))];
+    const attendeeIds = panelIds.filter((employeeId: string) => employeeId !== lead.employee_id);
+    const title = `${interview.title} — ${interview.recruitment_candidates.name}`.slice(0, 150);
+
+    await this.prisma.$transaction(async (tx: any) => {
+      await tx.meeting.upsert({
+        where: { id: meetingId },
+        create: {
+          id: meetingId,
+          title,
+          type: 'TEAM',
+          description: `Interview for ${interview.recruitment_candidates.name} (Round ${interview.round}). Managed by Recruitment ATS.`,
+          startsAt: interview.starts_at,
+          endsAt: interview.ends_at,
+          allDay: false,
+          location: interview.location,
+          videoLink: interview.meeting_url,
+          organizerId: lead.employee_id,
+          recurrence: 'NONE',
+          reminderMinutes: 15,
+          status: this.interviewMeetingStatus(interview.status),
+          attendees: {
+            create: [
+              { employeeId: lead.employee_id, rsvp: 'ACCEPTED' },
+              ...attendeeIds.map((employeeId: string) => ({ employeeId, rsvp: 'PENDING' })),
+            ],
+          },
+        },
+        update: {
+          title,
+          startsAt: interview.starts_at,
+          endsAt: interview.ends_at,
+          location: interview.location,
+          videoLink: interview.meeting_url,
+          organizerId: lead.employee_id,
+          status: this.interviewMeetingStatus(interview.status),
+        },
+      });
+
+      // Reconcile the attendee list with the current panel while preserving
+      // RSVP responses of members who are still on the panel.
+      const existingAttendees = await tx.meetingAttendee.findMany({
+        where: { meetingId },
+        select: { employeeId: true },
+      });
+      const currentIds = new Set<string>([lead.employee_id, ...attendeeIds]);
+      await tx.meetingAttendee.deleteMany({
+        where: { meetingId, employeeId: { notIn: [...currentIds] } },
+      });
+      for (const employeeId of currentIds) {
+        if (!existingAttendees.some((attendee: any) => attendee.employeeId === employeeId)) {
+          await tx.meetingAttendee.create({
+            data: { meetingId, employeeId, rsvp: employeeId === lead.employee_id ? 'ACCEPTED' : 'PENDING' },
+          });
+        }
+      }
     });
   }
 
@@ -859,11 +1151,14 @@ export class RecruitmentService {
       })
       .catch(() => undefined);
 
+    // Mirror the interview into Meetings & Calendar for the panel.
+    await this.syncInterviewMeeting(interview.id);
+
     return this.prisma.recruitment_interviews.findUnique({
       where: { id: interview.id },
       include: {
-        interview_panel_members: { include: { employees: true } },
-        interview_feedback: { include: { employees: true } },
+        interview_panel_members: { include: { employees: { select: EMPLOYEE_SUMMARY_SELECT } } },
+        interview_feedback: { include: { employees: { select: EMPLOYEE_SUMMARY_SELECT } } },
       },
     });
   }
@@ -877,18 +1172,30 @@ export class RecruitmentService {
 
     // Status-only update (quick status chips)
     if (body.status && !body.startsAt && !body.panelMembers) {
-      const allowed = ['Scheduled', 'Completed', 'Cancelled', 'No Show', 'Rescheduled'];
+      const allowed = [
+        'Scheduled',
+        'Confirmed',
+        'InProgress',
+        'Completed',
+        'Cancelled',
+        'NoShow',
+        'No Show',
+        'Rescheduled',
+      ];
       if (!allowed.includes(String(body.status))) {
         throw new BadRequestException(`Invalid interview status "${body.status}".`);
       }
-      return this.prisma.recruitment_interviews.update({
+      const statusUpdated = await this.prisma.recruitment_interviews.update({
         where: { id: interviewId },
         data: { status: String(body.status), updated_at: new Date() },
         include: {
-          interview_panel_members: { include: { employees: true } },
-          interview_feedback: { include: { employees: true } },
+          interview_panel_members: { include: { employees: { select: EMPLOYEE_SUMMARY_SELECT } } },
+          interview_feedback: { include: { employees: { select: EMPLOYEE_SUMMARY_SELECT } } },
         },
       });
+      // Keep the Meetings & Calendar mirror in sync with the new status.
+      await this.syncInterviewMeeting(interviewId);
+      return statusUpdated;
     }
 
     const data: Record<string, any> = { updated_at: new Date() };
@@ -931,11 +1238,14 @@ export class RecruitmentService {
       });
     }
 
+    // Mirror schedule/panel changes into Meetings & Calendar.
+    await this.syncInterviewMeeting(interviewId);
+
     return this.prisma.recruitment_interviews.findUnique({
       where: { id: updated.id },
       include: {
-        interview_panel_members: { include: { employees: true } },
-        interview_feedback: { include: { employees: true } },
+        interview_panel_members: { include: { employees: { select: EMPLOYEE_SUMMARY_SELECT } } },
+        interview_feedback: { include: { employees: { select: EMPLOYEE_SUMMARY_SELECT } } },
       },
     });
   }
@@ -955,8 +1265,12 @@ export class RecruitmentService {
       throw new BadRequestException('overallScore must be between 1 and 5.');
     }
     const recommendation = String(body.recommendation || '');
-    if (!['Strong Yes', 'Yes', 'No', 'Strong No'].includes(recommendation)) {
-      throw new BadRequestException('recommendation must be one of Strong Yes / Yes / No / Strong No.');
+    // Mirrors the frontend dropdown values (src/app/recruitment/page.tsx).
+    const ALLOWED_RECOMMENDATIONS = ['StrongHire', 'Hire', 'Maybe', 'NoHire', 'StrongNoHire'];
+    if (!ALLOWED_RECOMMENDATIONS.includes(recommendation)) {
+      throw new BadRequestException(
+        `recommendation must be one of ${ALLOWED_RECOMMENDATIONS.join(', ')}.`,
+      );
     }
 
     const scorecard = body.scorecard && Array.isArray(body.scorecard.criteria)
@@ -988,7 +1302,7 @@ export class RecruitmentService {
         comments: body.comments ? String(body.comments) : null,
         submitted_at: new Date(),
       },
-      include: { employees: true },
+      include: { employees: { select: EMPLOYEE_SUMMARY_SELECT } },
     });
     return feedback;
   }
@@ -1099,7 +1413,7 @@ export class RecruitmentService {
     return this.prisma.candidate_notes.findMany({
       where: { candidate_id: candidateId },
       orderBy: { created_at: 'desc' },
-      include: { employees: true },
+      include: { employees: { select: EMPLOYEE_SUMMARY_SELECT } },
     });
   }
 
@@ -1115,7 +1429,7 @@ export class RecruitmentService {
         author_id: authorId,
         note,
       },
-      include: { employees: true },
+      include: { employees: { select: EMPLOYEE_SUMMARY_SELECT } },
     });
   }
 
@@ -1140,7 +1454,7 @@ export class RecruitmentService {
       this.prisma.candidate_notes.findMany({
         where: { candidate_id: candidateId },
         orderBy: { created_at: 'desc' },
-        include: { employees: true },
+        include: { employees: { select: EMPLOYEE_SUMMARY_SELECT } },
       }),
     ]);
 
@@ -1189,15 +1503,37 @@ export class RecruitmentService {
      OFFERS
      ============================================================ */
 
-  async getOffers(candidateId: string) {
-    return this.prisma.recruitment_offers.findMany({
-      where: { candidate_id: candidateId },
+  async getOffers(candidateId: string, actorId?: string) {
+    const offers = await this.prisma.recruitment_offers.findMany({
+      where: candidateId ? { candidate_id: candidateId } : {},
       orderBy: [{ version: 'desc' }, { created_at: 'desc' }],
       include: {
-        recruitment_offer_approvals: { include: { employees: true } },
+        recruitment_offer_approvals: { include: { employees: { select: EMPLOYEE_SUMMARY_SELECT } } },
         document_templates: true,
       },
     });
+    return offers.map((offer: any) => ({
+      ...offer,
+      approvalSummary: this.buildOfferApprovalSummary(offer, actorId),
+    }));
+  }
+
+  /**
+   * Per-viewer approval summary for the frontend offer card.
+   * Mirrors the authorization rules of offerApprovalAction(): the current user
+   * can act only when the offer is PendingApproval, they own an approval step,
+   * and that step is still Pending.
+   */
+  private buildOfferApprovalSummary(offer: any, actorId?: string) {
+    const steps = offer.recruitment_offer_approvals || [];
+    const completedLevels = steps.filter((s: any) => s.status === 'Approved').length;
+    const myStep = actorId ? steps.find((s: any) => s.approver_id === actorId) : undefined;
+    return {
+      completedLevels,
+      totalLevels: steps.length,
+      canCurrentUserApprove:
+        offer.status === 'PendingApproval' && !!myStep && myStep.status === 'Pending',
+    };
   }
 
   private buildSnapshot(offer: {
@@ -1267,7 +1603,7 @@ export class RecruitmentService {
         updated_at: new Date(),
       },
       include: {
-        recruitment_offer_approvals: { include: { employees: true } },
+        recruitment_offer_approvals: { include: { employees: { select: EMPLOYEE_SUMMARY_SELECT } } },
         document_templates: true,
       },
     });
@@ -1333,7 +1669,7 @@ export class RecruitmentService {
         updated_at: new Date(),
       },
       include: {
-        recruitment_offer_approvals: { include: { employees: true } },
+        recruitment_offer_approvals: { include: { employees: { select: EMPLOYEE_SUMMARY_SELECT } } },
         document_templates: true,
       },
     });
@@ -1352,13 +1688,15 @@ export class RecruitmentService {
 
     const candidate = offer.recruitment_candidates;
     const job = await this.prisma.recruitmentJob.findUnique({ where: { id: candidate.jobId } });
-    const hiringManagerId = job?.hiring_manager_id;
+    const hiringManagerId = job?.hiring_manager_id || (await this.resolveFallbackApproverId());
     if (!hiringManagerId) {
       throw new BadRequestException('Job has no hiring manager to act as L1 approver.');
     }
-    const admin = await this.prisma.employee.findFirst({ where: { userRole: 'admin' } });
+    const admin = await this.prisma.employee.findFirst({
+      where: { userRole: 'admin', id: { not: hiringManagerId } },
+    });
     if (!admin) {
-      throw new BadRequestException('No admin approver available.');
+      throw new BadRequestException('No distinct admin approver available.');
     }
 
     const updated = await this.prisma.$transaction(async (tx: any) => {
@@ -1386,7 +1724,7 @@ export class RecruitmentService {
         where: { id: offerId },
         data: { status: 'PendingApproval', updated_at: new Date() },
         include: {
-          recruitment_offer_approvals: { include: { employees: true } },
+          recruitment_offer_approvals: { include: { employees: { select: EMPLOYEE_SUMMARY_SELECT } } },
           document_templates: true,
         },
       });
@@ -1438,7 +1776,7 @@ export class RecruitmentService {
           where: { id: offerId },
           data: { status: allApproved ? 'Approved' : offer.status, updated_at: new Date() },
           include: {
-            recruitment_offer_approvals: { include: { employees: true } },
+            recruitment_offer_approvals: { include: { employees: { select: EMPLOYEE_SUMMARY_SELECT } } },
             document_templates: true,
           },
         });
@@ -1457,7 +1795,7 @@ export class RecruitmentService {
           where: { id: offerId },
           data: { status: 'Draft', updated_at: new Date() },
           include: {
-            recruitment_offer_approvals: { include: { employees: true } },
+            recruitment_offer_approvals: { include: { employees: { select: EMPLOYEE_SUMMARY_SELECT } } },
             document_templates: true,
           },
         });
@@ -1680,7 +2018,7 @@ export class RecruitmentService {
       where: { id: offerId },
       data: { status: 'Sent', sent_at: new Date(), updated_at: new Date() },
       include: {
-        recruitment_offer_approvals: { include: { employees: true } },
+        recruitment_offer_approvals: { include: { employees: { select: EMPLOYEE_SUMMARY_SELECT } } },
         document_templates: true,
       },
     });

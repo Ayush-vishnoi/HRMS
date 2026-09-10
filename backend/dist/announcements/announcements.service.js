@@ -12,10 +12,13 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.AnnouncementsService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma/prisma.service");
+const notify_service_1 = require("../common/notifications/notify.service");
 let AnnouncementsService = class AnnouncementsService {
     prisma;
-    constructor(prisma) {
+    notify;
+    constructor(prisma, notify) {
         this.prisma = prisma;
+        this.notify = notify;
     }
     serialize(announcement) {
         return {
@@ -46,7 +49,7 @@ let AnnouncementsService = class AnnouncementsService {
             throw new common_1.NotFoundException('Employee not found');
         }
         if (scope === 'admin') {
-            if (viewer.userRole !== 'admin') {
+            if (viewer.userRole !== 'admin' && viewer.userRole !== 'ceo') {
                 throw new common_1.ForbiddenException('Admin access required');
             }
             const announcements = await this.prisma.announcement.findMany({
@@ -84,7 +87,7 @@ let AnnouncementsService = class AnnouncementsService {
             where: { id: userId },
             select: { id: true, userRole: true, department: true },
         });
-        if (!admin || admin.userRole !== 'admin') {
+        if (!admin || (admin.userRole !== 'admin' && admin.userRole !== 'ceo')) {
             throw new common_1.ForbiddenException('Admin access required');
         }
         const title = (body.title || '').trim();
@@ -112,6 +115,29 @@ let AnnouncementsService = class AnnouncementsService {
             },
             include: { postedBy: { select: { id: true, name: true, email: true } } },
         });
+        const audienceWhere = { status: { in: ['Active', 'OnLeave', 'Remote'] } };
+        if (announcement.targetAudience === 'Department') {
+            audienceWhere.department = announcement.targetDepartment;
+        }
+        else if (announcement.targetAudience === 'Location') {
+            audienceWhere.location = announcement.targetLocation;
+        }
+        else if (announcement.targetAudience === 'Role') {
+            audienceWhere.userRole = announcement.targetRole;
+        }
+        const recipients = await this.prisma.employee.findMany({
+            where: audienceWhere,
+            select: { id: true },
+        });
+        const recipientIds = recipients.map((r) => r.id).filter((id) => id !== admin.id);
+        if (recipientIds.length > 0) {
+            await this.notify.notifyUsers(recipientIds, {
+                title: 'New announcement',
+                message: `"${title}" — from ${announcement.postedByDepartment}${announcement.isPinned ? ' (pinned)' : ''}.`,
+                type: 'Announcement',
+                linkUrl: '/announcements',
+            });
+        }
         return this.serialize(announcement);
     }
     async update(userId, id, body) {
@@ -119,7 +145,7 @@ let AnnouncementsService = class AnnouncementsService {
             where: { id: userId },
             select: { userRole: true },
         });
-        if (!admin || admin.userRole !== 'admin') {
+        if (!admin || (admin.userRole !== 'admin' && admin.userRole !== 'ceo')) {
             throw new common_1.ForbiddenException('Admin access required');
         }
         if (body.action === 'archive' || body.action === 'unarchive') {
@@ -171,7 +197,7 @@ let AnnouncementsService = class AnnouncementsService {
             where: { id: userId },
             select: { userRole: true },
         });
-        if (!admin || admin.userRole !== 'admin') {
+        if (!admin || (admin.userRole !== 'admin' && admin.userRole !== 'ceo')) {
             throw new common_1.ForbiddenException('Admin access required');
         }
         await this.prisma.announcement.delete({ where: { id } });
@@ -181,6 +207,7 @@ let AnnouncementsService = class AnnouncementsService {
 exports.AnnouncementsService = AnnouncementsService;
 exports.AnnouncementsService = AnnouncementsService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [prisma_service_1.PrismaService])
+    __metadata("design:paramtypes", [prisma_service_1.PrismaService,
+        notify_service_1.NotifyService])
 ], AnnouncementsService);
 //# sourceMappingURL=announcements.service.js.map

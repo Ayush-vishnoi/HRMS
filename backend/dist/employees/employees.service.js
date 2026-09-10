@@ -12,10 +12,14 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.EmployeesService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma/prisma.service");
+const notify_service_1 = require("../common/notifications/notify.service");
+const default_balances_1 = require("../leaves/default-balances");
 let EmployeesService = class EmployeesService {
     prisma;
-    constructor(prisma) {
+    notify;
+    constructor(prisma, notify) {
         this.prisma = prisma;
+        this.notify = notify;
     }
     async findAll(query) {
         const where = {};
@@ -71,7 +75,7 @@ let EmployeesService = class EmployeesService {
     async create(data) {
         const count = await this.prisma.employee.count();
         const employeeCode = data.employeeCode || `EMP-${new Date().getUTCFullYear()}-${String(count + 1).padStart(3, '0')}`;
-        return this.prisma.employee.create({
+        const created = await this.prisma.employee.create({
             data: {
                 id: data.id || undefined,
                 employeeCode,
@@ -105,6 +109,27 @@ let EmployeesService = class EmployeesService {
                 managerId: true,
             },
         });
+        await this.prisma.leaveBalance.createMany({
+            data: (0, default_balances_1.defaultLeaveBalanceRows)(created.id, new Date().getUTCFullYear()),
+            skipDuplicates: true,
+        });
+        await this.notify.notifyUser({
+            userId: created.id,
+            title: 'Welcome to the team! 🎉',
+            message: `Welcome aboard, ${created.name}! Your employee ID is ${created.employeeCode}. We are glad to have you join the ${created.department} department as ${created.roleTitle}.`,
+            type: 'Onboarding',
+            linkUrl: '/dashboard',
+        });
+        if (created.managerId) {
+            await this.notify.notifyUser({
+                userId: created.managerId,
+                title: 'New team member',
+                message: `${created.name} has joined as ${created.roleTitle} in ${created.department} and reports to you.`,
+                type: 'Onboarding',
+                linkUrl: '/employees',
+            });
+        }
+        return created;
     }
     async update(id, data) {
         const employee = await this.prisma.employee.findUnique({ where: { id } });
@@ -231,6 +256,6 @@ let EmployeesService = class EmployeesService {
 exports.EmployeesService = EmployeesService;
 exports.EmployeesService = EmployeesService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [prisma_service_1.PrismaService])
+    __metadata("design:paramtypes", [prisma_service_1.PrismaService, notify_service_1.NotifyService])
 ], EmployeesService);
 //# sourceMappingURL=employees.service.js.map

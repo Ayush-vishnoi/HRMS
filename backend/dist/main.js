@@ -8,6 +8,7 @@ async function bootstrap() {
     app.enableCors({
         origin: process.env.FRONTEND_URL || 'http://localhost:3000',
         credentials: true,
+        exposedHeaders: ['Content-Disposition', 'Content-Length'],
     });
     app.useGlobalPipes(new common_1.ValidationPipe({ whitelist: true, transform: true }));
     app.setGlobalPrefix('api');

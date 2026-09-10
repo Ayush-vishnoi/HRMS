@@ -223,8 +223,8 @@ export declare class PayrollController {
             updatedAt: Date;
             effectiveFrom: string;
             isActive: boolean;
-            financialYear: string;
             country: string;
+            financialYear: string;
             ruleType: string;
             state: string;
             effectiveTo: string | null;
@@ -234,7 +234,7 @@ export declare class PayrollController {
             slabsJson: string;
             configJson: string;
         }[];
-        salaryComponents: import("./salary-components").SalaryComponentMetadata[] | {
+        salaryComponents: {
             id: string;
             type: string;
             createdAt: Date;
@@ -249,7 +249,7 @@ export declare class PayrollController {
             isStatutory: boolean;
             isEncashable: boolean;
             isPartCTC: boolean;
-        }[];
+        }[] | import("./salary-components").SalaryComponentMetadata[];
     }>;
     createStatutory(user: any, body: any): Promise<{
         id: string;
@@ -257,8 +257,8 @@ export declare class PayrollController {
         updatedAt: Date;
         effectiveFrom: string;
         isActive: boolean;
-        financialYear: string;
         country: string;
+        financialYear: string;
         ruleType: string;
         state: string;
         effectiveTo: string | null;
@@ -734,8 +734,8 @@ export declare class PayrollController {
             updatedAt: Date;
             employeeId: string;
             rejectionReason: string | null;
-            regime: string;
             financialYear: string;
+            regime: string;
             section80C: number;
             section80D: number;
             section80G: number;
@@ -745,8 +745,8 @@ export declare class PayrollController {
             hraExemptionRent: number;
             homeLoanInterest: number;
             otherExemptions: number;
-            declarationStatus: string;
             otherDeductionsTotal: number;
+            declarationStatus: string;
             proofUrls: string[];
             verifiedByAdminId: string | null;
             verifiedAmountJson: string | null;
@@ -758,8 +758,8 @@ export declare class PayrollController {
             updatedAt: Date;
             employeeId: string;
             rejectionReason: string | null;
-            regime: string;
             financialYear: string;
+            regime: string;
             section80C: number;
             section80D: number;
             section80G: number;
@@ -769,8 +769,8 @@ export declare class PayrollController {
             hraExemptionRent: number;
             homeLoanInterest: number;
             otherExemptions: number;
-            declarationStatus: string;
             otherDeductionsTotal: number;
+            declarationStatus: string;
             proofUrls: string[];
             verifiedByAdminId: string | null;
             verifiedAmountJson: string | null;
@@ -786,8 +786,8 @@ export declare class PayrollController {
             updatedAt: Date;
             employeeId: string;
             rejectionReason: string | null;
-            regime: string;
             financialYear: string;
+            regime: string;
             section80C: number;
             section80D: number;
             section80G: number;
@@ -797,8 +797,8 @@ export declare class PayrollController {
             hraExemptionRent: number;
             homeLoanInterest: number;
             otherExemptions: number;
-            declarationStatus: string;
             otherDeductionsTotal: number;
+            declarationStatus: string;
             proofUrls: string[];
             verifiedByAdminId: string | null;
             verifiedAmountJson: string | null;
@@ -814,8 +814,8 @@ export declare class PayrollController {
             updatedAt: Date;
             employeeId: string;
             rejectionReason: string | null;
-            regime: string;
             financialYear: string;
+            regime: string;
             section80C: number;
             section80D: number;
             section80G: number;
@@ -825,8 +825,8 @@ export declare class PayrollController {
             hraExemptionRent: number;
             homeLoanInterest: number;
             otherExemptions: number;
-            declarationStatus: string;
             otherDeductionsTotal: number;
+            declarationStatus: string;
             proofUrls: string[];
             verifiedByAdminId: string | null;
             verifiedAmountJson: string | null;
@@ -845,7 +845,7 @@ export declare class PayrollController {
     }>;
     getReports(type?: string, monthYear?: string): Promise<{
         success: boolean;
-        data: import("./engines/reports-service").PayrollReportRow[] | {
+        data: {
             UAN: any;
             MemberName: any;
             GrossWages: any;
@@ -872,7 +872,7 @@ export declare class PayrollController {
             employerStatutoryCost: number;
             totalPayrollCost: number;
             averageCostPerEmployee: number;
-        }[];
+        }[] | import("./engines/reports-service").PayrollReportRow[];
     }>;
     getForm16(employeeId: string, financialYear: string): Promise<{
         success: boolean;

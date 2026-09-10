@@ -104,34 +104,114 @@ export declare class ExitController {
             assetTag: string;
             serialNumber: string;
         }[];
-    }>;
-    handleAction(user: any, body: any): Promise<{
-        id: string;
-        department: string;
-        status: string;
-        employeeId: string;
-        exitRequestId: string;
-        clearedById: string | null;
-        clearedAt: Date | null;
-        assetReturnedCount: number;
-        duesPendingAmount: number;
-        remarks: string | null;
+        employees: never[];
     } | {
-        id: string;
-        createdAt: Date;
-        status: string;
-        employeeId: string;
-        taxDeduction: number;
-        exitRequestId: string;
-        totalPayableDays: number;
-        basicPay: number;
-        leaveEncashmentAmount: number;
-        gratuityAmount: number;
-        bonusPayable: number;
-        pendingDuesDeduction: number;
-        netSettlementAmount: number;
-        disbursementDate: string | null;
-    } | ({
+        exitRequests: ({
+            clearances: {
+                id: string;
+                department: string;
+                status: string;
+                employeeId: string;
+                exitRequestId: string;
+                clearedById: string | null;
+                clearedAt: Date | null;
+                assetReturnedCount: number;
+                duesPendingAmount: number;
+                remarks: string | null;
+            }[];
+            interview: {
+                id: string;
+                employeeId: string;
+                exitRequestId: string;
+                feedbackText: string;
+                primaryReason: string;
+                ratingCompany: number;
+                ratingManager: number;
+                ratingCulture: number;
+                wouldRecommend: boolean;
+                conductedAt: Date;
+            } | null;
+            settlement: {
+                id: string;
+                createdAt: Date;
+                status: string;
+                employeeId: string;
+                taxDeduction: number;
+                exitRequestId: string;
+                totalPayableDays: number;
+                basicPay: number;
+                leaveEncashmentAmount: number;
+                gratuityAmount: number;
+                bonusPayable: number;
+                pendingDuesDeduction: number;
+                netSettlementAmount: number;
+                disbursementDate: string | null;
+            } | null;
+            ktTasks: {
+                id: string;
+                title: string;
+                createdAt: Date;
+                status: string;
+                updatedAt: Date;
+                description: string;
+                dueDate: string;
+                notes: string | null;
+                attachmentUrl: string | null;
+                verifiedAt: Date | null;
+                verifiedById: string | null;
+                exitRequestId: string;
+                recipientEmployeeId: string;
+                recipientName: string;
+                completedAt: Date | null;
+            }[];
+        } & {
+            id: string;
+            createdAt: Date;
+            status: string;
+            updatedAt: Date;
+            employeeId: string;
+            resignationDate: string;
+            requestedRelievingDate: string;
+            approvedRelievingDate: string | null;
+            reasonCategory: string;
+            reasonDetails: string;
+            managerApproval: string;
+            hrApproval: string;
+            managerApprovedAt: Date | null;
+            hrApprovedAt: Date | null;
+            rejectionReason: string | null;
+            workflowStage: string;
+            noticePeriodDays: number;
+        })[];
+        alumniRecords: {
+            id: string;
+            createdAt: Date;
+            name: string;
+            employeeCode: string;
+            department: string;
+            phone: string | null;
+            joinDate: string;
+            employeeId: string;
+            personalEmail: string;
+            lastDesignation: string;
+            exitDate: string;
+            relievingLetterUrl: string | null;
+            experienceLetterUrl: string | null;
+            linkedinUrl: string | null;
+        }[];
+        assignedAssets: never[];
+        employees: {
+            id: string;
+            name: string;
+            employeeCode: string;
+            email: string;
+            roleTitle: string;
+            department: string;
+            avatarUrl: string | null;
+            managerId: string | null;
+        }[];
+    }>;
+    handleAction(user: any, body: any): Promise<({
         clearances: {
             id: string;
             department: string;
@@ -144,6 +224,34 @@ export declare class ExitController {
             duesPendingAmount: number;
             remarks: string | null;
         }[];
+        interview: {
+            id: string;
+            employeeId: string;
+            exitRequestId: string;
+            feedbackText: string;
+            primaryReason: string;
+            ratingCompany: number;
+            ratingManager: number;
+            ratingCulture: number;
+            wouldRecommend: boolean;
+            conductedAt: Date;
+        } | null;
+        settlement: {
+            id: string;
+            createdAt: Date;
+            status: string;
+            employeeId: string;
+            taxDeduction: number;
+            exitRequestId: string;
+            totalPayableDays: number;
+            basicPay: number;
+            leaveEncashmentAmount: number;
+            gratuityAmount: number;
+            bonusPayable: number;
+            pendingDuesDeduction: number;
+            netSettlementAmount: number;
+            disbursementDate: string | null;
+        } | null;
         ktTasks: {
             id: string;
             title: string;
@@ -179,5 +287,62 @@ export declare class ExitController {
         rejectionReason: string | null;
         workflowStage: string;
         noticePeriodDays: number;
-    })>;
+    }) | {
+        id: string;
+        department: string;
+        status: string;
+        employeeId: string;
+        exitRequestId: string;
+        clearedById: string | null;
+        clearedAt: Date | null;
+        assetReturnedCount: number;
+        duesPendingAmount: number;
+        remarks: string | null;
+    } | {
+        id: string;
+        employeeId: string;
+        exitRequestId: string;
+        feedbackText: string;
+        primaryReason: string;
+        ratingCompany: number;
+        ratingManager: number;
+        ratingCulture: number;
+        wouldRecommend: boolean;
+        conductedAt: Date;
+    } | {
+        id: string;
+        createdAt: Date;
+        status: string;
+        employeeId: string;
+        taxDeduction: number;
+        exitRequestId: string;
+        totalPayableDays: number;
+        basicPay: number;
+        leaveEncashmentAmount: number;
+        gratuityAmount: number;
+        bonusPayable: number;
+        pendingDuesDeduction: number;
+        netSettlementAmount: number;
+        disbursementDate: string | null;
+    } | {
+        id: string;
+        title: string;
+        createdAt: Date;
+        status: string;
+        updatedAt: Date;
+        description: string;
+        dueDate: string;
+        notes: string | null;
+        attachmentUrl: string | null;
+        verifiedAt: Date | null;
+        verifiedById: string | null;
+        exitRequestId: string;
+        recipientEmployeeId: string;
+        recipientName: string;
+        completedAt: Date | null;
+    } | {
+        downloadUrl: string;
+        letterType: "Relieving_Letter" | "Experience_Letter";
+        fileName: string;
+    }>;
 }

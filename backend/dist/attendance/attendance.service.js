@@ -12,10 +12,13 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.AttendanceService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma/prisma.service");
+const notify_service_1 = require("../common/notifications/notify.service");
 let AttendanceService = class AttendanceService {
     prisma;
-    constructor(prisma) {
+    notify;
+    constructor(prisma, notify) {
         this.prisma = prisma;
+        this.notify = notify;
     }
     async findAll(employeeId, from, to) {
         const where = {};
@@ -70,7 +73,7 @@ let AttendanceService = class AttendanceService {
         });
     }
     async createLateRequest(requesterId, requestDate, reason) {
-        return this.prisma.lateClockInRequest.create({
+        const created = await this.prisma.lateClockInRequest.create({
             data: {
                 requesterId,
                 requestDate,
@@ -78,17 +81,39 @@ let AttendanceService = class AttendanceService {
                 requestedAt: new Date().toISOString(),
             },
         });
+        const employee = await this.prisma.employee.findUnique({
+            where: { id: requesterId },
+            select: { name: true },
+        });
+        await this.notify.notifyAdmins({
+            title: 'Late clock-in request',
+            message: `${employee?.name ?? 'An employee'} requested permission to clock in late on ${requestDate}.`,
+            type: 'Attendance',
+            linkUrl: '/attendance',
+        });
+        return created;
     }
     async reviewLateRequest(id, status, reviewedById) {
-        return this.prisma.lateClockInRequest.update({
+        const request = await this.prisma.lateClockInRequest.findUnique({ where: { id } });
+        const updated = await this.prisma.lateClockInRequest.update({
             where: { id },
             data: { status, reviewedById, reviewedAt: new Date().toISOString() },
         });
+        if (request) {
+            await this.notify.notifyUser({
+                userId: request.requesterId,
+                title: status === 'approved' ? 'Late clock-in approved' : 'Late clock-in rejected',
+                message: `Your late clock-in request for ${request.requestDate} has been ${status}.`,
+                type: 'Attendance',
+                linkUrl: '/attendance',
+            });
+        }
+        return updated;
     }
 };
 exports.AttendanceService = AttendanceService;
 exports.AttendanceService = AttendanceService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [prisma_service_1.PrismaService])
+    __metadata("design:paramtypes", [prisma_service_1.PrismaService, notify_service_1.NotifyService])
 ], AttendanceService);
 //# sourceMappingURL=attendance.service.js.map

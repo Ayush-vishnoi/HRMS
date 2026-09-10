@@ -16,12 +16,18 @@ export class LeavesController {
   @Get()
   async getAll(
     @CurrentUser('id') userId: string,
+    @CurrentUser('userRole') userRole: string,
     @Query('employeeId') employeeId?: string,
     @Query('status') status?: string,
   ) {
     const targetId = employeeId || userId;
     const [requests, balances] = await Promise.all([
-      this.leavesService.getRequests(employeeId, status),
+      // Plain employees only ever need their own requests; managers and
+      // admins keep the full list (the page filters to team/all client-side).
+      this.leavesService.getRequests(
+        userRole === 'employee' ? targetId : employeeId,
+        status,
+      ),
       this.leavesService.getBalances(targetId),
     ]);
     return { requests, balances };

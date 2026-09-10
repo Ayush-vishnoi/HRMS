@@ -17,9 +17,11 @@ import {
   ChevronRight,
   Clock,
   Coins,
+  Copy,
   FileCheck,
   FileText,
   History,
+  KeyRound,
   Layers,
   MapPin,
   Plus,
@@ -40,6 +42,24 @@ import {
 import { useHRMS } from '@/shared/providers/HRMSContext';
 
 type TabKey = 'onboarding' | 'probation' | 'transfers' | 'promotions' | 'salary_revisions' | 'disciplinary';
+
+/** Department / Function selector options (STEP 1) — mirrors the org's departments. */
+const DEPARTMENT_OPTIONS = [
+  'Engineering',
+  'AI/ML',
+  'Marketing',
+  'Human Resources',
+  'Finance',
+  'Executive Leadership',
+  'Product',
+  'Operations',
+  'Sales',
+  'Design',
+  'Information Technology',
+  'Quality Assurance',
+  'Legal',
+  'Customer Success',
+];
 
 export default function EmployeeLifecyclePage() {
   const { currentUser } = useHRMS();
@@ -82,7 +102,22 @@ export default function EmployeeLifecyclePage() {
     managerId: '',
     userRole: 'employee',
     probationMonths: 6,
+    dateOfBirth: '',
+    gender: '',
+    currentAddress: '',
+    emergencyContactName: '',
+    emergencyContactPhone: '',
+    emergencyContactRelation: '',
   });
+
+  // STEP 2: one-time credentials shown to HR after onboarding (copyable modal).
+  const [credentialsResult, setCredentialsResult] = useState<{
+    name: string;
+    employeeCode: string;
+    email: string;
+    temporaryPassword: string;
+    department?: string;
+  } | null>(null);
 
   const [transferForm, setTransferForm] = useState<any>({
     employeeId: '',
@@ -141,6 +176,16 @@ export default function EmployeeLifecyclePage() {
     fetchData();
   }, [fetchData]);
 
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setActionSuccess('Copied to clipboard!');
+      setTimeout(() => setActionSuccess(null), 2500);
+    } catch {
+      setActionError('Unable to copy — please select the text manually.');
+    }
+  };
+
   const handleOnboardSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedCandidate) return;
@@ -156,6 +201,16 @@ export default function EmployeeLifecyclePage() {
             customJoinDate: onboardForm.joinDate,
             customManagerId: onboardForm.managerId || undefined,
             customProbationMonths: Number(onboardForm.probationMonths || 6),
+            customRoleTitle: onboardForm.roleTitle || undefined,
+            customDepartment: onboardForm.department || undefined,
+            customLocation: onboardForm.location || undefined,
+            customSalary: onboardForm.salary ? Number(onboardForm.salary) : undefined,
+            customDateOfBirth: onboardForm.dateOfBirth || undefined,
+            customGender: onboardForm.gender || undefined,
+            customCurrentAddress: onboardForm.currentAddress || undefined,
+            customEmergencyContactName: onboardForm.emergencyContactName || undefined,
+            customEmergencyContactPhone: onboardForm.emergencyContactPhone || undefined,
+            customEmergencyContactRelation: onboardForm.emergencyContactRelation || undefined,
           }),
         });
       } else {
@@ -175,9 +230,21 @@ export default function EmployeeLifecyclePage() {
       }
       const result = await res.json();
       if (result.success) {
-        const empCode = result.employee?.employeeCode || result.data?.employee?.employeeCode || 'New Employee';
-        setActionSuccess(`Employee created successfully (${empCode})! Onboarding checklist and tasks initialized.`);
+        const emp = result.employee || result.data?.employee || {};
+        const tempPassword = result.temporaryPassword || result.data?.temporaryPassword || null;
         setShowOnboardModal(false);
+        if (tempPassword) {
+          // STEP 2: show one-time credentials to HR in a copyable modal.
+          setCredentialsResult({
+            name: emp.name || selectedCandidate.name,
+            employeeCode: emp.employeeCode || 'New Employee',
+            email: emp.email || selectedCandidate.email,
+            temporaryPassword: tempPassword,
+            department: emp.department || onboardForm.department,
+          });
+        } else {
+          setActionSuccess(`Employee created successfully (${emp.employeeCode || 'New Employee'})!`);
+        }
         fetchData();
       } else {
         setActionError(result.error || 'Failed to onboard candidate');
@@ -476,7 +543,7 @@ export default function EmployeeLifecyclePage() {
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-6">
               <div>
                 <h2 className="text-base font-bold text-[#17324A]">Selected Candidates Ready for Onboarding</h2>
-                <p className="text-xs text-[#667085]">Candidates whose latest offer is fully Accepted (e-signature complete). Click to trigger transactional onboarding.</p>
+                <p className="text-xs text-[#667085]">Candidates whose offer has been sent or accepted. Click to trigger transactional onboarding.</p>
               </div>
               <span className="rounded-full bg-[#EBF4FA] px-3 py-1 text-xs font-extrabold text-[#23587E]">
                 {data.candidates.length} Selected Candidates
@@ -487,10 +554,10 @@ export default function EmployeeLifecyclePage() {
               <div className="rounded-xl border border-dashed border-[#CBDDE9] p-8 text-center bg-[#F9FBFC]">
                 <UserCheck className="mx-auto h-8 w-8 text-[#8FAEC5] mb-2" />
                 <p className="text-xs font-bold text-[#4B6882]">No candidates are ready for onboarding.</p>
-                <p className="text-[11px] text-[#7895AE] mt-1">Candidates appear here once their latest offer is Accepted (all e-signatures signed).</p>
+                <p className="text-[11px] text-[#7895AE] mt-1">Candidates appear here once their offer has been sent or accepted.</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[36rem] overflow-y-auto pr-1">
                 {data.candidates.map((c: any) => (
                   <div key={c.id} className="rounded-xl border border-[#D5E2EC] p-4 bg-[#FBFDFE] hover:border-[#23587E] transition-all flex flex-col justify-between">
                     <div>
@@ -508,16 +575,18 @@ export default function EmployeeLifecyclePage() {
                         <div className="flex items-center gap-1.5"><Building2 className="h-3.5 w-3.5 text-[#8FAEC5]" /> {c.job?.department || 'Department'} · {c.location}</div>
                       </div>
                     </div>
-                    {c.recruitment_offers?.[0]?.status === 'Accepted' ? (
+                    {['Sent', 'Viewed', 'Accepted'].includes(c.recruitment_offers?.[0]?.status) ? (
                       <button
                         onClick={() => {
                           setSelectedCandidate(c);
-                          setOnboardForm((prev: any) => ({
-                            ...prev,
-                            roleTitle: c.job?.title || 'Engineer',
-                            department: c.job?.department || 'Engineering',
-                          }));
-                          setShowOnboardModal(true);
+                         setOnboardForm((prev: any) => ({
+                           ...prev,
+                           roleTitle: c.job?.title || c.recruitment_offers?.[0]?.offered_title || 'Engineer',
+                           department: c.job?.department || 'Engineering',
+                           location: c.job?.location || prev.location,
+                           salary: Number(c.recruitment_offers?.[0]?.offered_ctc || prev.salary),
+                         }));
+                         setShowOnboardModal(true);
                         }}
                         className="w-full rounded-lg bg-[#23587E] py-2 text-xs font-bold text-white hover:bg-[#1b4461] transition-all flex items-center justify-center gap-1.5"
                       >
@@ -546,7 +615,7 @@ export default function EmployeeLifecyclePage() {
                   {data.awaitingSignatureCandidates.length} Awaiting Signature
                 </span>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[36rem] overflow-y-auto pr-1">
                 {data.awaitingSignatureCandidates.map((c: any) => {
                   const offer = c.recruitment_offers?.[0];
                   const signatures = offer?.document_signatures ?? [];
@@ -629,7 +698,7 @@ export default function EmployeeLifecyclePage() {
               <h2 className="text-base font-bold text-[#17324A] mb-1">Background Verification (BGV) Status</h2>
               <p className="text-xs text-[#667085] mb-4">Identity, criminal background, address & previous employment checks.</p>
 
-              <div className="space-y-3">
+              <div className="space-y-3 max-h-[400px] overflow-y-auto pr-1">
                 {data.bgvRecords.length === 0 ? (
                   <p className="text-xs text-[#8FAEC5] py-4 text-center">No active BGV verifications.</p>
                 ) : (
@@ -673,11 +742,14 @@ export default function EmployeeLifecyclePage() {
               <h2 className="text-base font-bold text-[#17324A]">Probation Milestones & Confirmation</h2>
               <p className="text-xs text-[#667085]">Evaluate 90/180-day new joiner probation status, record manager reviews, and issue confirmations.</p>
             </div>
+            <span className="rounded-full bg-[#EBF4FA] px-3 py-1 text-xs font-extrabold text-[#23587E]">
+              {data.employees.length} Employees Tracked
+            </span>
           </div>
 
-          <div className="overflow-x-auto">
+          <div className="max-h-[36rem] overflow-auto">
             <table className="w-full text-left text-xs">
-              <thead className="border-b border-[#E2ECEF] bg-[#F8FAFC] text-[11px] font-extrabold uppercase text-[#5B768F]">
+              <thead className="sticky top-0 border-b border-[#E2ECEF] bg-[#F8FAFC] text-[11px] font-extrabold uppercase text-[#5B768F]">
                 <tr>
                   <th className="py-3 px-4">Employee</th>
                   <th className="py-3 px-4">Department & Role</th>
@@ -748,25 +820,30 @@ export default function EmployeeLifecyclePage() {
               <h2 className="text-base font-bold text-[#17324A]">Internal Department & Location Mobility</h2>
               <p className="text-xs text-[#667085]">Audit log of inter-department transfers, reporting manager changes, and geographical relocations.</p>
             </div>
-            <button
-              onClick={() => {
-                setTransferForm({
-                  employeeId: data.employees[0]?.id || '',
-                  toDepartment: 'AI/ML',
-                  toLocation: 'Bengaluru HQ',
-                  toManagerId: data.employees[1]?.id || '',
-                  effectiveDate: new Date().toISOString().split('T')[0],
-                  reason: 'Strategic reallocation',
-                });
-                setShowTransferModal(true);
-              }}
-              className="flex items-center gap-1.5 rounded-xl bg-[#23587E] px-3.5 py-2 text-xs font-bold text-white hover:bg-[#1b4461]"
-            >
-              <Plus className="h-3.5 w-3.5" /> Request Transfer
-            </button>
+            <div className="flex items-center gap-3">
+              <span className="rounded-full bg-[#EBF4FA] px-3 py-1 text-xs font-extrabold text-[#23587E]">
+                {data.changeRequests.length} Requests
+              </span>
+              <button
+                onClick={() => {
+                  setTransferForm({
+                    employeeId: data.employees[0]?.id || '',
+                    toDepartment: 'AI/ML',
+                    toLocation: 'Bengaluru HQ',
+                    toManagerId: data.employees[1]?.id || '',
+                    effectiveDate: new Date().toISOString().split('T')[0],
+                    reason: 'Strategic reallocation',
+                  });
+                  setShowTransferModal(true);
+                }}
+                className="flex items-center gap-1.5 rounded-xl bg-[#23587E] px-3.5 py-2 text-xs font-bold text-white hover:bg-[#1b4461]"
+              >
+                <Plus className="h-3.5 w-3.5" /> Request Transfer
+              </button>
+            </div>
           </div>
 
-          <div className="space-y-3">
+          <div className="space-y-3 max-h-[36rem] overflow-y-auto pr-1">
             {data.changeRequests.length === 0 ? (
               <p className="text-xs text-[#8FAEC5] py-8 text-center">No transfer change requests recorded.</p>
             ) : (
@@ -800,24 +877,29 @@ export default function EmployeeLifecyclePage() {
               <h2 className="text-base font-bold text-[#17324A]">Promotion Matrix & Level Progression</h2>
               <p className="text-xs text-[#667085]">Promotions automatically update employee designations, active SalaryStructures, and write to SalaryRevisionHistory.</p>
             </div>
-            <button
-              onClick={() => {
-                setPromotionForm({
-                  employeeId: data.employees[0]?.id || '',
-                  newDesignation: 'Staff AI Engineer',
-                  newCtcAnnual: 3200000,
-                  effectiveDate: new Date().toISOString().split('T')[0],
-                  reason: 'Outstanding contribution to enterprise platform',
-                });
-                setShowPromotionModal(true);
-              }}
-              className="flex items-center gap-1.5 rounded-xl bg-[#23587E] px-3.5 py-2 text-xs font-bold text-white hover:bg-[#1b4461]"
-            >
-              <TrendingUp className="h-3.5 w-3.5" /> Execute Promotion
-            </button>
+            <div className="flex items-center gap-3">
+              <span className="rounded-full bg-[#EBF4FA] px-3 py-1 text-xs font-extrabold text-[#23587E]">
+                {data.employees.length} Employees
+              </span>
+              <button
+                onClick={() => {
+                  setPromotionForm({
+                    employeeId: data.employees[0]?.id || '',
+                    newDesignation: 'Staff AI Engineer',
+                    newCtcAnnual: 3200000,
+                    effectiveDate: new Date().toISOString().split('T')[0],
+                    reason: 'Outstanding contribution to enterprise platform',
+                  });
+                  setShowPromotionModal(true);
+                }}
+                className="flex items-center gap-1.5 rounded-xl bg-[#23587E] px-3.5 py-2 text-xs font-bold text-white hover:bg-[#1b4461]"
+              >
+                <TrendingUp className="h-3.5 w-3.5" /> Execute Promotion
+              </button>
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[36rem] overflow-y-auto pr-1">
             {data.employees.map((emp: any) => (
               <div key={emp.id} className="p-4 rounded-xl border border-[#D5E2EC] bg-[#FBFDFE] flex flex-col justify-between">
                 <div>
@@ -859,12 +941,17 @@ export default function EmployeeLifecyclePage() {
       {/* TAB 5: SALARY REVISION TIMELINE */}
       {activeTab === 'salary_revisions' && (
         <div className="rounded-2xl border border-[#D5E2EC] bg-white p-6 shadow-sm">
-          <div className="mb-6">
-            <h2 className="text-base font-bold text-[#17324A]">Immutable Salary Revision Timeline</h2>
-            <p className="text-xs text-[#667085]">Historical audit ledger recording every CTC adjustment, merit appraisal increment, and promotion change.</p>
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-6">
+            <div>
+              <h2 className="text-base font-bold text-[#17324A]">Immutable Salary Revision Timeline</h2>
+              <p className="text-xs text-[#667085]">Historical audit ledger recording every CTC adjustment, merit appraisal increment, and promotion change.</p>
+            </div>
+            <span className="rounded-full bg-[#EBF4FA] px-3 py-1 text-xs font-extrabold text-[#23587E]">
+              {data.salaryRevisions.length} Revisions
+            </span>
           </div>
 
-          <div className="space-y-4">
+          <div className="space-y-4 max-h-[36rem] overflow-y-auto pr-1">
             {data.salaryRevisions.length === 0 ? (
               <p className="text-xs text-[#8FAEC5] py-8 text-center">No salary revisions recorded.</p>
             ) : (
@@ -913,28 +1000,33 @@ export default function EmployeeLifecyclePage() {
               <h2 className="text-base font-bold text-[#17324A]">Confidential Disciplinary & Compliance Warnings</h2>
               <p className="text-xs text-[#667085]">Strictly RBAC-enforced disciplinary records. Employees only see designated notices.</p>
             </div>
-            {currentUser?.role !== 'employee' && (
-              <button
-                onClick={() => {
-                  setWarningForm({
-                    employeeId: data.employees[0]?.id || '',
-                    type: 'PolicyViolation',
-                    severity: 'Medium',
-                    reason: 'Delayed submission of mandatory compliance policy acknowledgment.',
-                    actionRequired: 'Submit signed document within 24 hours.',
-                    incidentDate: new Date().toISOString().split('T')[0],
-                    isEmployeeVisible: true,
-                  });
-                  setShowWarningModal(true);
-                }}
-                className="flex items-center gap-1.5 rounded-xl bg-rose-600 px-3.5 py-2 text-xs font-bold text-white hover:bg-rose-700"
-              >
-                <ShieldAlert className="h-3.5 w-3.5" /> Issue Disciplinary Notice
-              </button>
-            )}
+            <div className="flex items-center gap-3">
+              <span className="rounded-full bg-rose-100 px-3 py-1 text-xs font-extrabold text-rose-800">
+                {warnings.length} Records
+              </span>
+              {currentUser?.role !== 'employee' && (
+                <button
+                  onClick={() => {
+                    setWarningForm({
+                      employeeId: data.employees[0]?.id || '',
+                      type: 'PolicyViolation',
+                      severity: 'Medium',
+                      reason: 'Delayed submission of mandatory compliance policy acknowledgment.',
+                      actionRequired: 'Submit signed document within 24 hours.',
+                      incidentDate: new Date().toISOString().split('T')[0],
+                      isEmployeeVisible: true,
+                    });
+                    setShowWarningModal(true);
+                  }}
+                  className="flex items-center gap-1.5 rounded-xl bg-rose-600 px-3.5 py-2 text-xs font-bold text-white hover:bg-rose-700"
+                >
+                  <ShieldAlert className="h-3.5 w-3.5" /> Issue Disciplinary Notice
+                </button>
+              )}
+            </div>
           </div>
 
-          <div className="space-y-3">
+          <div className="space-y-3 max-h-[36rem] overflow-y-auto pr-1">
             {warnings.length === 0 ? (
               <p className="text-xs text-[#8FAEC5] py-8 text-center">No disciplinary warnings on record. Clean compliance record!</p>
             ) : (
@@ -969,75 +1061,236 @@ export default function EmployeeLifecyclePage() {
         </div>
       )}
 
-      {/* MODAL 1: ONBOARDING */}
+      {/* MODAL 1: ONBOARDING — Employee ID Creation (Employee 360) */}
       {showOnboardModal && selectedCandidate && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl animate-in zoom-in-95">
-            <div className="flex items-center justify-between border-b pb-3 mb-4">
-              <h3 className="text-sm font-bold text-[#17324A]">Onboard Candidate: {selectedCandidate.name}</h3>
+          <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl animate-in zoom-in-95">
+            <div className="flex items-start justify-between border-b pb-3 mb-4">
+              <div>
+                <h3 className="text-sm font-bold text-[#17324A]">Employee ID Creation — {selectedCandidate.name}</h3>
+                <p className="text-[11px] text-[#8FAEC5] mt-0.5">A sequential Employee ID (EMP-YYYY-NNN) will be generated on submit.</p>
+              </div>
               <button onClick={() => setShowOnboardModal(false)}><X className="h-4 w-4 text-[#8FAEC5]" /></button>
             </div>
-            <form onSubmit={handleOnboardSubmit} className="space-y-3.5 text-xs">
+            <form onSubmit={handleOnboardSubmit} className="space-y-4 text-xs">
+              {/* Personal Information */}
               <div>
-                <label className="block text-[11px] font-bold text-[#4B6882] mb-1">Official Role Title</label>
-                <input
-                  type="text"
-                  value={onboardForm.roleTitle}
-                  onChange={(e) => setOnboardForm({ ...onboardForm, roleTitle: e.target.value })}
-                  className="w-full rounded-xl border border-[#CBDDE9] px-3 py-2 text-xs"
-                  required
-                />
+                <p className="text-[10px] font-black uppercase tracking-wider text-[#23587E] mb-2">Personal Information</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-bold text-[#4B6882] mb-1">Date of Birth</label>
+                    <input
+                      type="date"
+                      value={onboardForm.dateOfBirth}
+                      onChange={(e) => setOnboardForm({ ...onboardForm, dateOfBirth: e.target.value })}
+                      className="w-full rounded-xl border border-[#CBDDE9] px-3 py-2 text-xs"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-[#4B6882] mb-1">Gender</label>
+                    <select
+                      value={onboardForm.gender}
+                      onChange={(e) => setOnboardForm({ ...onboardForm, gender: e.target.value })}
+                      className="w-full rounded-xl border border-[#CBDDE9] px-3 py-2 text-xs"
+                      required
+                    >
+                      <option value="">Select gender</option>
+                      <option value="Male">Male</option>
+                      <option value="Female">Female</option>
+                      <option value="Other">Other</option>
+                      <option value="Prefer not to say">Prefer not to say</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="mt-3">
+                  <label className="block text-[11px] font-bold text-[#4B6882] mb-1">Current Address</label>
+                  <textarea
+                    value={onboardForm.currentAddress}
+                    onChange={(e) => setOnboardForm({ ...onboardForm, currentAddress: e.target.value })}
+                    rows={2}
+                    className="w-full rounded-xl border border-[#CBDDE9] px-3 py-2 text-xs"
+                    required
+                  />
+                </div>
+                <div className="mt-3 grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-bold text-[#4B6882] mb-1">Emergency Contact</label>
+                    <input
+                      type="text"
+                      value={onboardForm.emergencyContactName}
+                      onChange={(e) => setOnboardForm({ ...onboardForm, emergencyContactName: e.target.value })}
+                      placeholder="Name"
+                      className="w-full rounded-xl border border-[#CBDDE9] px-3 py-2 text-xs"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-[#4B6882] mb-1">&nbsp;</label>
+                    <input
+                      type="tel"
+                      value={onboardForm.emergencyContactPhone}
+                      onChange={(e) => setOnboardForm({ ...onboardForm, emergencyContactPhone: e.target.value })}
+                      placeholder="Phone"
+                      className="w-full rounded-xl border border-[#CBDDE9] px-3 py-2 text-xs"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-[#4B6882] mb-1">&nbsp;</label>
+                    <input
+                      type="text"
+                      value={onboardForm.emergencyContactRelation}
+                      onChange={(e) => setOnboardForm({ ...onboardForm, emergencyContactRelation: e.target.value })}
+                      placeholder="Relation (e.g. Spouse)"
+                      className="w-full rounded-xl border border-[#CBDDE9] px-3 py-2 text-xs"
+                      required
+                    />
+                  </div>
+                </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+
+              {/* Job Information */}
+              <div className="border-t pt-3">
+                <p className="text-[10px] font-black uppercase tracking-wider text-[#23587E] mb-2">Job Information</p>
                 <div>
-                  <label className="block text-[11px] font-bold text-[#4B6882] mb-1">Department</label>
+                  <label className="block text-[11px] font-bold text-[#4B6882] mb-1">Official Role Title (Designation)</label>
                   <input
                     type="text"
-                    value={onboardForm.department}
-                    onChange={(e) => setOnboardForm({ ...onboardForm, department: e.target.value })}
+                    value={onboardForm.roleTitle}
+                    onChange={(e) => setOnboardForm({ ...onboardForm, roleTitle: e.target.value })}
                     className="w-full rounded-xl border border-[#CBDDE9] px-3 py-2 text-xs"
                     required
                   />
                 </div>
-                <div>
-                  <label className="block text-[11px] font-bold text-[#4B6882] mb-1">Annual CTC (₹)</label>
-                  <input
-                    type="number"
-                    value={onboardForm.salary}
-                    onChange={(e) => setOnboardForm({ ...onboardForm, salary: Number(e.target.value) })}
-                    className="w-full rounded-xl border border-[#CBDDE9] px-3 py-2 text-xs"
-                    required
-                  />
+                <div className="mt-3 grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-bold text-[#4B6882] mb-1">Department / Function</label>
+                    <select
+                      value={onboardForm.department}
+                      onChange={(e) => setOnboardForm({ ...onboardForm, department: e.target.value })}
+                      className="w-full rounded-xl border border-[#CBDDE9] px-3 py-2 text-xs"
+                      required
+                    >
+                      {DEPARTMENT_OPTIONS.map((d) => (
+                        <option key={d} value={d}>{d}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-[#4B6882] mb-1">Work Location</label>
+                    <input
+                      type="text"
+                      value={onboardForm.location}
+                      onChange={(e) => setOnboardForm({ ...onboardForm, location: e.target.value })}
+                      className="w-full rounded-xl border border-[#CBDDE9] px-3 py-2 text-xs"
+                      required
+                    />
+                  </div>
+                </div>
+                <div className="mt-3 grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-bold text-[#4B6882] mb-1">Joining Date (DOJ)</label>
+                    <input
+                      type="date"
+                      value={onboardForm.joinDate}
+                      onChange={(e) => setOnboardForm({ ...onboardForm, joinDate: e.target.value })}
+                      className="w-full rounded-xl border border-[#CBDDE9] px-3 py-2 text-xs"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-[#4B6882] mb-1">Probation Period</label>
+                    <select
+                      value={onboardForm.probationMonths}
+                      onChange={(e) => setOnboardForm({ ...onboardForm, probationMonths: Number(e.target.value) })}
+                      className="w-full rounded-xl border border-[#CBDDE9] px-3 py-2 text-xs"
+                    >
+                      <option value={3}>3 Months</option>
+                      <option value={6}>6 Months (Default)</option>
+                      <option value={12}>12 Months</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="mt-3 grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-bold text-[#4B6882] mb-1">Annual CTC (₹)</label>
+                    <input
+                      type="number"
+                      value={onboardForm.salary}
+                      onChange={(e) => setOnboardForm({ ...onboardForm, salary: Number(e.target.value) })}
+                      className="w-full rounded-xl border border-[#CBDDE9] px-3 py-2 text-xs"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-[#4B6882] mb-1">Reporting Manager</label>
+                    <select
+                      value={onboardForm.managerId}
+                      onChange={(e) => setOnboardForm({ ...onboardForm, managerId: e.target.value })}
+                      className="w-full rounded-xl border border-[#CBDDE9] px-3 py-2 text-xs"
+                    >
+                      <option value="">To be assigned</option>
+                      {data?.employees?.map((e: any) => (
+                        <option key={e.id} value={e.id}>{e.name} ({e.employeeCode})</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] font-bold text-[#4B6882] mb-1">Joining Date</label>
-                  <input
-                    type="date"
-                    value={onboardForm.joinDate}
-                    onChange={(e) => setOnboardForm({ ...onboardForm, joinDate: e.target.value })}
-                    className="w-full rounded-xl border border-[#CBDDE9] px-3 py-2 text-xs"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-bold text-[#4B6882] mb-1">Probation Period</label>
-                  <select
-                    value={onboardForm.probationMonths}
-                    onChange={(e) => setOnboardForm({ ...onboardForm, probationMonths: Number(e.target.value) })}
-                    className="w-full rounded-xl border border-[#CBDDE9] px-3 py-2 text-xs"
-                  >
-                    <option value={3}>3 Months</option>
-                    <option value={6}>6 Months</option>
-                  </select>
-                </div>
-              </div>
+
               <div className="flex justify-end gap-2 pt-3 border-t">
                 <button type="button" onClick={() => setShowOnboardModal(false)} className="rounded-xl px-4 py-2 text-xs font-bold text-[#667085] hover:bg-[#F4F8FA]">Cancel</button>
-                <button type="submit" className="rounded-xl bg-[#23587E] px-4 py-2 text-xs font-bold text-white hover:bg-[#1b4461]">Confirm Onboarding</button>
+                <button type="submit" className="rounded-xl bg-[#23587E] px-4 py-2 text-xs font-bold text-white hover:bg-[#1b4461]">Create Employee & Onboard</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 1b: ONE-TIME CREDENTIALS (shown once to HR after onboarding) */}
+      {credentialsResult && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl animate-in zoom-in-95">
+            <div className="flex items-center justify-between border-b pb-3 mb-4">
+              <h3 className="text-sm font-bold text-[#17324A]">Onboarding Successful — One-Time Credentials</h3>
+              <button onClick={() => setCredentialsResult(null)}><X className="h-4 w-4 text-[#8FAEC5]" /></button>
+            </div>
+            <div className="space-y-3 text-xs">
+              <p className="text-[#4B6882]">
+                Employee record created for <span className="font-bold text-[#17324A]">{credentialsResult.name}</span>. Share these credentials securely — the temporary password is shown <span className="font-bold">only once</span>.
+              </p>
+              <div className="divide-y rounded-xl border border-[#CBDDE9]">
+                <div className="flex items-center justify-between px-3 py-2">
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-wide text-[#8FAEC5]">Employee ID</p>
+                    <p className="font-mono font-bold text-[#17324A]">{credentialsResult.employeeCode}</p>
+                  </div>
+                  <button type="button" onClick={() => copyToClipboard(credentialsResult.employeeCode)} className="rounded-lg border border-[#CBDDE9] p-1.5 hover:bg-[#F4F8FA]" title="Copy Employee ID"><Copy className="h-3.5 w-3.5 text-[#23587E]" /></button>
+                </div>
+                <div className="flex items-center justify-between px-3 py-2">
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-wide text-[#8FAEC5]">Username (Official Email)</p>
+                    <p className="break-all font-mono font-bold text-[#17324A]">{credentialsResult.email}</p>
+                  </div>
+                  <button type="button" onClick={() => copyToClipboard(credentialsResult.email)} className="rounded-lg border border-[#CBDDE9] p-1.5 hover:bg-[#F4F8FA]" title="Copy Email"><Copy className="h-3.5 w-3.5 text-[#23587E]" /></button>
+                </div>
+                <div className="flex items-center justify-between bg-[#FFF8E6] px-3 py-2">
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-wide text-[#8FAEC5]">Temporary Password</p>
+                    <p className="break-all font-mono font-bold text-[#B54708]">{credentialsResult.temporaryPassword}</p>
+                  </div>
+                  <button type="button" onClick={() => copyToClipboard(credentialsResult.temporaryPassword)} className="rounded-lg border border-[#EAD88F] bg-[#FFF8E6] p-1.5 hover:bg-[#FFF3D6]" title="Copy Temporary Password"><Copy className="h-3.5 w-3.5 text-[#B54708]" /></button>
+                </div>
+              </div>
+              <div className="flex items-start gap-2 rounded-xl bg-[#F4F8FA] p-3 text-[11px] text-[#4B6882]">
+                <KeyRound className="mt-0.5 h-4 w-4 shrink-0 text-[#23587E]" />
+                <span>On first login, the employee must set a new password before accessing the dashboard. Probation tracking, an Address Proof document request, bank details collection, and department asset requests have been auto-initiated.</span>
+              </div>
+              <div className="flex justify-end pt-1">
+                <button type="button" onClick={() => setCredentialsResult(null)} className="rounded-xl bg-[#23587E] px-4 py-2 text-xs font-bold text-white hover:bg-[#1b4461]">Done — I've Saved These</button>
+              </div>
+            </div>
           </div>
         </div>
       )}

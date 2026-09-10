@@ -12,6 +12,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.TasksService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma/prisma.service");
+const notify_service_1 = require("../common/notifications/notify.service");
 const client_1 = require("@prisma/client");
 const taskInclude = {
     assignedTo: {
@@ -37,8 +38,10 @@ const taskInclude = {
 };
 let TasksService = class TasksService {
     prisma;
-    constructor(prisma) {
+    notify;
+    constructor(prisma, notify) {
         this.prisma = prisma;
+        this.notify = notify;
     }
     formatTask(task) {
         return {
@@ -62,11 +65,11 @@ let TasksService = class TasksService {
         if (!employee)
             throw new common_1.NotFoundException('Employee not found');
         if (scope === 'team') {
-            if (employee.userRole !== 'manager' && employee.userRole !== 'admin') {
+            if (employee.userRole !== 'manager' && employee.userRole !== 'admin' && employee.userRole !== 'ceo') {
                 throw new common_1.ForbiddenException('Manager or admin access required');
             }
             const tasks = await this.prisma.task.findMany({
-                where: employee.userRole === 'admin'
+                where: employee.userRole === 'admin' || employee.userRole === 'ceo'
                     ? {}
                     : {
                         OR: [
@@ -119,6 +122,15 @@ let TasksService = class TasksService {
             },
             include: taskInclude,
         });
+        if (!isSelfTask) {
+            await this.notify.notifyUser({
+                userId: assignedToId,
+                title: 'New task assigned to you',
+                message: `${employee.name} assigned you a task: "${title}"${body.dueDate ? ` (due ${body.dueDate})` : ''}.`,
+                type: 'TaskAssignment',
+                linkUrl: '/tasks',
+            });
+        }
         return this.formatTask(created);
     }
     async update(userId, body) {
@@ -154,6 +166,36 @@ let TasksService = class TasksService {
             data,
             include: taskInclude,
         });
+        const isReassigned = Boolean(body.assignedToId) && body.assignedToId !== existing.assignedToId;
+        if (isReassigned) {
+            await this.notify.notifyUser({
+                userId: updated.assignedToId,
+                title: 'Task assigned to you',
+                message: `You have been assigned the task "${updated.title}"${updated.dueDate ? ` (due ${new Date(updated.dueDate).toISOString().slice(0, 10)})` : ''}.`,
+                type: 'TaskAssignment',
+                linkUrl: '/tasks',
+            });
+        }
+        if (body.status) {
+            if (body.status === 'Done' && existing.assignedById && existing.assignedById !== userId) {
+                await this.notify.notifyUser({
+                    userId: existing.assignedById,
+                    title: 'Task completed',
+                    message: `${updated.assignedTo?.name ?? 'The assignee'} completed the task "${updated.title}".`,
+                    type: 'TaskAssignment',
+                    linkUrl: '/tasks',
+                });
+            }
+            else if (body.status !== 'Done' && userId !== existing.assignedToId && !isReassigned) {
+                await this.notify.notifyUser({
+                    userId: existing.assignedToId,
+                    title: `Task marked ${body.status}`,
+                    message: `The task "${updated.title}" has been marked as ${body.status}.`,
+                    type: 'TaskAssignment',
+                    linkUrl: '/tasks',
+                });
+            }
+        }
         return this.formatTask(updated);
     }
     async delete(userId, id) {
@@ -167,13 +209,13 @@ let TasksService = class TasksService {
         });
         if (!employee)
             throw new common_1.NotFoundException('Employee not found');
-        if (employee.userRole !== 'manager' && employee.userRole !== 'admin') {
+        if (employee.userRole !== 'manager' && employee.userRole !== 'admin' && employee.userRole !== 'ceo') {
             throw new common_1.ForbiddenException('Manager or admin access required');
         }
         return this.prisma.employee.findMany({
             where: {
                 status: { not: 'Offboarded' },
-                ...(employee.userRole === 'admin' ? {} : { managerId: employee.id }),
+                ...((employee.userRole === 'admin' || employee.userRole === 'ceo') ? {} : { managerId: employee.id }),
             },
             select: {
                 id: true,
@@ -189,6 +231,6 @@ let TasksService = class TasksService {
 exports.TasksService = TasksService;
 exports.TasksService = TasksService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [prisma_service_1.PrismaService])
+    __metadata("design:paramtypes", [prisma_service_1.PrismaService, notify_service_1.NotifyService])
 ], TasksService);
 //# sourceMappingURL=tasks.service.js.map

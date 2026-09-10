@@ -1,9 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotifyService } from '../common/notifications/notify.service';
 
 @Injectable()
 export class EngagementService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private notify: NotifyService) {}
 
   async findAll() {
     const [surveys, feedPosts, recognitions, suggestions] = await Promise.all([
@@ -19,7 +20,7 @@ export class EngagementService {
     const { action } = body;
 
     if (action === 'kudos') {
-      return this.prisma.employeeRecognition.create({
+      const created = await this.prisma.employeeRecognition.create({
         data: {
           giverId: body.giverId, giverName: body.giverName || 'Colleague',
           receiverId: body.receiverId, receiverName: body.receiverName || 'Team Member',
@@ -27,6 +28,16 @@ export class EngagementService {
           message: body.message, isPublic: true, likesCount: 1,
         },
       });
+      if (body.receiverId && body.receiverId !== body.giverId) {
+        await this.notify.notifyUser({
+          userId: body.receiverId,
+          title: `You received ${body.recognitionType || 'Kudos'} ${body.badgeIcon || '⭐'}`,
+          message: `${body.giverName || 'A colleague'} recognized you: "${body.message}"`,
+          type: 'Celebration',
+          linkUrl: '/engagement',
+        });
+      }
+      return created;
     }
 
     if (action === 'post') {
@@ -41,13 +52,20 @@ export class EngagementService {
     }
 
     if (action === 'suggestion') {
-      return this.prisma.employeeSuggestion.create({
+      const created = await this.prisma.employeeSuggestion.create({
         data: {
           employeeId: body.employeeId || null, employeeName: body.employeeName || 'Anonymous',
           category: body.category || 'Workplace', title: body.title,
           description: body.description, status: 'Submitted', upvotesCount: 1,
         },
       });
+      await this.notify.notifyAdmins({
+        title: 'New suggestion submitted',
+        message: `${body.employeeName || 'Anonymous'} suggested: "${body.title}" (${body.category || 'Workplace'}).`,
+        type: 'Announcement',
+        linkUrl: '/engagement',
+      });
+      return created;
     }
 
     if (action === 'upvote_suggestion') {

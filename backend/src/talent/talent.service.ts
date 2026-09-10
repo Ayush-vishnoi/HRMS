@@ -1,9 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotifyService } from '../common/notifications/notify.service';
 
 @Injectable()
 export class TalentService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private notify: NotifyService) {}
 
   async findAll(userId: string, userRole: string, employeeId?: string) {
     const targetId = employeeId || userId;
@@ -44,11 +45,25 @@ export class TalentService {
     }
 
     if (action === 'add_talent_pool_member') {
-      return this.prisma.talent_pool_members.upsert({
+      const pool = await this.prisma.talent_pools.findUnique({
+        where: { id: body.poolId },
+        select: { name: true, is_confidential: true },
+      });
+      const member = await this.prisma.talent_pool_members.upsert({
         where: { pool_id_employee_id: { pool_id: body.poolId, employee_id: body.employeeId } },
         update: { notes: body.notes },
         create: { pool_id: body.poolId, employee_id: body.employeeId, added_by_id: userId, notes: body.notes || null },
       });
+      if (pool && !pool.is_confidential) {
+        await this.notify.notifyUser({
+          userId: body.employeeId,
+          title: 'Added to talent pool',
+          message: `You have been added to the "${pool.name}" talent pool.`,
+          type: 'Performance',
+          linkUrl: '/talent',
+        });
+      }
+      return member;
     }
 
     if (action === 'save_succession_plan') {

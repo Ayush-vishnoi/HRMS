@@ -26,8 +26,9 @@ model Employee {
   createdAt                                                                                    DateTime                             @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt                                                                                    DateTime                             @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   failedLoginAttempts                                                                          Int                                  @default(0) @map("failed_login_attempts")
-  lockedUntil                                                                                  DateTime?                            @map("locked_until")
-  lastLoginAt                                                                                  DateTime?                            @map("last_login_at")
+  lockedUntil                                                                                 DateTime?                            @map("locked_until")
+  lastLoginAt                                                                                 DateTime?                            @map("last_login_at")
+  mustChangePassword                                                                          Boolean                              @default(false) @map("must_change_password")
   organization_id                                                                              String?
   business_unit_id                                                                             String?
   department_id                                                                                String?
@@ -63,6 +64,7 @@ model Employee {
   employee_onboardings_employee_onboardings_manager_employee_idToemployees                     EmployeeOnboarding[]                 @relation("employee_onboardings_manager_employee_idToemployees")
   onboardingsPerformed                                                                         EmployeeOnboarding[]                 @relation("OnboardingAdministrator")
   employee_personal_profiles                                                                   employee_personal_profiles?
+  employee_bank_details                                                                        employee_bank_details?
   employee_shift_assignments                                                                   employee_shift_assignments[]
   business_units_employees_business_unit_idTobusiness_units                                    business_units?                      @relation("employees_business_unit_idTobusiness_units", fields: [business_unit_id], references: [id])
   departments_employees_department_idTodepartments                                             departments?                         @relation("employees_department_idTodepartments", fields: [department_id], references: [id])
@@ -1191,6 +1193,23 @@ model employee_employment_profiles {
   @@index([lifecycle_status])
 }
 
+model employee_bank_details {
+  id                 String    @id
+  employee_id        String    @unique
+  account_number     String?   @db.VarChar(50)
+  ifsc_code          String?   @db.VarChar(20)
+  bank_name          String?   @db.VarChar(120)
+  account_holder_name String?  @db.VarChar(120)
+  status             String    @default("Pending") @db.VarChar(30) // Pending | Submitted | Verified
+  submitted_at       DateTime?
+  verified_at        DateTime?
+  created_at         DateTime  @default(now())
+  updated_at         DateTime
+  employees          Employee  @relation(fields: [employee_id], references: [id], onDelete: Cascade)
+
+  @@index([status])
+}
+
 model employee_personal_profiles {
   id                         String    @id
   employee_id                String    @unique
@@ -1836,10 +1855,12 @@ enum UserRole {
   employee
   manager
   admin
+  ceo
 }
 
 enum EmploymentStatus {
   Active
+  Onboarding
   OnLeave    @map("On Leave")
   Remote
   Offboarded

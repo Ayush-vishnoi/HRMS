@@ -10,11 +10,15 @@ export class AttendanceController {
 
   @Get()
   findAll(
+    @CurrentUser('id') userId: string,
     @Query('employeeId') employeeId?: string,
     @Query('from') from?: string,
     @Query('to') to?: string,
   ) {
-    return this.attendanceService.findAll(employeeId, from, to);
+    // Default-scope to the authenticated user so nobody sees other
+    // employees' attendance logs. An explicit employeeId (e.g. an admin
+    // inspecting one person) still overrides the default.
+    return this.attendanceService.findAll(employeeId || userId, from, to);
   }
 
   /**

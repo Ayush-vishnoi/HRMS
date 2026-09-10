@@ -1,7 +1,9 @@
 import { PrismaService } from '../prisma/prisma.service';
+import { NotifyService } from '../common/notifications/notify.service';
 export declare class PoliciesService {
     private prisma;
-    constructor(prisma: PrismaService);
+    private notify;
+    constructor(prisma: PrismaService, notify: NotifyService);
     findAll(employeeId: string, isAdmin: boolean): Promise<({
         acknowledgements: {
             id: string;

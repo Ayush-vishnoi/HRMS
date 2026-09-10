@@ -1,8 +1,10 @@
 import { PrismaService } from '../prisma/prisma.service';
+import { NotifyService } from '../common/notifications/notify.service';
 import type { Form16StatementData } from './engines/types';
 export declare class PayrollService {
     private prisma;
-    constructor(prisma: PrismaService);
+    private notify;
+    constructor(prisma: PrismaService, notify: NotifyService);
     getPayslips(employeeId?: string, monthYear?: string): Promise<({
         employee: {
             id: string;
@@ -323,8 +325,8 @@ export declare class PayrollService {
         updatedAt: Date;
         employeeId: string;
         rejectionReason: string | null;
-        regime: string;
         financialYear: string;
+        regime: string;
         section80C: number;
         section80D: number;
         section80G: number;
@@ -334,8 +336,8 @@ export declare class PayrollService {
         hraExemptionRent: number;
         homeLoanInterest: number;
         otherExemptions: number;
-        declarationStatus: string;
         otherDeductionsTotal: number;
+        declarationStatus: string;
         proofUrls: string[];
         verifiedByAdminId: string | null;
         verifiedAmountJson: string | null;
@@ -347,8 +349,8 @@ export declare class PayrollService {
         updatedAt: Date;
         employeeId: string;
         rejectionReason: string | null;
-        regime: string;
         financialYear: string;
+        regime: string;
         section80C: number;
         section80D: number;
         section80G: number;
@@ -358,8 +360,8 @@ export declare class PayrollService {
         hraExemptionRent: number;
         homeLoanInterest: number;
         otherExemptions: number;
-        declarationStatus: string;
         otherDeductionsTotal: number;
+        declarationStatus: string;
         proofUrls: string[];
         verifiedByAdminId: string | null;
         verifiedAmountJson: string | null;
@@ -375,8 +377,8 @@ export declare class PayrollService {
         updatedAt: Date;
         employeeId: string;
         rejectionReason: string | null;
-        regime: string;
         financialYear: string;
+        regime: string;
         section80C: number;
         section80D: number;
         section80G: number;
@@ -386,8 +388,8 @@ export declare class PayrollService {
         hraExemptionRent: number;
         homeLoanInterest: number;
         otherExemptions: number;
-        declarationStatus: string;
         otherDeductionsTotal: number;
+        declarationStatus: string;
         proofUrls: string[];
         verifiedByAdminId: string | null;
         verifiedAmountJson: string | null;
@@ -403,8 +405,8 @@ export declare class PayrollService {
         updatedAt: Date;
         employeeId: string;
         rejectionReason: string | null;
-        regime: string;
         financialYear: string;
+        regime: string;
         section80C: number;
         section80D: number;
         section80G: number;
@@ -414,8 +416,8 @@ export declare class PayrollService {
         hraExemptionRent: number;
         homeLoanInterest: number;
         otherExemptions: number;
-        declarationStatus: string;
         otherDeductionsTotal: number;
+        declarationStatus: string;
         proofUrls: string[];
         verifiedByAdminId: string | null;
         verifiedAmountJson: string | null;
@@ -427,7 +429,7 @@ export declare class PayrollService {
         id: string;
         userRole: string;
     }, body: any): Promise<import("./engines/types").ReconciliationSummary>;
-    getReports(type?: string, monthYear?: string): Promise<import("./engines/reports-service").PayrollReportRow[] | {
+    getReports(type?: string, monthYear?: string): Promise<{
         UAN: any;
         MemberName: any;
         GrossWages: any;
@@ -454,7 +456,7 @@ export declare class PayrollService {
         employerStatutoryCost: number;
         totalPayrollCost: number;
         averageCostPerEmployee: number;
-    }[]>;
+    }[] | import("./engines/reports-service").PayrollReportRow[]>;
     getForm16(employeeId: string, financialYear: string): Promise<Form16StatementData>;
     getPayrollOverview(user: {
         id: string;
@@ -687,8 +689,8 @@ export declare class PayrollService {
             updatedAt: Date;
             effectiveFrom: string;
             isActive: boolean;
-            financialYear: string;
             country: string;
+            financialYear: string;
             ruleType: string;
             state: string;
             effectiveTo: string | null;
@@ -698,7 +700,7 @@ export declare class PayrollService {
             slabsJson: string;
             configJson: string;
         }[];
-        salaryComponents: import("./salary-components").SalaryComponentMetadata[] | {
+        salaryComponents: {
             id: string;
             type: string;
             createdAt: Date;
@@ -713,7 +715,7 @@ export declare class PayrollService {
             isStatutory: boolean;
             isEncashable: boolean;
             isPartCTC: boolean;
-        }[];
+        }[] | import("./salary-components").SalaryComponentMetadata[];
     }>;
     createStatutoryRule(user: {
         id: string;
@@ -724,8 +726,8 @@ export declare class PayrollService {
         updatedAt: Date;
         effectiveFrom: string;
         isActive: boolean;
-        financialYear: string;
         country: string;
+        financialYear: string;
         ruleType: string;
         state: string;
         effectiveTo: string | null;

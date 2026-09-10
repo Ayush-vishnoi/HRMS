@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotifyService } from '../common/notifications/notify.service';
 
 const mapPolicyCategory = (cat: string): any => {
   const clean = (cat || '').toLowerCase().replace(/[^a-z]/g, '');
@@ -14,7 +15,7 @@ const mapPolicyCategory = (cat: string): any => {
 
 @Injectable()
 export class PoliciesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private notify: NotifyService) {}
 
   async findAll(employeeId: string, isAdmin: boolean) {
     return this.prisma.companyPolicy.findMany({
@@ -35,7 +36,7 @@ export class PoliciesService {
 
   async create(data: any, uploadedById: string) {
     const count = await this.prisma.companyPolicy.count();
-    return this.prisma.companyPolicy.create({
+    const created = await this.prisma.companyPolicy.create({
       data: {
         id: data.id || `POL-${String(count + 1).padStart(3, '0')}`,
         title: data.title,
@@ -51,5 +52,19 @@ export class PoliciesService {
         fileSize: data.fileSize || '1.0 MB',
       },
     });
+    const employees = await this.prisma.employee.findMany({
+      where: { status: { in: ['Active', 'OnLeave', 'Remote'] } },
+      select: { id: true },
+    });
+    await this.notify.notifyUsers(
+      employees.map((e) => e.id),
+      {
+        title: 'New company policy published',
+        message: `A new policy "${created.title}" (${created.version}) is now effective from ${created.effectiveDate}.${created.acknowledgementRequired ? ' Please review and acknowledge it.' : ''}`,
+        type: 'Policy',
+        linkUrl: '/policies',
+      },
+    );
+    return created;
   }
 }

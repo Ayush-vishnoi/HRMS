@@ -220,6 +220,9 @@ let MeetingsService = class MeetingsService {
         });
         if (!existing)
             throw new common_1.HttpException({ success: false, error: 'Meeting not found' }, 404);
+        if (/^i[0-9a-f]{31}$/.test(id) && action !== 'rsvp') {
+            throw new common_1.BadRequestException('This meeting mirrors an interview scheduled in Recruitment ATS and can only be updated from there.');
+        }
         if (action === 'cancel') {
             if (existing.organizerId !== employeeId) {
                 throw new common_1.ForbiddenException('Only the organizer can cancel this meeting');

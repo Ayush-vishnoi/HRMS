@@ -1,7 +1,9 @@
 import { PrismaService } from '../prisma/prisma.service';
+import { NotifyService } from '../common/notifications/notify.service';
 export declare class LmsService {
     private prisma;
-    constructor(prisma: PrismaService);
+    private notify;
+    constructor(prisma: PrismaService, notify: NotifyService);
     findAll(employeeId?: string): Promise<{
         courses: ({
             modules: {

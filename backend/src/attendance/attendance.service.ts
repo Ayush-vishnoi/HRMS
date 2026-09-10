@@ -1,9 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotifyService } from '../common/notifications/notify.service';
 
 @Injectable()
 export class AttendanceService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private notify: NotifyService) {}
 
   async findAll(employeeId?: string, from?: string, to?: string) {
     const where: any = {};
@@ -70,7 +71,7 @@ export class AttendanceService {
   }
 
   async createLateRequest(requesterId: string, requestDate: string, reason: string) {
-    return this.prisma.lateClockInRequest.create({
+    const created = await this.prisma.lateClockInRequest.create({
       data: {
         requesterId,
         requestDate,
@@ -78,12 +79,34 @@ export class AttendanceService {
         requestedAt: new Date().toISOString(),
       },
     });
+    const employee = await this.prisma.employee.findUnique({
+      where: { id: requesterId },
+      select: { name: true },
+    });
+    await this.notify.notifyAdmins({
+      title: 'Late clock-in request',
+      message: `${employee?.name ?? 'An employee'} requested permission to clock in late on ${requestDate}.`,
+      type: 'Attendance',
+      linkUrl: '/attendance',
+    });
+    return created;
   }
 
   async reviewLateRequest(id: string, status: 'approved' | 'rejected', reviewedById: string) {
-    return this.prisma.lateClockInRequest.update({
+    const request = await this.prisma.lateClockInRequest.findUnique({ where: { id } });
+    const updated = await this.prisma.lateClockInRequest.update({
       where: { id },
       data: { status, reviewedById, reviewedAt: new Date().toISOString() },
     });
+    if (request) {
+      await this.notify.notifyUser({
+        userId: request.requesterId,
+        title: status === 'approved' ? 'Late clock-in approved' : 'Late clock-in rejected',
+        message: `Your late clock-in request for ${request.requestDate} has been ${status}.`,
+        type: 'Attendance',
+        linkUrl: '/attendance',
+      });
+    }
+    return updated;
   }
 }

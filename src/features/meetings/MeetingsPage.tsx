@@ -8,6 +8,7 @@ import { MeetingDetailDrawer } from '@/features/meetings/MeetingDetailDrawer';
 import { MeetingList } from '@/features/meetings/MeetingList';
 import { ScheduleMeetingDrawer } from '@/features/meetings/ScheduleMeetingDrawer';
 import { useMeeting, useMeetings } from '@/features/meetings/hooks/useMeetings';
+import { PendingApprovalsPanel } from '@/features/meetings/PendingApprovalsPanel';
 import type { Meeting } from '@/features/meetings/types/meeting';
 
 const pad = (value: number) => String(value).padStart(2, '0');
@@ -53,6 +54,7 @@ export function MeetingsPage({ mode = 'calendar', meetingId }: { mode?: 'calenda
   };
 
   return <div className="mx-auto max-w-[1500px] space-y-5">
+    <PendingApprovalsPanel />
     {mode === 'calendar' && <MeetingHeader title="Meetings & Calendar" onSchedule={() => openSchedule()} canSchedule={canManageMeetings} />}
     {mode === 'calendar' && <MeetingSummary meetings={meetings.data ?? []} />}
     {mode === 'calendar' ? <CalendarView onSelect={openMeeting} onSchedule={openSchedule} canSchedule={canManageMeetings} /> : <MeetingList onSelect={openMeeting} onSchedule={() => openSchedule()} canSchedule={canManageMeetings} />}

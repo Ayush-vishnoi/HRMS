@@ -42,6 +42,7 @@ const calendar_module_1 = require("./calendar/calendar.module");
 const chat_module_1 = require("./chat/chat.module");
 const announcements_module_1 = require("./announcements/announcements.module");
 const tasks_module_1 = require("./tasks/tasks.module");
+const documents_module_1 = require("./documents/documents.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -89,6 +90,7 @@ exports.AppModule = AppModule = __decorate([
             chat_module_1.ChatModule,
             announcements_module_1.AnnouncementsModule,
             tasks_module_1.TasksModule,
+            documents_module_1.DocumentsModule,
         ],
     })
 ], AppModule);

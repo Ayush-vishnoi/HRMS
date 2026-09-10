@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { authFetch } from '@/lib/api-client';
 import {
   CheckCircle2,
@@ -20,6 +20,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import { useHRMS } from '@/shared/providers/HRMSContext';
+import { BankDetailsCard } from '@/features/dashboard/components/BankDetailsCard';
 
 type DocumentStatus = 'Verified' | 'Under Review' | 'Action Required';
 type RequestStatus = 'Requested' | 'Submitted' | 'Verified' | 'Rejected' | 'Sent' | 'Downloaded' | 'Pending' | 'In Progress' | 'Ready' | 'Delivered';
@@ -67,7 +68,7 @@ type DocumentRequest = {
   attachments: RequestAttachment[];
 };
 
-type StaffMember = { id: string; name: string; employeeCode: string; department: string | null; roleTitle: string | null };
+type StaffMember = { id: string; name: string; email?: string; employeeCode: string; department: string | null; roleTitle: string | null };
 type Template = { id: string; name: string; variables: string[] };
 type IconComponent = React.ComponentType<{ className?: string }>;
 
@@ -216,21 +217,24 @@ export default function DocumentsPage() {
   const [templates, setTemplates] = useState<Template[]>(STATIC_TEMPLATES);
   const [staff, setStaff] = useState<StaffMember[]>(STATIC_STAFF);
 
+  const loadDocumentsData = useCallback(async () => {
+    try {
+      const res = await authFetch<{ success: boolean; data: any }>('/api/documents');
+      if (res?.success && res.data) {
+        setDocuments(res.data.documents || []);
+        setRequests(res.data.requests || []);
+        if (res.data.templates?.length) setTemplates(res.data.templates);
+        if (res.data.staff?.length) setStaff(res.data.staff);
+      }
+    } catch {
+      setDocuments(INITIAL_DOCUMENTS);
+      setRequests(INITIAL_REQUESTS);
+    }
+  }, []);
+
   useEffect(() => {
-    authFetch<{ success: boolean; data: any }>('/api/documents')
-      .then((res) => {
-        if (res?.success && res.data) {
-          setDocuments(res.data.documents || []);
-          setRequests(res.data.requests || []);
-          if (res.data.templates?.length) setTemplates(res.data.templates);
-          if (res.data.staff?.length) setStaff(res.data.staff);
-        }
-      })
-      .catch(() => {
-        setDocuments(INITIAL_DOCUMENTS);
-        setRequests(INITIAL_REQUESTS);
-      });
-  }, [currentUser.id]);
+    void loadDocumentsData();
+  }, [currentUser.id, loadDocumentsData]);
 
   const [showUpload, setShowUpload] = useState(false);
   const [showRequest, setShowRequest] = useState(false);
@@ -282,134 +286,178 @@ export default function DocumentsPage() {
     return [...map.values()].sort((a, b) => b.review - a.review || a.name.localeCompare(b.name));
   }, [documents, requests]);
 
-  const handleUpload = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleUpload = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
-    const name = (form.get('name') as string)?.trim() || 'Uploaded_Document.pdf';
-    const type = uploadRequest ? uploadRequest.documentType : uploadType;
+    const file = form.get('file');
+    if (!(file instanceof File) || file.size === 0) {
+      setError('Please choose a file to upload.');
+      return;
+    }
 
-    const newDoc: EmployeeDocument = {
-      id: `DOC-${Date.now().toString().slice(-4)}`,
-      employeeId: currentUser.id,
-      employeeName: currentUser.name,
-      name: name.endsWith('.pdf') ? name : `${name}.pdf`,
-      type,
-      uploadedOn: 'Today',
-      size: '1.2 MB',
-      status: 'Under Review',
-      note: 'Uploaded document queued for HR verification.',
-      downloadable: true,
-      downloadUrl: '#',
-    };
+    const payload = new FormData();
+    payload.append('file', file);
+    payload.append('name', (form.get('name') as string)?.trim() || file.name);
+    payload.append('type', uploadRequest ? uploadRequest.documentType : uploadType);
+    if (uploadRequest) payload.append('requestId', uploadRequest.id);
 
-    setDocuments((prev) => [newDoc, ...prev]);
-    setShowUpload(false);
-    setUploadRequest(null);
-    setNotice(uploadRequest ? 'Document submitted to HR for verification.' : 'Document uploaded and queued for HR verification.');
+    try {
+      const res = await authFetch<{ success: boolean; data: { document: EmployeeDocument; request: DocumentRequest | null } }>(
+        '/api/documents/upload',
+        { method: 'POST', body: payload },
+      );
+      const doc = res?.data?.document;
+      const req = res?.data?.request;
+      if (doc) setDocuments((prev) => [doc, ...prev.filter((d) => d.id !== doc.id)]);
+      if (req) setRequests((prev) => prev.map((r) => (r.id === req.id ? req : r)));
+      setShowUpload(false);
+      setUploadRequest(null);
+      setNotice(uploadRequest ? 'Document submitted to HR for verification.' : 'Document uploaded and queued for HR verification.');
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Upload failed.');
+    }
   };
 
-  const handleRequest = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleRequest = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const newReq: DocumentRequest = {
-      id: `REQ-${String(requests.length + 1).padStart(3, '0')}`,
-      employeeId: currentUser.id,
-      requestedBy: currentUser.name,
-      documentType: effectiveRequestType,
-      reason: requestReason.trim() || 'Official company document request.',
-      requestedOn: 'Today',
-      status: 'Pending',
-      attachments: [],
-    };
-
-    setRequests((prev) => [newReq, ...prev]);
-    setRequestReason('');
-    setShowRequest(false);
-    setNotice('Document request sent to HR.');
+    try {
+      const res = await authFetch<{ success: boolean; data: { request: DocumentRequest } }>('/api/documents/request', {
+        method: 'POST',
+        body: {
+          documentType: effectiveRequestType,
+          reason: requestReason.trim() || 'Official company document request.',
+        },
+      });
+      const req = res?.data?.request;
+      if (req) setRequests((prev) => [req, ...prev]);
+      setRequestReason('');
+      setShowRequest(false);
+      setNotice('Document request sent to HR.');
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Failed to send request.');
+    }
   };
 
-  const reviewDocument = (event: React.FormEvent<HTMLFormElement>) => {
+  const reviewDocument = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!reviewDoc) return;
-    const action = reviewDecision === 'verify' ? 'Verified' : 'Action Required';
-
-    setDocuments((prev) =>
-      prev.map((d) =>
-        d.id === reviewDoc.id
-          ? {
-              ...d,
-              status: action as DocumentStatus,
-              note: reviewDecision === 'reject' ? reviewReason.trim() : 'Verified by HR.',
-              downloadable: reviewDecision === 'verify',
-            }
-          : d
-      )
-    );
-
-    setReviewDoc(null);
-    setReviewDecision('verify');
-    setReviewReason('');
-    setNotice(reviewDecision === 'verify' ? 'Document verified and saved to the employee record.' : 'Document returned with action required.');
+    try {
+      const res = await authFetch<{ success: boolean; data: { document: EmployeeDocument; request: DocumentRequest | null } }>(
+        '/api/documents/review',
+        { method: 'POST', body: { documentId: reviewDoc.id, decision: reviewDecision, reason: reviewReason.trim() } },
+      );
+      const doc = res?.data?.document;
+      const req = res?.data?.request;
+      if (doc) setDocuments((prev) => prev.map((d) => (d.id === doc.id ? doc : d)));
+      if (req) setRequests((prev) => prev.map((r) => (r.id === req.id ? req : r)));
+      setReviewDoc(null);
+      setReviewDecision('verify');
+      setReviewReason('');
+      setNotice(reviewDecision === 'verify' ? 'Document verified and saved to the employee record.' : 'Document returned with action required.');
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Review failed.');
+    }
   };
 
-  const sendRequest = (event: React.FormEvent<HTMLFormElement>) => {
+  const sendRequest = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!fulfilRequest) return;
 
-    setRequests((prev) =>
-      prev.map((r) =>
-        r.id === fulfilRequest.id
-          ? {
-              ...r,
-              status: 'Sent',
-              sentAt: 'Today',
-              attachments: [
-                {
-                  id: `ATT-${Date.now().toString().slice(-4)}`,
-                  documentId: `DOC-${Date.now().toString().slice(-4)}`,
-                  name: `${fulfilRequest.documentType.replace(/\s+/g, '_')}_Official.pdf`,
-                  source: fulfilTemplateId ? 'template' : 'uploaded',
-                  downloadUrl: '#',
-                },
-              ],
-            }
-          : r
-      )
-    );
+    const form = new FormData(event.currentTarget);
+    const files = form.getAll('files').filter((entry): entry is File => entry instanceof File && entry.size > 0);
+    if (files.length === 0) {
+      setError('Attach at least one file to send.');
+      return;
+    }
 
-    setFulfilRequest(null);
-    setFulfilTemplateId('');
-    setFulfilValues({});
-    setNotice('Response sent to the employee — they can now download the files.');
+    const payload = new FormData();
+    payload.append('requestId', fulfilRequest.id);
+    for (const file of files) payload.append('files', file);
+
+    try {
+      const res = await authFetch<{ success: boolean; data: { request: DocumentRequest } }>('/api/documents/fulfil', {
+        method: 'POST',
+        body: payload,
+      });
+      const req = res?.data?.request;
+      if (req) setRequests((prev) => prev.map((r) => (r.id === req.id ? req : r)));
+      setFulfilRequest(null);
+      setFulfilTemplateId('');
+      setFulfilValues({});
+      setNotice('Response sent to the employee — they can now download the files.');
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Failed to send response.');
+    }
   };
 
-  const handleHrRequest = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleHrRequest = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
-    const empId = form.get('employeeId') as string;
-    const targetStaff = staff.find((s) => s.id === empId);
+    const employeeId = ((form.get('employeeId') as string) ?? '').trim();
+    const documentType = ((form.get('documentType') as string) ?? '').trim();
+    if (!employeeId || !documentType) {
+      setError('Please select an employee and a document type.');
+      return;
+    }
 
-    const newReq: DocumentRequest = {
-      id: `REQ-${String(requests.length + 1).padStart(3, '0')}`,
-      employeeId: empId,
-      requestedBy: targetStaff ? targetStaff.name : 'Employee',
-      initiatedByHr: true,
-      documentType: form.get('documentType') as string,
-      reason: (form.get('reason') as string)?.trim() || 'HR Document Submission Request',
-      requestedOn: 'Today',
-      status: 'Requested',
-      attachments: [],
-    };
-
-    setRequests((prev) => [newReq, ...prev]);
-    setShowHrRequest(false);
-    setNotice('Document request sent to the employee.');
+    try {
+      const res = await authFetch<{ success: boolean; data: { request: DocumentRequest } }>('/api/documents/hr-request', {
+        method: 'POST',
+        body: {
+          employeeId,
+          documentType,
+          reason: (form.get('reason') as string)?.trim() || 'HR Document Submission Request',
+        },
+      });
+      const req = res?.data?.request;
+      if (req) setRequests((prev) => [req, ...prev]);
+      setShowHrRequest(false);
+      setNotice('Document request sent to the employee.');
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Failed to send request.');
+    }
   };
 
-  const shareDocument = (documentId: string) => {
-    setDocuments((prev) =>
-      prev.map((d) => (d.id === documentId ? { ...d, sharedByHr: true, sharedAt: 'Today', downloadable: true } : d))
-    );
-    setNotice('Document shared with the employee.');
+  const shareDocument = async (documentId: string) => {
+    try {
+      const res = await authFetch<{ success: boolean; data: { document: EmployeeDocument } }>('/api/documents/share', {
+        method: 'POST',
+        body: { documentId },
+      });
+      const doc = res?.data?.document;
+      if (doc) setDocuments((prev) => prev.map((d) => (d.id === doc.id ? doc : d)));
+      setNotice('Document shared with the employee.');
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Failed to share document.');
+    }
+  };
+
+  /** Streams the file from the backend (with the auth token) and saves it locally. */
+  const downloadFile = async (downloadUrl: string | null | undefined, fallbackName: string) => {
+    if (!downloadUrl) {
+      setError('This file is not available for download.');
+      return;
+    }
+    try {
+      const response = await authFetch<Response>(downloadUrl, { raw: true });
+      if (!response.ok) throw new Error(`Download failed (${response.status}).`);
+      const blob = await response.blob();
+      const dispositionMatch = (response.headers.get('Content-Disposition') ?? '').match(/filename="([^"]+)"/);
+      const filename = dispositionMatch?.[1] || fallbackName;
+      const objectUrl = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = objectUrl;
+      anchor.download = filename;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(objectUrl);
+      // Downloading a fulfilled request file may advance its status (Sent → Downloaded).
+      void loadDocumentsData();
+      setNotice(`Downloaded ${filename}.`);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Download failed.');
+    }
   };
 
   return (
@@ -443,6 +491,10 @@ export default function DocumentsPage() {
 
       {notice && <Banner tone="success" text={notice} onClose={() => setNotice('')} />}
       {error && <Banner tone="error" text={error} onClose={() => setError('')} />}
+
+      {/* Onboarding STEP 4b — bank details collection (self-hides when Verified).
+          Employees and managers submit/update their own bank details here. */}
+      {canSubmit && <BankDetailsCard />}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Stat label={isAdmin ? 'All Documents' : 'My Documents'} value={String(filteredDocuments.length)} detail="Uploaded records" icon={FileText} />
@@ -511,7 +563,7 @@ export default function DocumentsPage() {
                   <td className="px-4 py-3 text-right align-middle">
                     <div className="flex flex-wrap items-center justify-end gap-2">
                       {document.downloadable && (
-                        <button onClick={() => alert(`Downloading ${document.name}...`)} className="inline-flex items-center gap-1 whitespace-nowrap rounded-lg border border-[#9FC2DC] px-2.5 py-2 text-[10px] font-bold text-[#17324A] hover:bg-[#EAF2F8] cursor-pointer">
+                        <button onClick={() => downloadFile(document.downloadUrl, document.name)} className="inline-flex items-center gap-1 whitespace-nowrap rounded-lg border border-[#9FC2DC] px-2.5 py-2 text-[10px] font-bold text-[#17324A] hover:bg-[#EAF2F8] cursor-pointer">
                           <Download className="h-3.5 w-3.5" /> Download
                         </button>
                       )}
@@ -555,7 +607,7 @@ export default function DocumentsPage() {
                       {item.attachments.map((attachment) => (
                         <div key={attachment.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[#D9E5EE] bg-white px-3 py-2">
                           <span className="flex min-w-0 items-center gap-2 text-xs font-bold text-[#17324A]"><FileText className="h-3.5 w-3.5 shrink-0 text-[#5B91B5]" /> <span className="truncate">{attachment.name}</span></span>
-                          <button onClick={() => alert(`Downloading ${attachment.name}...`)} className="inline-flex items-center gap-1 rounded-lg border border-[#9FC2DC] px-2.5 py-1.5 text-[10px] font-bold text-[#17324A] transition hover:bg-[#EAF2F8] cursor-pointer"><Download className="h-3.5 w-3.5" /> Download</button>
+                          <button onClick={() => downloadFile(attachment.downloadUrl, attachment.name)} className="inline-flex items-center gap-1 rounded-lg border border-[#9FC2DC] px-2.5 py-1.5 text-[10px] font-bold text-[#17324A] transition hover:bg-[#EAF2F8] cursor-pointer"><Download className="h-3.5 w-3.5" /> Download</button>
                         </div>
                       ))}
                     </div>
@@ -622,7 +674,10 @@ export default function DocumentsPage() {
               <select name="employeeId" required defaultValue="" className={inputClass}>
                 <option value="" disabled>Select employee</option>
                 {staff.map((member) => (
-                  <option key={member.id} value={member.id}>{member.name} ({member.employeeCode})</option>
+                  <option key={member.id} value={member.id}>
+                    {member.name} ({member.employeeCode}){member.department ? ` — ${member.department}` : ''}
+                    {member.email ? ` — ${member.email}` : ''}
+                  </option>
                 ))}
               </select>
             </Field>

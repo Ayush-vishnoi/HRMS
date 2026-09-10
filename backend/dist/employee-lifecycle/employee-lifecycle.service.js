@@ -47,11 +47,30 @@ const common_1 = require("@nestjs/common");
 const node_crypto_1 = require("node:crypto");
 const argon2 = __importStar(require("argon2"));
 const prisma_service_1 = require("../prisma/prisma.service");
+const notify_service_1 = require("../common/notifications/notify.service");
+const default_balances_1 = require("../leaves/default-balances");
 const DEFAULT_AVATAR = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80';
+const DEPARTMENT_ASSET_SETS = {
+    'Engineering': ['Laptop', 'Monitor'],
+    'AI/ML': ['Laptop', 'Monitor'],
+    'Marketing': ['Laptop', 'Mobile'],
+    'Human Resources': ['Laptop', 'AccessCard'],
+    'Finance': ['Laptop', 'AccessCard'],
+    'Executive Leadership': ['Laptop', 'Mobile', 'AccessCard'],
+};
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+function formatDay(date = new Date()) {
+    return `${date.getDate()} ${MONTHS[date.getMonth()]} ${date.getFullYear()}`;
+}
+function makeId(prefix) {
+    return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
 let EmployeeLifecycleService = class EmployeeLifecycleService {
     prisma;
-    constructor(prisma) {
+    notify;
+    constructor(prisma, notify) {
         this.prisma = prisma;
+        this.notify = notify;
     }
     async findAll(employeeId) {
         const [candidates, employees, onboardingHistory, offboardingHistory, employmentProfiles, changeRequests, salaryRevisions, bgvRecords, onboardingTasks] = await Promise.all([
@@ -85,8 +104,7 @@ let EmployeeLifecycleService = class EmployeeLifecycleService {
         return { candidates, employees, onboardingHistory, offboardingHistory, employmentProfiles, changeRequests, salaryRevisions, bgvRecords, onboardingTasks };
     }
     async onboard(user, body) {
-        const { candidateId, name, email, phone, avatarUrl, roleTitle, department, location, joinDate, salary = 0, managerId, userRole = 'employee', probationMonths = 6 } = body;
-        const employeeCode = `EMP-${new Date().getUTCFullYear()}-${(0, node_crypto_1.randomBytes)(3).toString('hex').toUpperCase()}`;
+        const { candidateId, name, email, phone, avatarUrl, roleTitle, department, location, joinDate, salary = 0, managerId, userRole = 'employee', probationMonths = 6, dateOfBirth, gender, currentAddress, emergencyContactName, emergencyContactPhone, emergencyContactRelation, } = body;
         const plainPassword = `Hr!${(0, node_crypto_1.randomBytes)(6).toString('base64url')}9a`;
         const passwordHash = await argon2.hash(plainPassword);
         return this.prisma.$transaction(async (tx) => {
@@ -95,17 +113,57 @@ let EmployeeLifecycleService = class EmployeeLifecycleService {
                 throw new Error('Candidate not found.');
             if (candidate.onboarding)
                 throw new Error('Candidate already onboarded.');
+            const year = new Date().getUTCFullYear();
+            const prefix = `EMP-${year}-`;
+            const sameYearCount = await tx.employee.count({ where: { employeeCode: { startsWith: prefix } } });
+            let seq = sameYearCount + 1;
+            let employeeCode = `${prefix}${String(seq).padStart(3, '0')}`;
+            while (await tx.employee.findUnique({ where: { employeeCode } })) {
+                seq += 1;
+                employeeCode = `${prefix}${String(seq).padStart(3, '0')}`;
+            }
             const employee = await tx.employee.create({
-                data: { employeeCode, name, email, passwordHash, phone: phone || null, avatarUrl: avatarUrl || DEFAULT_AVATAR, roleTitle, userRole, department, joinDate, location, salary: Number(salary), managerId: managerId || null, status: 'Active' },
+                data: { employeeCode, name, email, passwordHash, phone: phone || null, avatarUrl: avatarUrl || DEFAULT_AVATAR, roleTitle, userRole, department, joinDate, location, salary: Number(salary), managerId: managerId || null, status: 'Onboarding', mustChangePassword: true },
             });
             const onboarding = await tx.employeeOnboarding.create({
-                data: { candidateId: candidate.id, employeeId: employee.id, onboardedById: user.id, updated_at: new Date() },
+                data: { candidateId: candidate.id, employeeId: employee.id, onboardedById: user.id, probation_start_date: joinDate ? new Date(joinDate) : new Date(), probation_review_date: (() => { const d = joinDate ? new Date(joinDate) : new Date(); d.setMonth(d.getMonth() + Number(probationMonths)); return d; })(), updated_at: new Date() },
+            });
+            await tx.candidate_stage_history.create({
+                data: {
+                    id: crypto.randomUUID(),
+                    candidate_id: candidate.id,
+                    from_stage: candidate.stage,
+                    to_stage: 'Joined',
+                    changed_by_id: user.id,
+                    note: 'Converted to employee via onboarding',
+                },
+            });
+            await tx.recruitmentCandidate.update({
+                where: { id: candidate.id },
+                data: { stage: 'Joined' },
             });
             const joinDateTime = new Date(joinDate || new Date());
             const probationEnd = new Date(joinDateTime);
             probationEnd.setMonth(probationEnd.getMonth() + Number(probationMonths));
             await tx.employee_employment_profiles.create({
                 data: { id: `emp-prof-${employee.id}`, employee_id: employee.id, date_of_joining: joinDateTime, probation_end_date: probationEnd, lifecycle_status: 'Probation', employment_type: 'Full_Time', work_mode: 'Office', notice_period_days: 60, updated_at: new Date() },
+            });
+            await tx.leaveBalance.createMany({
+                data: (0, default_balances_1.defaultLeaveBalanceRows)(employee.id, new Date().getUTCFullYear()),
+                skipDuplicates: true,
+            });
+            await tx.employee_personal_profiles.create({
+                data: {
+                    id: `pp-${employee.id}`,
+                    employee_id: employee.id,
+                    date_of_birth: dateOfBirth ? new Date(dateOfBirth) : null,
+                    gender: gender || null,
+                    current_address: currentAddress || null,
+                    emergency_contact_name: emergencyContactName || null,
+                    emergency_contact_phone: emergencyContactPhone || null,
+                    emergency_contact_relation: emergencyContactRelation || null,
+                    updated_at: new Date(),
+                },
             });
             const defaultTasks = [
                 { title: 'Verify Aadhaar / PAN / Identity Documents', owner: 'HR' },
@@ -126,13 +184,36 @@ let EmployeeLifecycleService = class EmployeeLifecycleService {
                 update: { ctcAnnual: Number(salary), basicMonthly: basic, hraMonthly: hra, specialAllowanceMonthly: special },
                 create: { id: `sal-${employee.id}`, employeeId: employee.id, ctcAnnual: Number(salary), basicMonthly: basic, hraMonthly: hra, conveyanceMonthly: 1600, specialAllowanceMonthly: special, medicalAllowanceMonthly: 1250, pfEmployerMonthly: 1800, pfEmployeeMonthly: 1800, ptMonthly: 200, effectiveFrom: joinDate || new Date().toISOString().split('T')[0] },
             });
+            await tx.documentRequest.create({
+                data: { id: makeId('dreq'), employeeId: employee.id, documentType: 'Address Proof', reason: 'Mandatory KYC document required during onboarding. Please upload a valid address proof (Aadhaar, utility bill, or rental agreement).', status: 'Requested', requestedOn: formatDay() },
+            });
+            await tx.employee_bank_details.create({
+                data: { id: `bank-${employee.id}`, employee_id: employee.id, status: 'Pending', updated_at: new Date() },
+            });
+            const assetCategories = DEPARTMENT_ASSET_SETS[department] ?? ['Laptop'];
+            let assetSeq = await tx.assetRequest.count() + 1;
+            for (const category of assetCategories) {
+                const existing = await tx.assetRequest.findUnique({ where: { id: `AR-${String(assetSeq).padStart(3, '0')}` } });
+                if (existing)
+                    assetSeq += 1;
+                await tx.assetRequest.create({
+                    data: { id: `AR-${String(assetSeq).padStart(3, '0')}`, type: 'NewAsset', status: 'Pending', requestedById: employee.id, category: category, reason: `Standard ${department} onboarding kit — ${category}`, updatedAt: new Date() },
+                }).catch(() => { });
+                assetSeq += 1;
+            }
             await tx.auditLog.create({ data: { id: `audit-${Date.now()}`, action: 'CREATE', module: 'Onboarding', employeeId: employee.id, details: JSON.stringify({ name: employee.name, code: employee.employeeCode }) } });
-            await tx.userNotification.create({ data: { id: `notif-${Date.now()}`, userId: employee.id, title: 'Welcome to the Organization!', message: 'Your employee onboarding profile has been created.', type: 'Celebration', linkUrl: '/employee-lifecycle' } });
+            await tx.userNotification.create({ data: { id: `notif-${Date.now()}`, userId: employee.id, title: 'Welcome to the Organization!', message: `Your employee profile has been created. Your Employee ID is ${employeeCode}. Please complete your pending onboarding requests (password change, address proof, bank details).`, type: 'Celebration', linkUrl: '/dashboard' } });
+            void this.notify.notifyAdmins({
+                title: 'New Employee Onboarded',
+                message: `${employee.name} (${employeeCode}) has been onboarded to ${department}. Pending HR actions: assign assets, collect address proof & bank details.`,
+                type: 'Onboarding',
+                linkUrl: '/employee-lifecycle',
+            });
             return { employee, onboarding, temporaryPassword: plainPassword };
-        });
+        }, { timeout: 30_000, maxWait: 10_000 });
     }
     async convertOffer(user, body) {
-        const { candidateId, customJoinDate, customManagerId, customProbationMonths } = body ?? {};
+        const { candidateId, customJoinDate, customManagerId, customProbationMonths, customDateOfBirth, customGender, customCurrentAddress, customEmergencyContactName, customEmergencyContactPhone, customEmergencyContactRelation } = body ?? {};
         if (!candidateId)
             throw new Error('candidateId is required.');
         const candidate = await this.prisma.recruitmentCandidate.findUnique({
@@ -165,6 +246,12 @@ let EmployeeLifecycleService = class EmployeeLifecycleService {
             salary,
             managerId: customManagerId || null,
             probationMonths: Number(customProbationMonths || 6),
+            dateOfBirth: customDateOfBirth,
+            gender: customGender,
+            currentAddress: customCurrentAddress,
+            emergencyContactName: customEmergencyContactName,
+            emergencyContactPhone: customEmergencyContactPhone,
+            emergencyContactRelation: customEmergencyContactRelation,
         });
     }
     async updateTask(taskId, status) {
@@ -187,6 +274,7 @@ let EmployeeLifecycleService = class EmployeeLifecycleService {
         const now = new Date();
         if (decision === 'Confirm') {
             const updated = await this.prisma.employee_employment_profiles.update({ where: { employee_id: employeeId }, data: { lifecycle_status: 'Active', confirmation_date: now, updated_at: now } });
+            await this.prisma.employee.update({ where: { id: employeeId }, data: { status: 'Active' } });
             await this.prisma.userNotification.create({ data: { id: `notif-${Date.now()}`, userId: employeeId, title: 'Congratulations on Probation Confirmation!', message: 'Your employment has been confirmed successfully.', type: 'Celebration', linkUrl: '/employees/' + employeeId } });
             return updated;
         }
@@ -238,10 +326,41 @@ let EmployeeLifecycleService = class EmployeeLifecycleService {
             return revision;
         });
     }
+    async getBankDetails(userId) {
+        return this.prisma.employee_bank_details.findUnique({ where: { employee_id: userId } });
+    }
+    async submitBankDetails(user, body) {
+        const account_number = String(body?.accountNumber ?? '').trim();
+        const ifsc_code = String(body?.ifscCode ?? '').trim().toUpperCase();
+        const bank_name = String(body?.bankName ?? '').trim();
+        const account_holder_name = String(body?.accountHolderName ?? '').trim();
+        if (!account_holder_name || !bank_name || !account_number || !ifsc_code) {
+            throw new common_1.BadRequestException('All bank detail fields are required.');
+        }
+        if (!/^\d{9,18}$/.test(account_number)) {
+            throw new common_1.BadRequestException('Account number must be 9-18 digits.');
+        }
+        if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifsc_code)) {
+            throw new common_1.BadRequestException('Invalid IFSC code format (expected e.g. HDFC0001234).');
+        }
+        const now = new Date();
+        const record = await this.prisma.employee_bank_details.upsert({
+            where: { employee_id: user.id },
+            update: { account_number, ifsc_code, bank_name, account_holder_name, status: 'Submitted', submitted_at: now, updated_at: now },
+            create: { id: `bank-${user.id}`, employee_id: user.id, account_number, ifsc_code, bank_name, account_holder_name, status: 'Submitted', submitted_at: now, updated_at: now },
+        });
+        void this.notify.notifyAdmins({
+            title: 'Bank Details Submitted',
+            message: `${user?.name ?? 'An employee'} submitted bank details for payroll verification.`,
+            type: 'Onboarding',
+            linkUrl: '/employee-lifecycle',
+        });
+        return record;
+    }
 };
 exports.EmployeeLifecycleService = EmployeeLifecycleService;
 exports.EmployeeLifecycleService = EmployeeLifecycleService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [prisma_service_1.PrismaService])
+    __metadata("design:paramtypes", [prisma_service_1.PrismaService, notify_service_1.NotifyService])
 ], EmployeeLifecycleService);
 //# sourceMappingURL=employee-lifecycle.service.js.map

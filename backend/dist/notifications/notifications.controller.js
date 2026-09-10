@@ -25,11 +25,17 @@ let NotificationsController = class NotificationsController {
     findAll(userId) {
         return this.notificationsService.findAll(userId);
     }
+    markAllRead(userId) {
+        return this.notificationsService.markAllRead(userId);
+    }
     markRead(id) {
         return this.notificationsService.markRead(id);
     }
-    markAllRead(userId) {
-        return this.notificationsService.markAllRead(userId);
+    remove(userId, id) {
+        return this.notificationsService.remove(id, userId);
+    }
+    removeAll(userId) {
+        return this.notificationsService.removeAll(userId);
     }
 };
 exports.NotificationsController = NotificationsController;
@@ -41,6 +47,13 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], NotificationsController.prototype, "findAll", null);
 __decorate([
+    (0, common_1.Patch)('read-all'),
+    __param(0, (0, current_user_decorator_1.CurrentUser)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", void 0)
+], NotificationsController.prototype, "markAllRead", null);
+__decorate([
     (0, common_1.Patch)(':id/read'),
     __param(0, (0, common_1.Param)('id')),
     __metadata("design:type", Function),
@@ -48,12 +61,20 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], NotificationsController.prototype, "markRead", null);
 __decorate([
-    (0, common_1.Patch)('read-all'),
+    (0, common_1.Delete)(':id'),
+    __param(0, (0, current_user_decorator_1.CurrentUser)('id')),
+    __param(1, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", void 0)
+], NotificationsController.prototype, "remove", null);
+__decorate([
+    (0, common_1.Delete)(),
     __param(0, (0, current_user_decorator_1.CurrentUser)('id')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", void 0)
-], NotificationsController.prototype, "markAllRead", null);
+], NotificationsController.prototype, "removeAll", null);
 exports.NotificationsController = NotificationsController = __decorate([
     (0, common_1.Controller)('notifications'),
     (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),

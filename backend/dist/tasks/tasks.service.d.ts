@@ -1,7 +1,9 @@
 import { PrismaService } from '../prisma/prisma.service';
+import { NotifyService } from '../common/notifications/notify.service';
 export declare class TasksService {
     private prisma;
-    constructor(prisma: PrismaService);
+    private notify;
+    constructor(prisma: PrismaService, notify: NotifyService);
     private formatTask;
     findAll(userId: string, scope?: string): Promise<{
         id: any;
@@ -59,8 +61,8 @@ export declare class TasksService {
     }>;
     getDirectReports(userId: string): Promise<{
         id: string;
-        email: string;
         name: string;
+        email: string;
         roleTitle: string;
         avatarUrl: string | null;
     }[]>;

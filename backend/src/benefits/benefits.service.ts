@@ -1,9 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotifyService } from '../common/notifications/notify.service';
 
 @Injectable()
 export class BenefitsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private notify: NotifyService) {}
 
   async findAll(employeeId?: string) {
     const [plans, enrollments, claims] = await Promise.all([
@@ -21,7 +22,7 @@ export class BenefitsService {
     const { action } = body;
 
     if (action === 'enroll') {
-      return this.prisma.employeeBenefitEnrollment.create({
+      const created = await this.prisma.employeeBenefitEnrollment.create({
         data: {
           id: `ENR-${Date.now().toString(36)}`,
           employeeId: body.employeeId, benefitPlanId: body.benefitPlanId,
@@ -31,10 +32,18 @@ export class BenefitsService {
         },
         include: { plan: true },
       });
+      await this.notify.notifyUser({
+        userId: body.employeeId,
+        title: 'Benefit enrollment confirmed',
+        message: `You have been enrolled in "${created.plan.name}". Coverage: ${created.coverageStartDate} to ${created.coverageEndDate}.`,
+        type: 'Success',
+        linkUrl: '/benefits',
+      });
+      return created;
     }
 
     if (action === 'claim') {
-      return this.prisma.benefitClaim.create({
+      const created = await this.prisma.benefitClaim.create({
         data: {
           id: `CLM-${Date.now().toString(36)}`,
           enrollmentId: body.enrollmentId, employeeId: body.employeeId,
@@ -42,6 +51,17 @@ export class BenefitsService {
           hospital: body.hospital, incidentDate: body.incidentDate, status: 'Submitted',
         },
       });
+      const employee = await this.prisma.employee.findUnique({
+        where: { id: body.employeeId },
+        select: { name: true },
+      });
+      await this.notify.notifyAdmins({
+        title: 'New benefit claim',
+        message: `${employee?.name ?? 'An employee'} submitted a ${body.claimType} claim of ₹${Number(body.claimAmount).toFixed(2)}${body.hospital ? ` (${body.hospital})` : ''}.`,
+        type: 'Document',
+        linkUrl: '/benefits',
+      });
+      return created;
     }
 
     if (action === 'dependent') {

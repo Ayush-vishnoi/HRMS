@@ -12,6 +12,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.PayrollService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma/prisma.service");
+const notify_service_1 = require("../common/notifications/notify.service");
 const payroll_engine_1 = require("./engines/payroll-engine");
 const form16_service_1 = require("./engines/form16-service");
 const reconciliation_engine_1 = require("./engines/reconciliation-engine");
@@ -35,8 +36,10 @@ const MONTH_NAMES = [
 ];
 let PayrollService = class PayrollService {
     prisma;
-    constructor(prisma) {
+    notify;
+    constructor(prisma, notify) {
         this.prisma = prisma;
+        this.notify = notify;
     }
     async getPayslips(employeeId, monthYear) {
         const where = {};
@@ -443,6 +446,15 @@ let PayrollService = class PayrollService {
                         paymentDate: paymentDateStr,
                         status: 'Paid',
                     },
+                });
+            }
+            const paidEmployeeIds = cycle.items.map((item) => item.employeeId);
+            if (paidEmployeeIds.length > 0) {
+                await this.notify.notifyUsers(paidEmployeeIds, {
+                    title: 'Salary credited',
+                    message: `Your salary for ${cycle.monthYear} has been credited. Your payslip is now available.`,
+                    type: 'Payroll',
+                    linkUrl: '/payroll',
                 });
             }
         }
@@ -1028,6 +1040,13 @@ let PayrollService = class PayrollService {
                 details: JSON.stringify({ payType, amount, monthYear, reason, approvedBy: user.id }),
             },
         });
+        await this.notify.notifyUser({
+            userId: employeeId,
+            title: 'Variable pay added',
+            message: `A ${String(payType)} of ₹${Number(amount)} for ${monthYear} has been added to your payroll. Reason: ${reason}`,
+            type: 'Payroll',
+            linkUrl: '/payroll',
+        });
         return record;
     }
     async getStatutoryRules() {
@@ -1201,6 +1220,7 @@ let PayrollService = class PayrollService {
 exports.PayrollService = PayrollService;
 exports.PayrollService = PayrollService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [prisma_service_1.PrismaService])
+    __metadata("design:paramtypes", [prisma_service_1.PrismaService,
+        notify_service_1.NotifyService])
 ], PayrollService);
 //# sourceMappingURL=payroll.service.js.map

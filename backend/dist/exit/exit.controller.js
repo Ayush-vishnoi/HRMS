@@ -26,7 +26,7 @@ let ExitController = class ExitController {
         return this.exitService.findAll(user.id, user.userRole, employeeId);
     }
     handleAction(user, body) {
-        return this.exitService.handleAction(user.id, body);
+        return this.exitService.handleAction({ id: user.id, userRole: user.userRole }, body);
     }
 };
 exports.ExitController = ExitController;

@@ -2,12 +2,12 @@ import { LeavesService } from './leaves.service';
 export declare class LeavesController {
     private leavesService;
     constructor(leavesService: LeavesService);
-    getAll(userId: string, employeeId?: string, status?: string): Promise<{
+    getAll(userId: string, userRole: string, employeeId?: string, status?: string): Promise<{
         requests: ({
             employee: {
                 id: string;
-                name: string;
                 employeeCode: string;
+                name: string;
                 department: string;
                 avatarUrl: string | null;
             };
@@ -17,25 +17,25 @@ export declare class LeavesController {
             } | null;
         } & {
             id: string;
-            createdAt: Date;
-            status: import("@prisma/client").$Enums.LeaveRequestStatus;
-            updatedAt: Date;
-            days: number;
             employeeId: string;
             leaveType: import("@prisma/client").$Enums.LeaveType;
             startDate: string;
             endDate: string;
+            days: number;
             reason: string;
+            status: import("@prisma/client").$Enums.LeaveRequestStatus;
             appliedOn: string;
             reviewerId: string | null;
+            createdAt: Date;
+            updatedAt: Date;
         })[];
         balances: {
             id: string;
+            employeeId: string;
+            leaveType: import("@prisma/client").$Enums.LeaveType;
             createdAt: Date;
             updatedAt: Date;
             year: number;
-            employeeId: string;
-            leaveType: import("@prisma/client").$Enums.LeaveType;
             total: number;
             used: number;
             remaining: number;
@@ -43,11 +43,11 @@ export declare class LeavesController {
     }>;
     getBalances(employeeId: string, userId: string): Promise<{
         id: string;
+        employeeId: string;
+        leaveType: import("@prisma/client").$Enums.LeaveType;
         createdAt: Date;
         updatedAt: Date;
         year: number;
-        employeeId: string;
-        leaveType: import("@prisma/client").$Enums.LeaveType;
         total: number;
         used: number;
         remaining: number;
@@ -55,8 +55,8 @@ export declare class LeavesController {
     getRequests(employeeId?: string, status?: string): Promise<({
         employee: {
             id: string;
-            name: string;
             employeeCode: string;
+            name: string;
             department: string;
             avatarUrl: string | null;
         };
@@ -66,31 +66,31 @@ export declare class LeavesController {
         } | null;
     } & {
         id: string;
-        createdAt: Date;
-        status: import("@prisma/client").$Enums.LeaveRequestStatus;
-        updatedAt: Date;
-        days: number;
         employeeId: string;
         leaveType: import("@prisma/client").$Enums.LeaveType;
         startDate: string;
         endDate: string;
+        days: number;
         reason: string;
+        status: import("@prisma/client").$Enums.LeaveRequestStatus;
         appliedOn: string;
         reviewerId: string | null;
+        createdAt: Date;
+        updatedAt: Date;
     })[]>;
     createRequest(userId: string, body: any): Promise<{
         id: string;
-        createdAt: Date;
-        status: import("@prisma/client").$Enums.LeaveRequestStatus;
-        updatedAt: Date;
-        days: number;
         employeeId: string;
         leaveType: import("@prisma/client").$Enums.LeaveType;
         startDate: string;
         endDate: string;
+        days: number;
         reason: string;
+        status: import("@prisma/client").$Enums.LeaveRequestStatus;
         appliedOn: string;
         reviewerId: string | null;
+        createdAt: Date;
+        updatedAt: Date;
     }>;
     reviewRequest(body: {
         id: string;
@@ -98,16 +98,16 @@ export declare class LeavesController {
         reviewerId?: string;
     }, userId: string): Promise<{
         id: string;
-        createdAt: Date;
-        status: import("@prisma/client").$Enums.LeaveRequestStatus;
-        updatedAt: Date;
-        days: number;
         employeeId: string;
         leaveType: import("@prisma/client").$Enums.LeaveType;
         startDate: string;
         endDate: string;
+        days: number;
         reason: string;
+        status: import("@prisma/client").$Enums.LeaveRequestStatus;
         appliedOn: string;
         reviewerId: string | null;
+        createdAt: Date;
+        updatedAt: Date;
     }>;
 }

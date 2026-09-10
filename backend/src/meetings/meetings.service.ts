@@ -233,6 +233,15 @@ export class MeetingsService {
     });
     if (!existing) throw new HttpException({ success: false, error: 'Meeting not found' }, 404);
 
+    // Interview mirrors (ids derived by the recruitment module) can only be
+    // edited or cancelled from Recruitment ATS so the two records never
+    // diverge. RSVP responses remain allowed for invited panel members.
+    if (/^i[0-9a-f]{31}$/.test(id) && action !== 'rsvp') {
+      throw new BadRequestException(
+        'This meeting mirrors an interview scheduled in Recruitment ATS and can only be updated from there.',
+      );
+    }
+
     if (action === 'cancel') {
       if (existing.organizerId !== employeeId) {
         throw new ForbiddenException('Only the organizer can cancel this meeting');

@@ -1,10 +1,14 @@
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotifyService } from '../common/notifications/notify.service';
 import type { AnnouncementAudience, AnnouncementCategory, EmploymentStatus, UserRole } from '@prisma/client';
 
 @Injectable()
 export class AnnouncementsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notify: NotifyService,
+  ) {}
 
   private serialize(announcement: any) {
     return {
@@ -38,7 +42,7 @@ export class AnnouncementsService {
     }
 
     if (scope === 'admin') {
-      if (viewer.userRole !== 'admin') {
+      if (viewer.userRole !== 'admin' && viewer.userRole !== 'ceo') {
         throw new ForbiddenException('Admin access required');
       }
       const announcements = await this.prisma.announcement.findMany({
@@ -82,7 +86,7 @@ export class AnnouncementsService {
       select: { id: true, userRole: true, department: true },
     });
 
-    if (!admin || admin.userRole !== 'admin') {
+    if (!admin || (admin.userRole !== 'admin' && admin.userRole !== 'ceo')) {
       throw new ForbiddenException('Admin access required');
     }
 
@@ -112,6 +116,29 @@ export class AnnouncementsService {
       include: { postedBy: { select: { id: true, name: true, email: true } } },
     });
 
+    // Notify all employees in the target audience
+    const audienceWhere: any = { status: { in: ['Active', 'OnLeave', 'Remote'] } };
+    if (announcement.targetAudience === 'Department') {
+      audienceWhere.department = announcement.targetDepartment;
+    } else if (announcement.targetAudience === 'Location') {
+      audienceWhere.location = announcement.targetLocation;
+    } else if (announcement.targetAudience === 'Role') {
+      audienceWhere.userRole = announcement.targetRole;
+    }
+    const recipients = await this.prisma.employee.findMany({
+      where: audienceWhere,
+      select: { id: true },
+    });
+    const recipientIds = recipients.map((r: any) => r.id).filter((id: string) => id !== admin.id);
+    if (recipientIds.length > 0) {
+      await this.notify.notifyUsers(recipientIds, {
+        title: 'New announcement',
+        message: `"${title}" — from ${announcement.postedByDepartment}${announcement.isPinned ? ' (pinned)' : ''}.`,
+        type: 'Announcement',
+        linkUrl: '/announcements',
+      });
+    }
+
     return this.serialize(announcement);
   }
 
@@ -120,7 +147,7 @@ export class AnnouncementsService {
       where: { id: userId },
       select: { userRole: true },
     });
-    if (!admin || admin.userRole !== 'admin') {
+    if (!admin || (admin.userRole !== 'admin' && admin.userRole !== 'ceo')) {
       throw new ForbiddenException('Admin access required');
     }
 
@@ -168,7 +195,7 @@ export class AnnouncementsService {
       where: { id: userId },
       select: { userRole: true },
     });
-    if (!admin || admin.userRole !== 'admin') {
+    if (!admin || (admin.userRole !== 'admin' && admin.userRole !== 'ceo')) {
       throw new ForbiddenException('Admin access required');
     }
 

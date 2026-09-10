@@ -2,11 +2,8 @@
 
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { authFetch, logout as apiLogout, tokenStore, userStore } from '@/lib/api-client';
-import { MOCK_EMPLOYEES } from '@/features/employees/data/employees';
 import type { Employee } from '@/features/employees/data/employees';
-import { INITIAL_LEAVE_REQUESTS, MOCK_LEAVE_BALANCES } from '@/features/leaves/data/leaves';
 import type { LeaveRequest } from '@/features/leaves/data/leaves';
-import { MOCK_ATTENDANCE_LOGS } from '@/features/attendance/data/attendance';
 import type { AttendanceRecord } from '@/features/attendance/data/attendance';
 
 export type UserRole = 'employee' | 'manager' | 'admin';
@@ -56,23 +53,30 @@ export interface UserAccount {
   email: string;
   role: string;
   userRole: UserRole;
+  /** Raw backend role (e.g. 'ceo') kept for display; RBAC uses userRole. */
+  rawRole?: string;
   department: string;
   avatar: string;
   employeeCode: string;
+  /** True right after onboarding — forces the reset-password screen. */
+  mustChangePassword: boolean;
 }
+
+const MALE_AVATAR = (n: number) => `https://randomuser.me/api/portraits/men/${n}.jpg`;
+const FEMALE_AVATAR = (n: number) => `https://randomuser.me/api/portraits/women/${n}.jpg`;
 
 const DEMO_ACCOUNTS: Record<UserRole, UserAccount> = {
   employee: {
     id: 'EMP-001', name: 'Ayush Vishnoi', email: 'ayush.vishnoi@company.com', role: 'AI/ML Intern Developer', userRole: 'employee', department: 'AI/ML',
-    avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80', employeeCode: 'EMP-2026-089',
+    avatar: MALE_AVATAR(32), employeeCode: 'EMP-2026-089', mustChangePassword: false,
   },
   manager: {
     id: 'EMP-002', name: 'Arjun Mehta', email: 'arjun.mehta@company.com', role: 'Engineering Manager', userRole: 'manager', department: 'Engineering',
-    avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80', employeeCode: 'EMP-2019-012',
+    avatar: MALE_AVATAR(11), employeeCode: 'EMP-2019-012', mustChangePassword: false,
   },
   admin: {
     id: 'EMP-006', name: 'Priya Sharma', email: 'priya.sharma@company.com', role: 'Head of Human Resources', userRole: 'admin', department: 'Human Resources',
-    avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80', employeeCode: 'EMP-2017-003',
+    avatar: FEMALE_AVATAR(26), employeeCode: 'EMP-2017-003', mustChangePassword: false,
   },
 };
 
@@ -91,7 +95,7 @@ const formatDbEmployee = (emp: any, managerName = 'Arjun Mehta'): Employee => ({
   department: emp.department || 'Engineering',
   email: emp.email,
   phone: emp.phone || '+91 98765 00000',
-  avatar: emp.avatarUrl || emp.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+  avatar: emp.avatarUrl || emp.avatar || MALE_AVATAR(33),
   status: (emp.status === 'OnLeave' || emp.status === 'On Leave') ? 'On Leave' : (emp.status === 'Remote' ? 'Remote' : 'Active'),
   joinDate: emp.joinDate || emp.join_date || '15 Mar 2026',
   location: emp.location || 'Bengaluru, Karnataka',
@@ -120,8 +124,8 @@ const formatDbAttendance = (log: any): AttendanceRecord => {
 const formatDbLeave = (req: any): LeaveRequest => ({
   id: req.id,
   employeeId: req.employeeId,
-  employeeName: req.employee?.name || 'Ayush Vishnoi',
-  employeeAvatar: req.employee?.avatarUrl || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
+  employeeName: req.employee?.name || 'Employee',
+  employeeAvatar: req.employee?.avatarUrl || MALE_AVATAR(44),
   leaveType: req.leaveType || 'Casual',
   startDate: req.startDate,
   endDate: req.endDate,
@@ -146,6 +150,40 @@ const formatDbTicket = (t: any): HelpDeskTicket => ({
   resolvedAt: t.resolvedAt || undefined,
 });
 
+/** Per-leave-type balance snapshot used by the Leave Management page. */
+export interface LeaveBalances {
+  casual: { total: number; used: number; remaining: number };
+  sick: { total: number; used: number; remaining: number };
+  earned: { total: number; used: number; remaining: number };
+  wfh: { total: number; used: number; remaining: number };
+}
+
+/** Neutral starting point until the backend responds (all zeros). */
+const EMPTY_LEAVE_BALANCES: LeaveBalances = {
+  casual: { total: 0, used: 0, remaining: 0 },
+  sick: { total: 0, used: 0, remaining: 0 },
+  earned: { total: 0, used: 0, remaining: 0 },
+  wfh: { total: 0, used: 0, remaining: 0 },
+};
+
+/**
+ * Map DB LeaveBalance rows onto the frontend's per-type shape. Missing types
+ * fall back to zeros — never to mock data.
+ */
+const mapDbBalances = (balances: any[]): LeaveBalances => {
+  const pick = (type: string) => balances.find((x: any) => x.leaveType === type);
+  const row = (x: any) =>
+    x
+      ? { total: Number(x.total) || 0, used: Number(x.used) || 0, remaining: Number(x.remaining) || 0 }
+      : { total: 0, used: 0, remaining: 0 };
+  return {
+    casual: row(pick('Casual')),
+    sick: row(pick('Sick')),
+    earned: row(pick('Earned')),
+    wfh: row(pick('WFH')),
+  };
+};
+
 interface HRMSContextType {
   isAuthenticated: boolean;
   isAuthReady: boolean;
@@ -154,8 +192,8 @@ interface HRMSContextType {
   employees: Employee[];
   addEmployee: (emp: Omit<Employee, 'id' | 'employeeCode'>) => Promise<void>;
   leaveRequests: LeaveRequest[];
-  leaveBalances: typeof MOCK_LEAVE_BALANCES;
-  setLeaveBalances: React.Dispatch<React.SetStateAction<typeof MOCK_LEAVE_BALANCES>>;
+  leaveBalances: LeaveBalances;
+  setLeaveBalances: React.Dispatch<React.SetStateAction<LeaveBalances>>;
   attendanceLogs: AttendanceRecord[];
   isClockedIn: boolean;
   clockInTime: string | null;
@@ -204,7 +242,14 @@ interface HRMSProviderProps {
   children: React.ReactNode;
 }
 
-/** Map a backend user (login/session response) to the frontend UserAccount shape. */
+/**
+ * Map a backend user (login/session response) to the frontend UserAccount shape.
+ *
+ * The database keeps a distinct 'ceo' role for executive accounts, but the
+ * app's RBAC surface is employee/manager/admin (mirroring the backend's JWT
+ * strategy). CEO is normalized to admin-level here; the raw role is preserved
+ * on `rawRole` so the UI can label executives correctly.
+ */
 const mapBackendUser = (user: {
   id: string;
   email: string;
@@ -213,17 +258,20 @@ const mapBackendUser = (user: {
   userRole?: string;
   department?: string | null;
   avatarUrl?: string | null;
+  mustChangePassword?: boolean;
 }): UserAccount => ({
   id: user.id,
   name: user.name,
   email: user.email,
   role: user.department || 'Staff Member',
-  userRole: (user.userRole as UserRole) || 'employee',
+  userRole: user.userRole === 'ceo' ? 'admin' : ((user.userRole as UserRole) || 'employee'),
+  rawRole: user.userRole || undefined,
   department: user.department || 'General',
   avatar:
     user.avatarUrl ||
-    'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
+    MALE_AVATAR(33),
   employeeCode: user.employeeCode || `EMP-${user.id}`,
+  mustChangePassword: Boolean(user.mustChangePassword),
 });
 
 export const HRMSProvider: React.FC<HRMSProviderProps> = ({ children }) => {
@@ -253,6 +301,7 @@ export const HRMSProvider: React.FC<HRMSProviderProps> = ({ children }) => {
             userRole?: string;
             department?: string | null;
             avatarUrl?: string | null;
+            mustChangePassword?: boolean;
           } | null;
           id?: string;
           email?: string;
@@ -261,6 +310,7 @@ export const HRMSProvider: React.FC<HRMSProviderProps> = ({ children }) => {
           userRole?: string;
           department?: string | null;
           avatarUrl?: string | null;
+          mustChangePassword?: boolean;
         } | null>('/api/auth/session');
 
         if (cancelled) return;
@@ -289,10 +339,10 @@ export const HRMSProvider: React.FC<HRMSProviderProps> = ({ children }) => {
       cancelled = true;
     };
   }, []);
-  const [employees, setEmployees] = useState<Employee[]>(MOCK_EMPLOYEES);
-  const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>(INITIAL_LEAVE_REQUESTS);
-  const [leaveBalances, setLeaveBalances] = useState(MOCK_LEAVE_BALANCES);
-  const [attendanceLogs, setAttendanceLogs] = useState<AttendanceRecord[]>(MOCK_ATTENDANCE_LOGS);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
+  const [leaveBalances, setLeaveBalances] = useState<LeaveBalances>(EMPTY_LEAVE_BALANCES);
+  const [attendanceLogs, setAttendanceLogs] = useState<AttendanceRecord[]>([]);
   const [isClockedIn, setIsClockedIn] = useState(false);
   const [clockInTime, setClockInTime] = useState<string | null>(null);
   const [clockInAt, setClockInAt] = useState<number | null>(null);
@@ -304,8 +354,9 @@ export const HRMSProvider: React.FC<HRMSProviderProps> = ({ children }) => {
 
   const lateClockInRequest = lateClockInRequests.find((request) => request.requesterId === currentUser.id) ?? null;
 
-  // Load non-auth application state after the first paint. The mock state above
-  // keeps the shell responsive while the remote database hydrates the context.
+  // Load non-auth application state after the first paint. State starts empty
+  // and is fully replaced by the remote database — no mock fallbacks, so a
+  // brand-new employee only ever sees their own (possibly empty) real data.
   // Skipped while unauthenticated so we never fire requests that would 401 and
   // trigger the global redirect to /login.
   useEffect(() => {
@@ -346,7 +397,7 @@ export const HRMSProvider: React.FC<HRMSProviderProps> = ({ children }) => {
           fetchJson('/api/attendance'),
         ]);
 
-        if (empRes?.success && Array.isArray(empRes.data) && empRes.data.length > 0) {
+        if (empRes?.success && Array.isArray(empRes.data)) {
           const formatted = empRes.data.map((e: any) => formatDbEmployee(e));
           setEmployees(formatted);
         }
@@ -356,19 +407,8 @@ export const HRMSProvider: React.FC<HRMSProviderProps> = ({ children }) => {
           setLeaveRequests(formatted);
         }
 
-        if (leavesRes?.success && Array.isArray(leavesRes.data?.balances) && leavesRes.data.balances.length > 0) {
-          const b = leavesRes.data.balances;
-          const pick = (type: string) => b.find((x: any) => x.leaveType === type);
-          const casual = pick('Casual');
-          const sick = pick('Sick');
-          const earned = pick('Earned');
-          const wfh = pick('WFH');
-          setLeaveBalances({
-            casual: casual ? { total: casual.total, used: casual.used, remaining: casual.remaining } : MOCK_LEAVE_BALANCES.casual,
-            sick: sick ? { total: sick.total, used: sick.used, remaining: sick.remaining } : MOCK_LEAVE_BALANCES.sick,
-            earned: earned ? { total: earned.total, used: earned.used, remaining: earned.remaining } : MOCK_LEAVE_BALANCES.earned,
-            wfh: wfh ? { total: wfh.total, used: wfh.used, remaining: wfh.remaining } : MOCK_LEAVE_BALANCES.wfh,
-          });
+        if (leavesRes?.success && Array.isArray(leavesRes.data?.balances)) {
+          setLeaveBalances(mapDbBalances(leavesRes.data.balances));
         }
 
         if (ticketsRes?.success && Array.isArray(ticketsRes.data)) {
@@ -376,7 +416,7 @@ export const HRMSProvider: React.FC<HRMSProviderProps> = ({ children }) => {
           setHelpDeskTickets(formatted);
         }
 
-        if (attRes?.success && Array.isArray(attRes.data) && attRes.data.length > 0) {
+        if (attRes?.success && Array.isArray(attRes.data)) {
           const formatted = attRes.data.map((a: any) => formatDbAttendance(a));
           setAttendanceLogs(formatted);
         }
@@ -478,6 +518,15 @@ export const HRMSProvider: React.FC<HRMSProviderProps> = ({ children }) => {
         // If the token now belongs to a different user (another tab), log this tab out
         if (tabUserId && session?.id && session.id !== tabUserId) {
           logout();
+        }
+        // Keep the forced-reset flag in sync (e.g. cleared after a password change)
+        if (session?.id) {
+          const flag = Boolean(session.mustChangePassword);
+          setCurrentUser((prev) =>
+            prev.id === session.id && prev.mustChangePassword !== flag
+              ? { ...prev, mustChangePassword: flag }
+              : prev
+          );
         }
       } catch (sessionError) {
         if ((sessionError as Error).name !== 'AbortError' && (sessionError as Error).message !== 'Unauthorized') {
@@ -626,16 +675,8 @@ export const HRMSProvider: React.FC<HRMSProviderProps> = ({ children }) => {
   const refreshLeaveBalances = async (employeeId?: string) => {
     const path = employeeId ? `/api/leaves?employeeId=${employeeId}` : '/api/leaves';
     const res = await authFetch<any>(path).catch(() => null);
-    if (res?.success && Array.isArray(res.data?.balances) && res.data.balances.length > 0) {
-      const b = res.data.balances;
-      const pick = (type: string) => b.find((x: any) => x.leaveType === type);
-      const casual = pick('Casual'); const sick = pick('Sick'); const earned = pick('Earned'); const wfh = pick('WFH');
-      setLeaveBalances({
-        casual: casual ? { total: casual.total, used: casual.used, remaining: casual.remaining } : MOCK_LEAVE_BALANCES.casual,
-        sick: sick ? { total: sick.total, used: sick.used, remaining: sick.remaining } : MOCK_LEAVE_BALANCES.sick,
-        earned: earned ? { total: earned.total, used: earned.used, remaining: earned.remaining } : MOCK_LEAVE_BALANCES.earned,
-        wfh: wfh ? { total: wfh.total, used: wfh.used, remaining: wfh.remaining } : MOCK_LEAVE_BALANCES.wfh,
-      });
+    if (res?.success && Array.isArray(res.data?.balances)) {
+      setLeaveBalances(mapDbBalances(res.data.balances));
     }
   };
 
@@ -664,7 +705,7 @@ export const HRMSProvider: React.FC<HRMSProviderProps> = ({ children }) => {
         };
         setLeaveRequests((prev) => [created, ...prev.filter((r) => r.id !== created.id)]);
         // Optimistically reduce balance on apply
-        const key = newLeave.leaveType.toLowerCase() as keyof typeof MOCK_LEAVE_BALANCES;
+        const key = newLeave.leaveType.toLowerCase() as keyof LeaveBalances;
         setLeaveBalances((prev) => ({
           ...prev,
           [key]: {
@@ -685,7 +726,7 @@ export const HRMSProvider: React.FC<HRMSProviderProps> = ({ children }) => {
 
     // If rejecting a pending leave of current user, restore balance
     if (req && status === 'Rejected' && req.status === 'Pending' && req.employeeId === currentUser.id) {
-      const key = req.leaveType.toLowerCase() as keyof typeof MOCK_LEAVE_BALANCES;
+      const key = req.leaveType.toLowerCase() as keyof LeaveBalances;
       setLeaveBalances((prev) => ({
         ...prev,
         [key]: {

@@ -7,10 +7,11 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotifyService } from '../common/notifications/notify.service';
 
 @Injectable()
 export class MyTeamService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private notify: NotifyService) {}
 
   async findAll(userId: string, userRole: string, managerId?: string) {
     const targetManagerId = userRole === 'admin' && managerId ? managerId : userId;
@@ -74,6 +75,23 @@ export class MyTeamService {
         members: { include: { employee: true } },
       },
     });
+
+    await this.notify.notifyUser({
+      userId: leaderId,
+      title: 'You are now a Team Leader',
+      message: `You have been made the leader of team "${team.name}" (${team.department}).`,
+      type: 'Meeting',
+      linkUrl: '/my-team',
+    });
+    const memberIdsToNotify = memberIds.filter((id: string) => id !== leaderId);
+    if (memberIdsToNotify.length > 0) {
+      await this.notify.notifyUsers(memberIdsToNotify, {
+        title: 'You have been added to a team',
+        message: `You have been added as a member of team "${team.name}" (${team.department}).`,
+        type: 'Meeting',
+        linkUrl: '/my-team',
+      });
+    }
 
     return this.formatTeam(team, new Map());
   }
@@ -177,6 +195,16 @@ export class MyTeamService {
       },
     });
 
+    if (team.leaderId !== leaderId) {
+      await this.notify.notifyUser({
+        userId: leaderId,
+        title: 'You are now a Team Leader',
+        message: `You have been made the leader of team "${updated.name}" (${updated.department}).`,
+        type: 'Meeting',
+        linkUrl: '/my-team',
+      });
+    }
+
     return this.formatTeam(updated, await this.loadMetadata(updated.managerId));
   }
 
@@ -206,6 +234,15 @@ export class MyTeamService {
       },
     });
     if (!updated) throw new NotFoundException('Team not found.');
+
+    if (created.count > 0) {
+      await this.notify.notifyUsers(employeeIds, {
+        title: 'You have been added to a team',
+        message: `You have been added as a member of team "${updated.name}" (${updated.department}).`,
+        type: 'Meeting',
+        linkUrl: '/my-team',
+      });
+    }
 
     // Pre-wrapped (has `success` key) so the interceptor passes it through —
     // the frontend reads top-level `json.addedCount`.
@@ -238,6 +275,14 @@ export class MyTeamService {
       },
     });
     if (!updated) throw new NotFoundException('Team not found.');
+
+    await this.notify.notifyUser({
+      userId: employeeId,
+      title: 'Removed from team',
+      message: `You have been removed from team "${team.name}" (${team.department}).`,
+      type: 'Meeting',
+      linkUrl: '/my-team',
+    });
 
     return this.formatTeam(updated, await this.loadMetadata(updated.managerId));
   }

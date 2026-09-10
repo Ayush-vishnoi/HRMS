@@ -1,7 +1,9 @@
 import { PrismaService } from '../prisma/prisma.service';
+import { NotifyService } from '../common/notifications/notify.service';
 export declare class AnnouncementsService {
     private prisma;
-    constructor(prisma: PrismaService);
+    private notify;
+    constructor(prisma: PrismaService, notify: NotifyService);
     private serialize;
     findAll(userId: string, scope?: string): Promise<{
         id: any;

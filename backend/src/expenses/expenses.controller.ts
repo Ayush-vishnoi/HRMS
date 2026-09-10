@@ -7,6 +7,7 @@ import {
   Query,
   UseGuards,
   UseInterceptors,
+  UploadedFile,
   BadRequestException,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
@@ -60,7 +61,10 @@ export class ExpensesController {
    */
   @Post('upload')
   @UseInterceptors(FileInterceptor('receipt', { storage: receiptStorage }))
-  uploadReceipt(@CurrentUser() user: any, file?: UploadedReceiptFile) {
+  uploadReceipt(
+    @CurrentUser() user: any,
+    @UploadedFile() file?: UploadedReceiptFile,
+  ) {
     if (!file) {
       throw new BadRequestException('A receipt file is required.');
     }

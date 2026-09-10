@@ -1,9 +1,10 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotifyService } from '../common/notifications/notify.service';
 
 @Injectable()
 export class LeavesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private notify: NotifyService) {}
 
   async getBalances(employeeId: string) {
     return this.prisma.leaveBalance.findMany({ where: { employeeId } });
@@ -31,9 +32,20 @@ export class LeavesService {
     days: number;
     reason: string;
   }) {
-    return this.prisma.leaveRequest.create({
+    const created = await this.prisma.leaveRequest.create({
       data: { ...data, appliedOn: new Date().toISOString().split('T')[0] },
     });
+    const employee = await this.prisma.employee.findUnique({
+      where: { id: data.employeeId },
+      select: { name: true },
+    });
+    await this.notify.notifyManagerOf(data.employeeId, {
+      title: 'New leave request',
+      message: `${employee?.name ?? 'An employee'} requested ${data.days} day(s) of ${data.leaveType} leave (${data.startDate} to ${data.endDate}).`,
+      type: 'Leave',
+      linkUrl: '/leaves',
+    });
+    return created;
   }
 
   async reviewRequest(id: string, status: 'Approved' | 'Rejected', reviewerId: string) {
@@ -51,6 +63,14 @@ export class LeavesService {
         data: { used: { increment: req.days }, remaining: { decrement: req.days } },
       });
     }
+
+    await this.notify.notifyUser({
+      userId: req.employeeId,
+      title: status === 'Approved' ? 'Leave approved' : 'Leave rejected',
+      message: `Your ${req.leaveType} leave request (${req.days} day(s), ${req.startDate} to ${req.endDate}) has been ${status.toLowerCase()}.`,
+      type: 'Leave',
+      linkUrl: '/leaves',
+    });
     return updated;
   }
 }

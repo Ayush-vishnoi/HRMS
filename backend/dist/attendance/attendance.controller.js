@@ -22,8 +22,8 @@ let AttendanceController = class AttendanceController {
     constructor(attendanceService) {
         this.attendanceService = attendanceService;
     }
-    findAll(employeeId, from, to) {
-        return this.attendanceService.findAll(employeeId, from, to);
+    findAll(userId, employeeId, from, to) {
+        return this.attendanceService.findAll(employeeId || userId, from, to);
     }
     create(userId, body) {
         const { employeeId, ...rest } = body ?? {};
@@ -48,11 +48,12 @@ let AttendanceController = class AttendanceController {
 exports.AttendanceController = AttendanceController;
 __decorate([
     (0, common_1.Get)(),
-    __param(0, (0, common_1.Query)('employeeId')),
-    __param(1, (0, common_1.Query)('from')),
-    __param(2, (0, common_1.Query)('to')),
+    __param(0, (0, current_user_decorator_1.CurrentUser)('id')),
+    __param(1, (0, common_1.Query)('employeeId')),
+    __param(2, (0, common_1.Query)('from')),
+    __param(3, (0, common_1.Query)('to')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String, String]),
+    __metadata("design:paramtypes", [String, String, String, String]),
     __metadata("design:returntype", void 0)
 ], AttendanceController.prototype, "findAll", null);
 __decorate([

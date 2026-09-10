@@ -12,10 +12,13 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.MyTeamService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma/prisma.service");
+const notify_service_1 = require("../common/notifications/notify.service");
 let MyTeamService = class MyTeamService {
     prisma;
-    constructor(prisma) {
+    notify;
+    constructor(prisma, notify) {
         this.prisma = prisma;
+        this.notify = notify;
     }
     async findAll(userId, userRole, managerId) {
         const targetManagerId = userRole === 'admin' && managerId ? managerId : userId;
@@ -63,6 +66,22 @@ let MyTeamService = class MyTeamService {
                 members: { include: { employee: true } },
             },
         });
+        await this.notify.notifyUser({
+            userId: leaderId,
+            title: 'You are now a Team Leader',
+            message: `You have been made the leader of team "${team.name}" (${team.department}).`,
+            type: 'Meeting',
+            linkUrl: '/my-team',
+        });
+        const memberIdsToNotify = memberIds.filter((id) => id !== leaderId);
+        if (memberIdsToNotify.length > 0) {
+            await this.notify.notifyUsers(memberIdsToNotify, {
+                title: 'You have been added to a team',
+                message: `You have been added as a member of team "${team.name}" (${team.department}).`,
+                type: 'Meeting',
+                linkUrl: '/my-team',
+            });
+        }
         return this.formatTeam(team, new Map());
     }
     async deleteTeam(user, teamId) {
@@ -142,6 +161,15 @@ let MyTeamService = class MyTeamService {
                 members: { include: { employee: true } },
             },
         });
+        if (team.leaderId !== leaderId) {
+            await this.notify.notifyUser({
+                userId: leaderId,
+                title: 'You are now a Team Leader',
+                message: `You have been made the leader of team "${updated.name}" (${updated.department}).`,
+                type: 'Meeting',
+                linkUrl: '/my-team',
+            });
+        }
         return this.formatTeam(updated, await this.loadMetadata(updated.managerId));
     }
     async addMembers(user, body) {
@@ -167,6 +195,14 @@ let MyTeamService = class MyTeamService {
         });
         if (!updated)
             throw new common_1.NotFoundException('Team not found.');
+        if (created.count > 0) {
+            await this.notify.notifyUsers(employeeIds, {
+                title: 'You have been added to a team',
+                message: `You have been added as a member of team "${updated.name}" (${updated.department}).`,
+                type: 'Meeting',
+                linkUrl: '/my-team',
+            });
+        }
         return {
             success: true,
             data: this.formatTeam(updated, await this.loadMetadata(updated.managerId)),
@@ -192,6 +228,13 @@ let MyTeamService = class MyTeamService {
         });
         if (!updated)
             throw new common_1.NotFoundException('Team not found.');
+        await this.notify.notifyUser({
+            userId: employeeId,
+            title: 'Removed from team',
+            message: `You have been removed from team "${team.name}" (${team.department}).`,
+            type: 'Meeting',
+            linkUrl: '/my-team',
+        });
         return this.formatTeam(updated, await this.loadMetadata(updated.managerId));
     }
     async assertMembersAvailableForDepartment(employeeIds, department) {
@@ -279,6 +322,6 @@ let MyTeamService = class MyTeamService {
 exports.MyTeamService = MyTeamService;
 exports.MyTeamService = MyTeamService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [prisma_service_1.PrismaService])
+    __metadata("design:paramtypes", [prisma_service_1.PrismaService, notify_service_1.NotifyService])
 ], MyTeamService);
 //# sourceMappingURL=my-team.service.js.map

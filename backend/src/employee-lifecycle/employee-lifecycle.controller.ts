@@ -24,6 +24,18 @@ export class EmployeeLifecycleController {
     return this.lifecycleService.convertOffer(user, body);
   }
 
+  /** GET /api/employee-lifecycle/bank-details — my bank details record. */
+  @Get('bank-details')
+  getBankDetails(@CurrentUser('id') userId: string) {
+    return this.lifecycleService.getBankDetails(userId);
+  }
+
+  /** POST /api/employee-lifecycle/bank-details — submit salary account details. */
+  @Post('bank-details')
+  submitBankDetails(@CurrentUser() user: any, @Body() body: any) {
+    return this.lifecycleService.submitBankDetails(user, body);
+  }
+
   @Post()
   handleAction(@CurrentUser() user: any, @Body() body: any) {
     switch (body.action) {

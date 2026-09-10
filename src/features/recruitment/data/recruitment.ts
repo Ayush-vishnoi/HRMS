@@ -30,6 +30,7 @@ export interface RecruitmentJob {
   applicants: number;
   status: JobStatusType;
   postedOn: string;
+  createdAt?: string;
   description: string;
   requirements: string[];
   responsibilities?: string[];
@@ -47,6 +48,7 @@ export interface RecruitmentJob {
   approvals?: Array<{
     id: string;
     sequence: number;
+    approverId?: string | null;
     approverName: string;
     status: string;
     note?: string | null;
@@ -61,6 +63,7 @@ export interface RecruitmentCandidate {
   phone: string;
   avatar: string;
   appliedOn: string;
+  createdAt?: string;
   stage: CandidateStageType;
   score: number;
   experience: string;

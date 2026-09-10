@@ -67,7 +67,13 @@ let AuthService = class AuthService {
         if (!employee || !employee.passwordHash) {
             throw new common_1.UnauthorizedException('Invalid credentials');
         }
-        if (employee.lockedUntil && employee.lockedUntil > new Date()) {
+        const now = new Date();
+        if (employee.status === 'Exited') {
+            if (!employee.lockedUntil || employee.lockedUntil <= now) {
+                throw new common_1.UnauthorizedException('Your employment has ended. Login access has been revoked after the exit grace window.');
+            }
+        }
+        else if (employee.lockedUntil && employee.lockedUntil > now) {
             throw new common_1.UnauthorizedException('Account is locked. Try again later.');
         }
         const valid = await argon2.verify(employee.passwordHash, dto.password);
@@ -94,6 +100,7 @@ let AuthService = class AuthService {
                 userRole: employee.userRole,
                 department: employee.department,
                 avatarUrl: employee.avatarUrl,
+                mustChangePassword: employee.mustChangePassword,
             },
         };
     }
@@ -109,8 +116,32 @@ let AuthService = class AuthService {
                 department: true,
                 avatarUrl: true,
                 status: true,
+                mustChangePassword: true,
             },
         });
+    }
+    async changePassword(userId, body) {
+        const employee = await this.prisma.employee.findUnique({ where: { id: userId } });
+        if (!employee || !employee.passwordHash) {
+            throw new common_1.UnauthorizedException('Account not found');
+        }
+        const current = (body.currentPassword ?? '').trim();
+        const next = (body.newPassword ?? '').trim();
+        if (!current || !next)
+            throw new common_1.UnauthorizedException('Current and new passwords are required');
+        if (next.length < 8)
+            throw new common_1.UnauthorizedException('New password must be at least 8 characters');
+        if (next === current)
+            throw new common_1.UnauthorizedException('New password must be different from the current password');
+        const valid = await argon2.verify(employee.passwordHash, current);
+        if (!valid)
+            throw new common_1.UnauthorizedException('Current password is incorrect');
+        const passwordHash = await argon2.hash(next);
+        await this.prisma.employee.update({
+            where: { id: userId },
+            data: { passwordHash, mustChangePassword: false, failedLoginAttempts: 0 },
+        });
+        return { success: true, message: 'Password updated successfully.' };
     }
 };
 exports.AuthService = AuthService;

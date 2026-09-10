@@ -29,6 +29,9 @@ let AuthController = class AuthController {
     getSession(userId) {
         return this.authService.getSession(userId);
     }
+    changePassword(userId, body) {
+        return this.authService.changePassword(userId, body);
+    }
 };
 exports.AuthController = AuthController;
 __decorate([
@@ -46,6 +49,15 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", void 0)
 ], AuthController.prototype, "getSession", null);
+__decorate([
+    (0, common_1.Post)('change-password'),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
+    __param(0, (0, current_user_decorator_1.CurrentUser)('id')),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", void 0)
+], AuthController.prototype, "changePassword", null);
 exports.AuthController = AuthController = __decorate([
     (0, common_1.Controller)('auth'),
     __metadata("design:paramtypes", [auth_service_1.AuthService])

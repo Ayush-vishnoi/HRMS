@@ -4,6 +4,21 @@ export declare class AnalyticsController {
     constructor(analyticsService: AnalyticsService);
     getMetrics(): Promise<{
         totalHeadcount: number;
+        newHiresThisMonth: number;
+        openJobCount: number;
+        activeJobOpenings: number;
+        topOpeningsDept: string;
+        attritionRate: string;
+        attritionNote: string;
+        departedCount: number;
+        activeExitRequests: number;
+        complianceItems: {
+            id: string;
+            title: string;
+            badge: string;
+            detail: string;
+            count: number;
+        }[];
         openHrActions: number;
         attendanceRate: string;
         recruitmentPipeline: {

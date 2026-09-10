@@ -22,10 +22,10 @@ let LeavesController = class LeavesController {
     constructor(leavesService) {
         this.leavesService = leavesService;
     }
-    async getAll(userId, employeeId, status) {
+    async getAll(userId, userRole, employeeId, status) {
         const targetId = employeeId || userId;
         const [requests, balances] = await Promise.all([
-            this.leavesService.getRequests(employeeId, status),
+            this.leavesService.getRequests(userRole === 'employee' ? targetId : employeeId, status),
             this.leavesService.getBalances(targetId),
         ]);
         return { requests, balances };
@@ -48,10 +48,11 @@ exports.LeavesController = LeavesController;
 __decorate([
     (0, common_1.Get)(),
     __param(0, (0, current_user_decorator_1.CurrentUser)('id')),
-    __param(1, (0, common_1.Query)('employeeId')),
-    __param(2, (0, common_1.Query)('status')),
+    __param(1, (0, current_user_decorator_1.CurrentUser)('userRole')),
+    __param(2, (0, common_1.Query)('employeeId')),
+    __param(3, (0, common_1.Query)('status')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String, String]),
+    __metadata("design:paramtypes", [String, String, String, String]),
     __metadata("design:returntype", Promise)
 ], LeavesController.prototype, "getAll", null);
 __decorate([

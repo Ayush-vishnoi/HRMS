@@ -19,6 +19,16 @@ import { authFetch } from '@/lib/api-client';
 import { useHRMS } from '@/shared/providers/HRMSContext';
 
 type DeptCount = { name: string; count: number; color: string };
+type ComplianceItem = { id: string; title: string; badge: string; detail: string; count: number };
+type HrMetrics = {
+  newHiresThisMonth: number;
+  openJobCount: number;
+  activeJobOpenings: number;
+  topOpeningsDept: string | null;
+  attritionRate: string;
+  attritionNote: string;
+  complianceItems: ComplianceItem[];
+};
 
 export const AdminDashboard: React.FC = () => {
   const {
@@ -30,6 +40,7 @@ export const AdminDashboard: React.FC = () => {
   const [resolutionNotes, setResolutionNotes] = useState<Record<string, string>>({});
   const [headcountByDept, setHeadcountByDept] = useState<DeptCount[]>([]);
   const [totalHeadcount, setTotalHeadcount] = useState(0);
+  const [metrics, setMetrics] = useState<HrMetrics | null>(null);
 
   useEffect(() => {
     authFetch<{ success: boolean; data: any }>('/api/analytics')
@@ -37,6 +48,15 @@ export const AdminDashboard: React.FC = () => {
         if (res?.success && res.data) {
           setHeadcountByDept(res.data.headcountByDept || []);
           setTotalHeadcount(res.data.totalHeadcount || 0);
+          setMetrics({
+            newHiresThisMonth: res.data.newHiresThisMonth ?? 0,
+            openJobCount: res.data.openJobCount ?? 0,
+            activeJobOpenings: res.data.activeJobOpenings ?? 0,
+            topOpeningsDept: res.data.topOpeningsDept ?? null,
+            attritionRate: res.data.attritionRate ?? '—',
+            attritionNote: res.data.attritionNote ?? '',
+            complianceItems: res.data.complianceItems ?? [],
+          });
         }
       })
       .catch(() => {});
@@ -46,6 +66,7 @@ export const AdminDashboard: React.FC = () => {
   const askHrTickets = helpDeskTickets.filter((ticket) => ticket.category !== 'Grievance / Complaint');
   const complaintTickets = helpDeskTickets.filter((ticket) => ticket.category === 'Grievance / Complaint');
   const openTicketCount = helpDeskTickets.filter((ticket) => ticket.status !== 'Resolved').length;
+  const complianceItems = metrics?.complianceItems ?? [];
 
   return (
     <div className="space-y-6">
@@ -81,7 +102,7 @@ export const AdminDashboard: React.FC = () => {
           </div>
 
           <span className="text-[11px] text-[#17324A]/70 font-medium">
-            +8 new hires this month
+            {metrics ? `+${metrics.newHiresThisMonth} new hire${metrics.newHiresThisMonth === 1 ? '' : 's'} this month` : 'Loading…'}
           </span>
         </div>
 
@@ -93,11 +114,15 @@ export const AdminDashboard: React.FC = () => {
           </div>
 
           <div className="text-2xl font-black text-[#17324A] mt-2">
-            14
+            {metrics?.activeJobOpenings ?? '—'}
           </div>
 
           <span className="text-[11px] text-[#17324A]/70 font-medium">
-            Engineering & Product
+            {metrics
+              ? metrics.topOpeningsDept
+                ? `${metrics.topOpeningsDept} · ${metrics.openJobCount} open role${metrics.openJobCount === 1 ? '' : 's'}`
+                : 'No open positions right now'
+              : 'Loading…'}
           </span>
         </div>
 
@@ -109,11 +134,11 @@ export const AdminDashboard: React.FC = () => {
           </div>
 
           <div className="text-2xl font-black text-[#17324A] mt-2">
-            2.4%
+            {metrics?.attritionRate ?? '—'}
           </div>
 
           <span className="text-[11px] text-[#17324A]/70 font-medium">
-            Below industry avg (5%)
+            {metrics?.attritionNote ?? 'Loading…'}
           </span>
         </div>
       </div>
@@ -165,61 +190,28 @@ export const AdminDashboard: React.FC = () => {
           </h3>
 
           <div className="space-y-3">
+            {complianceItems.map((item) => (
+              <div key={item.id} className="p-3 rounded-xl bg-[#B0D0EA]/25 border border-[#B0D0EA] space-y-1">
 
-            {/* KYC */}
-            <div className="p-3 rounded-xl bg-[#B0D0EA]/25 border border-[#B0D0EA] space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-[#17324A]">
+                    {item.title}
+                  </span>
 
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-[#17324A]">
-                  Employee KYC Verifications
-                </span>
+                  <span className={`text-[9px] px-2 py-0.5 rounded border font-bold ${item.count > 0 ? 'bg-[#B0D0EA]/60 text-[#17324A] border-[#B0D0EA]' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
+                    {item.count > 0 ? item.badge : 'Clear'}
+                  </span>
+                </div>
 
-                <span className="text-[9px] px-2 py-0.5 rounded bg-[#B0D0EA]/60 text-[#17324A] border border-[#B0D0EA] font-bold">
-                  3 Pending
-                </span>
+                <p className="text-[11px] text-[#17324A]/70">
+                  {item.detail}
+                </p>
               </div>
+            ))}
 
-              <p className="text-[11px] text-[#17324A]/70">
-                3 new hires require Aadhaar and PAN verification completion.
-              </p>
-            </div>
-
-            {/* Payroll */}
-            <div className="p-3 rounded-xl bg-[#B0D0EA]/25 border border-[#B0D0EA] space-y-1">
-
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-[#17324A]">
-                  August Payroll Pre-Run
-                </span>
-
-                <span className="text-[9px] px-2 py-0.5 rounded bg-[#B0D0EA]/60 text-[#17324A] border border-[#B0D0EA] font-bold">
-                  Ready
-                </span>
-              </div>
-
-              <p className="text-[11px] text-[#17324A]/70">
-                Monthly tax withholding & PF calculations updated.
-              </p>
-            </div>
-
-            {/* Appraisal */}
-            <div className="p-3 rounded-xl bg-[#B0D0EA]/25 border border-[#B0D0EA] space-y-1">
-
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-[#17324A]">
-                  Q3 Appraisal Cycle
-                </span>
-
-                <span className="text-[9px] px-2 py-0.5 rounded bg-[#B0D0EA]/60 text-[#17324A] border border-[#B0D0EA] font-bold">
-                  Scheduled
-                </span>
-              </div>
-
-              <p className="text-[11px] text-[#17324A]/70">
-                360-degree feedback reviews launch Sept 1st.
-              </p>
-            </div>
-
+            {complianceItems.length === 0 && (
+              <p className="text-xs text-[#17324A]/50">Loading compliance data…</p>
+            )}
           </div>
         </div>
       </div>
@@ -319,7 +311,7 @@ export const AdminDashboard: React.FC = () => {
                 {group.tickets.length === 0 ? (
                   <div className="rounded-lg border border-dashed border-[#B0D0EA] bg-white px-3 py-8 text-center text-[11px] text-[#667085]">No {group.complaint ? 'complaints' : 'Ask HR tickets'} received.</div>
                 ) : (
-                  <div className="space-y-3">
+                  <div className="max-h-[36rem] space-y-3 overflow-y-auto pr-1">
                     {group.tickets.map((ticket) => (
               <article key={ticket.id} className="min-w-0 overflow-hidden rounded-xl border border-[#D9E5EE] bg-white p-4">
                 <div className="flex min-w-0 flex-col gap-4">

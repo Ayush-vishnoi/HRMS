@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotifyService } from '../common/notifications/notify.service';
 import { calculateEmployeeMonthlyPayroll } from './engines/payroll-engine';
 import { generateForm16Statement } from './engines/form16-service';
 import { runPayrollCycleReconciliation } from './engines/reconciliation-engine';
@@ -31,7 +32,10 @@ const MONTH_NAMES = [
 
 @Injectable()
 export class PayrollService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notify: NotifyService,
+  ) {}
 
   async getPayslips(employeeId?: string, monthYear?: string) {
     const where: any = {};
@@ -467,6 +471,17 @@ export class PayrollService {
             paymentDate: paymentDateStr,
             status: 'Paid',
           },
+        });
+      }
+
+      // Notify every employee in the cycle that their salary was credited
+      const paidEmployeeIds = cycle.items.map((item: any) => item.employeeId);
+      if (paidEmployeeIds.length > 0) {
+        await this.notify.notifyUsers(paidEmployeeIds, {
+          title: 'Salary credited',
+          message: `Your salary for ${cycle.monthYear} has been credited. Your payslip is now available.`,
+          type: 'Payroll',
+          linkUrl: '/payroll',
         });
       }
     }
@@ -1185,6 +1200,15 @@ export class PayrollService {
         employeeId,
         details: JSON.stringify({ payType, amount, monthYear, reason, approvedBy: user.id }),
       },
+    });
+
+    // Notify the employee about the new variable pay record
+    await this.notify.notifyUser({
+      userId: employeeId,
+      title: 'Variable pay added',
+      message: `A ${String(payType)} of ₹${Number(amount)} for ${monthYear} has been added to your payroll. Reason: ${reason}`,
+      type: 'Payroll',
+      linkUrl: '/payroll',
     });
 
     return record;

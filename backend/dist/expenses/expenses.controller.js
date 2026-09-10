@@ -77,6 +77,7 @@ __decorate([
     (0, common_1.Post)('upload'),
     (0, common_1.UseInterceptors)((0, multer_1.FileInterceptor)('receipt', { storage: receiptStorage })),
     __param(0, (0, current_user_decorator_1.CurrentUser)()),
+    __param(1, (0, common_1.UploadedFile)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object, Object]),
     __metadata("design:returntype", void 0)

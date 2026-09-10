@@ -226,13 +226,22 @@ let PerformanceService = class PerformanceService {
             },
             include: KRA_INCLUDE,
         });
+        if (body.assignedToId && body.assignedToId !== user.id) {
+            await this.notify.notifyUser({
+                userId: body.assignedToId,
+                title: 'New KRA assigned',
+                message: `You have been assigned a new KRA "${body.title}"${body.dueDate ? ` (due ${body.dueDate})` : ''}.`,
+                type: 'Performance',
+                linkUrl: '/performance',
+            });
+        }
         return formatKra(newKra);
     }
     async updateKra(user, body) {
         const { id, progress, status, lastUpdate } = body;
         const existing = await this.prisma.performanceKra.findUnique({
             where: { id },
-            select: { assignedToId: true },
+            select: { assignedToId: true, assignedById: true, title: true },
         });
         if (!existing)
             throw new common_1.NotFoundException('KRA not found');
@@ -246,6 +255,24 @@ let PerformanceService = class PerformanceService {
             },
             include: KRA_INCLUDE,
         });
+        if (existing.assignedById && user.id === existing.assignedToId && existing.assignedById !== user.id) {
+            await this.notify.notifyUser({
+                userId: existing.assignedById,
+                title: 'KRA progress update',
+                message: `KRA "${existing.title}" was updated${progress !== undefined ? ` to ${Number(progress)}% progress` : ''}${status !== undefined ? ` — status: ${status}` : ''}.`,
+                type: 'Performance',
+                linkUrl: '/performance',
+            });
+        }
+        else if (user.id !== existing.assignedToId) {
+            await this.notify.notifyUser({
+                userId: existing.assignedToId,
+                title: 'KRA updated',
+                message: `Your KRA "${existing.title}" was updated by your manager.`,
+                type: 'Performance',
+                linkUrl: '/performance',
+            });
+        }
         return formatKra(updated);
     }
     async getGoalsData(user, employeeId, scope, type, cycleId) {

@@ -12,6 +12,7 @@ export declare class NotificationsController {
         isRead: boolean;
         createdAt: Date;
     }[]>;
+    markAllRead(userId: string): Promise<import("@prisma/client").Prisma.BatchPayload>;
     markRead(id: string): Promise<{
         message: string;
         id: string;
@@ -22,5 +23,17 @@ export declare class NotificationsController {
         isRead: boolean;
         createdAt: Date;
     }>;
-    markAllRead(userId: string): Promise<import("@prisma/client").Prisma.BatchPayload>;
+    remove(userId: string, id: string): Promise<{
+        message: string;
+        id: string;
+        userId: string;
+        title: string;
+        type: string;
+        linkUrl: string | null;
+        isRead: boolean;
+        createdAt: Date;
+    }>;
+    removeAll(userId: string): Promise<{
+        deleted: number;
+    }>;
 }

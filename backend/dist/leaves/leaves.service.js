@@ -12,10 +12,13 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.LeavesService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma/prisma.service");
+const notify_service_1 = require("../common/notifications/notify.service");
 let LeavesService = class LeavesService {
     prisma;
-    constructor(prisma) {
+    notify;
+    constructor(prisma, notify) {
         this.prisma = prisma;
+        this.notify = notify;
     }
     async getBalances(employeeId) {
         return this.prisma.leaveBalance.findMany({ where: { employeeId } });
@@ -36,9 +39,20 @@ let LeavesService = class LeavesService {
         });
     }
     async createRequest(data) {
-        return this.prisma.leaveRequest.create({
+        const created = await this.prisma.leaveRequest.create({
             data: { ...data, appliedOn: new Date().toISOString().split('T')[0] },
         });
+        const employee = await this.prisma.employee.findUnique({
+            where: { id: data.employeeId },
+            select: { name: true },
+        });
+        await this.notify.notifyManagerOf(data.employeeId, {
+            title: 'New leave request',
+            message: `${employee?.name ?? 'An employee'} requested ${data.days} day(s) of ${data.leaveType} leave (${data.startDate} to ${data.endDate}).`,
+            type: 'Leave',
+            linkUrl: '/leaves',
+        });
+        return created;
     }
     async reviewRequest(id, status, reviewerId) {
         const req = await this.prisma.leaveRequest.findUnique({ where: { id } });
@@ -54,12 +68,19 @@ let LeavesService = class LeavesService {
                 data: { used: { increment: req.days }, remaining: { decrement: req.days } },
             });
         }
+        await this.notify.notifyUser({
+            userId: req.employeeId,
+            title: status === 'Approved' ? 'Leave approved' : 'Leave rejected',
+            message: `Your ${req.leaveType} leave request (${req.days} day(s), ${req.startDate} to ${req.endDate}) has been ${status.toLowerCase()}.`,
+            type: 'Leave',
+            linkUrl: '/leaves',
+        });
         return updated;
     }
 };
 exports.LeavesService = LeavesService;
 exports.LeavesService = LeavesService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [prisma_service_1.PrismaService])
+    __metadata("design:paramtypes", [prisma_service_1.PrismaService, notify_service_1.NotifyService])
 ], LeavesService);
 //# sourceMappingURL=leaves.service.js.map

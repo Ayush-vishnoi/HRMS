@@ -31,6 +31,17 @@ const STAGES = [
     'Archived',
 ];
 const ACTIVE_OFFER_STATUSES = ['Draft', 'PendingApproval', 'Approved', 'Sent', 'Viewed'];
+const EMPLOYEE_SUMMARY_SELECT = {
+    id: true,
+    employeeCode: true,
+    name: true,
+    email: true,
+    roleTitle: true,
+    userRole: true,
+    department: true,
+    avatarUrl: true,
+    status: true,
+};
 let RecruitmentService = class RecruitmentService {
     prisma;
     notify;
@@ -43,9 +54,9 @@ let RecruitmentService = class RecruitmentService {
             this.prisma.recruitmentJob.findMany({
                 orderBy: { createdAt: 'desc' },
                 include: {
-                    recruitment_job_approvals: { include: { employees: true } },
-                    hiringManager: true,
-                    recruiter: true,
+                    recruitment_job_approvals: { include: { employees: { select: EMPLOYEE_SUMMARY_SELECT } } },
+                    hiringManager: { select: EMPLOYEE_SUMMARY_SELECT },
+                    recruiter: { select: EMPLOYEE_SUMMARY_SELECT },
                     candidates: { select: { id: true, stage: true } },
                 },
             }),
@@ -53,10 +64,10 @@ let RecruitmentService = class RecruitmentService {
                 orderBy: { createdAt: 'desc' },
                 include: {
                     job: true,
-                    onboarding: true,
+                    onboarding: { include: { employee: { select: EMPLOYEE_SUMMARY_SELECT } } },
                     resumeDocument: true,
                     matches: true,
-                    assignedRecruiter: true,
+                    assignedRecruiter: { select: EMPLOYEE_SUMMARY_SELECT },
                 },
             }),
         ]);
@@ -66,7 +77,6 @@ let RecruitmentService = class RecruitmentService {
         if (!data.title || !data.department || !data.location || !data.description) {
             throw new common_1.BadRequestException('title, department, location and description are required.');
         }
-        const status = STAGES.includes(data.status) ? data.status : 'Open';
         const job = await this.prisma.recruitmentJob.create({
             data: {
                 id: crypto.randomUUID(),
@@ -75,7 +85,7 @@ let RecruitmentService = class RecruitmentService {
                 location: String(data.location),
                 employmentType: data.employmentType === 'Contract' ? 'Contract' : 'FullTime',
                 openings: Number(data.openings) > 0 ? Math.round(Number(data.openings)) : 1,
-                status: data.status === 'PendingApproval' ? 'PendingApproval' : data.status === 'Draft' ? 'Draft' : 'Open',
+                status: data.status === 'Draft' ? 'Draft' : 'Open',
                 postedOn: new Date().toISOString().slice(0, 10),
                 description: String(data.description),
                 requirements: Array.isArray(data.requirements) ? data.requirements.map(String) : [],
@@ -113,9 +123,26 @@ let RecruitmentService = class RecruitmentService {
             data.priority = String(body.priority);
         if (body.openings != null)
             data.openings = Math.max(1, Math.round(Number(body.openings) || 1));
+        if (body.hiringManagerId !== undefined)
+            data.hiring_manager_id = body.hiringManagerId || null;
+        if (body.recruiterId !== undefined)
+            data.recruiter_id = body.recruiterId || null;
         if (Object.keys(data).length === 0)
             return job;
         return this.prisma.recruitmentJob.update({ where: { id: jobId }, data });
+    }
+    async resolveFallbackApproverId() {
+        const manager = await this.prisma.employee.findFirst({
+            where: { userRole: 'manager', status: 'Active' },
+            select: { id: true },
+        });
+        if (manager)
+            return manager.id;
+        const admin = await this.prisma.employee.findFirst({
+            where: { userRole: 'admin' },
+            select: { id: true },
+        });
+        return admin?.id ?? null;
     }
     async handleJobAction(job, body) {
         const action = String(body.action);
@@ -123,30 +150,30 @@ let RecruitmentService = class RecruitmentService {
             if (job.status !== 'Draft' && job.status !== 'Open') {
                 throw new common_1.BadRequestException(`Cannot submit job in "${job.status}" status for approval.`);
             }
-            const hiringManagerId = job.hiring_manager_id;
+            const hiringManagerId = job.hiring_manager_id || (await this.resolveFallbackApproverId());
             if (!hiringManagerId) {
                 throw new common_1.BadRequestException('Job must have a hiring manager before submitting for approval.');
             }
-            const admins = await this.prisma.employee.findMany({
-                where: { userRole: 'admin' },
+            const admin = await this.prisma.employee.findFirst({
+                where: { userRole: 'admin', id: { not: hiringManagerId } },
                 select: { id: true },
             });
-            const admin = admins[0];
             if (!admin) {
-                throw new common_1.BadRequestException('No admin approver available. Configure an admin first.');
+                throw new common_1.BadRequestException('No distinct admin approver available for L2. Assign a hiring manager and configure an admin first.');
             }
+            const adminId = admin.id;
             const updated = await this.prisma.$transaction(async (tx) => {
                 await tx.recruitment_job_approvals.deleteMany({ where: { job_id: job.id } });
                 await tx.recruitment_job_approvals.create({
                     data: { job_id: job.id, sequence: 1, approver_id: hiringManagerId, status: 'Pending', note: body.note || null },
                 });
                 await tx.recruitment_job_approvals.create({
-                    data: { job_id: job.id, sequence: 2, approver_id: admin.id, status: 'Pending' },
+                    data: { job_id: job.id, sequence: 2, approver_id: adminId, status: 'Pending' },
                 });
                 return tx.recruitmentJob.update({
                     where: { id: job.id },
                     data: { status: 'PendingApproval' },
-                    include: { recruitment_job_approvals: { include: { employees: true } } },
+                    include: { recruitment_job_approvals: { include: { employees: { select: EMPLOYEE_SUMMARY_SELECT } } } },
                 });
             });
             this.notify
@@ -154,7 +181,7 @@ let RecruitmentService = class RecruitmentService {
                 userId: hiringManagerId,
                 title: 'Job approval requested',
                 message: `Job "${job.title}" is awaiting your L1 approval.`,
-                type: 'recruitment',
+                type: 'Recruitment',
                 linkUrl: '/recruitment',
             })
                 .catch(() => undefined);
@@ -192,15 +219,30 @@ let RecruitmentService = class RecruitmentService {
         const myStep = job.recruitment_job_approvals.find((a) => a.approver_id === actorId);
         if (!myStep)
             throw new common_1.ForbiddenException('You are not an approver for this job.');
-        if (myStep.status !== 'Pending') {
-            throw new common_1.BadRequestException('You have already acted on this approval.');
+        if (myStep.status !== 'Pending' && !(action === 'APPROVE' && myStep.status === 'Approved')) {
+            throw new common_1.BadRequestException('You have already acted on this approval. The requisition is still awaiting other approvers.');
         }
         if (action === 'APPROVE') {
             const updated = await this.prisma.$transaction(async (tx) => {
-                await tx.recruitment_job_approvals.update({
-                    where: { id: myStep.id },
-                    data: { status: 'Approved', note: body.note || null, acted_at: new Date() },
+                if (myStep.status === 'Pending') {
+                    await tx.recruitment_job_approvals.update({
+                        where: { id: myStep.id },
+                        data: { status: 'Approved', note: body.note || null, acted_at: new Date() },
+                    });
+                }
+                const supersededSteps = await tx.recruitment_job_approvals.findMany({
+                    where: { job_id: job.id, status: 'Pending', sequence: { lt: myStep.sequence } },
                 });
+                for (const step of supersededSteps) {
+                    await tx.recruitment_job_approvals.update({
+                        where: { id: step.id },
+                        data: {
+                            status: 'Approved',
+                            note: `Auto-approved: superseded by L${myStep.sequence} approval.`,
+                            acted_at: new Date(),
+                        },
+                    });
+                }
                 const steps = await tx.recruitment_job_approvals.findMany({
                     where: { job_id: job.id },
                     orderBy: { sequence: 'asc' },
@@ -210,14 +252,37 @@ let RecruitmentService = class RecruitmentService {
                     return tx.recruitmentJob.update({
                         where: { id: job.id },
                         data: { status: 'Approved' },
-                        include: { recruitment_job_approvals: { include: { employees: true } } },
+                        include: { recruitment_job_approvals: { include: { employees: { select: EMPLOYEE_SUMMARY_SELECT } } } },
                     });
                 }
                 return tx.recruitmentJob.findUnique({
                     where: { id: job.id },
-                    include: { recruitment_job_approvals: { include: { employees: true } } },
+                    include: { recruitment_job_approvals: { include: { employees: { select: EMPLOYEE_SUMMARY_SELECT } } } },
                 });
             });
+            const stepsAfter = updated?.recruitment_job_approvals ?? [];
+            const allStepsApproved = stepsAfter.every((s) => s.status === 'Approved');
+            const nextPendingStep = stepsAfter.find((s) => s.status === 'Pending');
+            if (allStepsApproved) {
+                if (job.hiring_manager_id && job.hiring_manager_id !== actorId) {
+                    await this.notify.notifyUser({
+                        userId: job.hiring_manager_id,
+                        title: 'Job approved',
+                        message: `Job "${job.title}" has been fully approved and is ready to publish.`,
+                        type: 'Recruitment',
+                        linkUrl: '/recruitment',
+                    });
+                }
+            }
+            else if (nextPendingStep && nextPendingStep.approver_id !== actorId) {
+                await this.notify.notifyUser({
+                    userId: nextPendingStep.approver_id,
+                    title: 'Job approval requested',
+                    message: `Job "${job.title}" is awaiting your L${nextPendingStep.sequence} approval.`,
+                    type: 'Recruitment',
+                    linkUrl: '/recruitment',
+                });
+            }
             return updated;
         }
         if (action === 'REJECT' || action === 'REQUEST_CHANGES') {
@@ -230,9 +295,18 @@ let RecruitmentService = class RecruitmentService {
                 return tx.recruitmentJob.update({
                     where: { id: job.id },
                     data: { status: action === 'REJECT' ? 'Draft' : 'Draft' },
-                    include: { recruitment_job_approvals: { include: { employees: true } } },
+                    include: { recruitment_job_approvals: { include: { employees: { select: EMPLOYEE_SUMMARY_SELECT } } } },
                 });
             });
+            if (job.hiring_manager_id && job.hiring_manager_id !== actorId) {
+                await this.notify.notifyUser({
+                    userId: job.hiring_manager_id,
+                    title: action === 'REJECT' ? 'Job rejected' : 'Job sent back for changes',
+                    message: `Job "${job.title}" was ${action === 'REJECT' ? 'rejected' : 'sent back for changes'} and moved to Draft.${body.note ? ` Note: ${body.note}` : ''}`,
+                    type: 'Recruitment',
+                    linkUrl: '/recruitment',
+                });
+            }
             return updated;
         }
         throw new common_1.BadRequestException(`Unknown approval action "${action}".`);
@@ -246,10 +320,10 @@ let RecruitmentService = class RecruitmentService {
             orderBy: { createdAt: 'desc' },
             include: {
                 job: true,
-                onboarding: true,
+                onboarding: { include: { employee: { select: EMPLOYEE_SUMMARY_SELECT } } },
                 resumeDocument: true,
                 matches: true,
-                assignedRecruiter: true,
+                assignedRecruiter: { select: EMPLOYEE_SUMMARY_SELECT },
             },
         });
     }
@@ -258,10 +332,10 @@ let RecruitmentService = class RecruitmentService {
             where: { id },
             include: {
                 job: true,
-                onboarding: true,
+                onboarding: { include: { employee: { select: EMPLOYEE_SUMMARY_SELECT } } },
                 resumeDocument: true,
                 matches: true,
-                assignedRecruiter: true,
+                assignedRecruiter: { select: EMPLOYEE_SUMMARY_SELECT },
             },
         });
         if (!candidate)
@@ -578,6 +652,38 @@ let RecruitmentService = class RecruitmentService {
         });
         return { candidateId, match };
     }
+    async getResumeFile(candidateId) {
+        const candidate = await this.prisma.recruitmentCandidate.findUnique({
+            where: { id: candidateId },
+            include: { resumeDocument: true },
+        });
+        if (!candidate)
+            throw new common_1.NotFoundException('Candidate not found.');
+        if (!candidate.resumeDocument) {
+            throw new common_1.NotFoundException('No resume uploaded for this candidate yet.');
+        }
+        let buffer;
+        try {
+            buffer = await (0, promises_1.readFile)(candidate.resumeDocument.storagePath);
+        }
+        catch {
+            throw new common_1.NotFoundException('Stored resume file is no longer available on disk.');
+        }
+        const fileName = candidate.resumeDocument.fileName || `resume-${candidateId}`;
+        const ext = fileName.split('.').pop()?.toLowerCase() || '';
+        const EXT_MIME = {
+            pdf: 'application/pdf',
+            docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            doc: 'application/msword',
+            txt: 'text/plain',
+            rtf: 'application/rtf',
+        };
+        const storedType = candidate.resumeDocument.fileType || '';
+        const mimeType = storedType.includes('/')
+            ? storedType
+            : EXT_MIME[ext] || EXT_MIME[storedType.toLowerCase()] || 'application/octet-stream';
+        return { buffer, fileName, mimeType };
+    }
     async recomputeMatch(candidate, skills, experienceYears, location, _education) {
         const job = candidate.job ?? (await this.prisma.recruitmentJob.findUnique({ where: { id: candidate.jobId } }));
         if (!job)
@@ -731,9 +837,142 @@ let RecruitmentService = class RecruitmentService {
             where: { candidate_id: candidateId },
             orderBy: [{ round: 'asc' }, { starts_at: 'asc' }],
             include: {
-                interview_panel_members: { include: { employees: true } },
-                interview_feedback: { include: { employees: true } },
+                interview_panel_members: { include: { employees: { select: EMPLOYEE_SUMMARY_SELECT } } },
+                interview_feedback: { include: { employees: { select: EMPLOYEE_SUMMARY_SELECT } } },
             },
+        });
+    }
+    async getMyApprovals(actorId) {
+        const [jobSteps, offerSteps] = await Promise.all([
+            this.prisma.recruitment_job_approvals.findMany({
+                where: { approver_id: actorId, status: 'Pending', recruitment_jobs: { status: 'PendingApproval' } },
+                include: {
+                    recruitment_jobs: {
+                        select: {
+                            id: true,
+                            title: true,
+                            department: true,
+                            recruitment_job_approvals: { select: { sequence: true, status: true }, orderBy: { sequence: 'asc' } },
+                        },
+                    },
+                },
+                orderBy: { sequence: 'asc' },
+            }),
+            this.prisma.recruitment_offer_approvals.findMany({
+                where: { approver_id: actorId, status: 'Pending', recruitment_offers: { status: 'PendingApproval' } },
+                include: {
+                    recruitment_offers: {
+                        select: {
+                            id: true,
+                            offered_title: true,
+                            recruitment_candidates: { select: { name: true, currentRole: true } },
+                            recruitment_offer_approvals: { select: { sequence: true, status: true }, orderBy: { sequence: 'asc' } },
+                        },
+                    },
+                },
+                orderBy: { sequence: 'asc' },
+            }),
+        ]);
+        const isMyTurn = (siblings, sequence) => siblings.filter((step) => step.sequence < sequence).every((step) => step.status === 'Approved');
+        return {
+            jobs: jobSteps
+                .filter((step) => isMyTurn(step.recruitment_jobs.recruitment_job_approvals, step.sequence))
+                .map((step) => ({
+                id: step.recruitment_jobs.id,
+                level: step.sequence,
+                title: step.recruitment_jobs.title,
+                context: step.recruitment_jobs.department,
+            })),
+            offers: offerSteps
+                .filter((step) => isMyTurn(step.recruitment_offers.recruitment_offer_approvals, step.sequence))
+                .map((step) => ({
+                id: step.recruitment_offers.id,
+                level: step.sequence,
+                title: step.recruitment_offers.offered_title,
+                candidate: step.recruitment_offers.recruitment_candidates.name,
+                context: step.recruitment_offers.recruitment_candidates.currentRole,
+            })),
+        };
+    }
+    interviewMeetingId(interviewId) {
+        return `i${(0, node_crypto_1.createHash)('sha256').update(interviewId).digest('hex').slice(1, 32)}`;
+    }
+    interviewMeetingStatus(status) {
+        if (status === 'Cancelled')
+            return 'CANCELLED';
+        if (status === 'Completed' || status === 'NoShow' || status === 'No Show')
+            return 'COMPLETED';
+        if (status === 'InProgress')
+            return 'ONGOING';
+        return 'UPCOMING';
+    }
+    async syncInterviewMeeting(interviewId) {
+        const interview = await this.prisma.recruitment_interviews.findUnique({
+            where: { id: interviewId },
+            include: {
+                interview_panel_members: true,
+                recruitment_candidates: { select: { name: true } },
+            },
+        });
+        if (!interview)
+            return;
+        const lead = interview.interview_panel_members.find((member) => member.is_lead) ??
+            interview.interview_panel_members[0];
+        if (!lead)
+            return;
+        const meetingId = this.interviewMeetingId(interviewId);
+        const panelIds = [...new Set(interview.interview_panel_members.map((member) => member.employee_id))];
+        const attendeeIds = panelIds.filter((employeeId) => employeeId !== lead.employee_id);
+        const title = `${interview.title} — ${interview.recruitment_candidates.name}`.slice(0, 150);
+        await this.prisma.$transaction(async (tx) => {
+            await tx.meeting.upsert({
+                where: { id: meetingId },
+                create: {
+                    id: meetingId,
+                    title,
+                    type: 'TEAM',
+                    description: `Interview for ${interview.recruitment_candidates.name} (Round ${interview.round}). Managed by Recruitment ATS.`,
+                    startsAt: interview.starts_at,
+                    endsAt: interview.ends_at,
+                    allDay: false,
+                    location: interview.location,
+                    videoLink: interview.meeting_url,
+                    organizerId: lead.employee_id,
+                    recurrence: 'NONE',
+                    reminderMinutes: 15,
+                    status: this.interviewMeetingStatus(interview.status),
+                    attendees: {
+                        create: [
+                            { employeeId: lead.employee_id, rsvp: 'ACCEPTED' },
+                            ...attendeeIds.map((employeeId) => ({ employeeId, rsvp: 'PENDING' })),
+                        ],
+                    },
+                },
+                update: {
+                    title,
+                    startsAt: interview.starts_at,
+                    endsAt: interview.ends_at,
+                    location: interview.location,
+                    videoLink: interview.meeting_url,
+                    organizerId: lead.employee_id,
+                    status: this.interviewMeetingStatus(interview.status),
+                },
+            });
+            const existingAttendees = await tx.meetingAttendee.findMany({
+                where: { meetingId },
+                select: { employeeId: true },
+            });
+            const currentIds = new Set([lead.employee_id, ...attendeeIds]);
+            await tx.meetingAttendee.deleteMany({
+                where: { meetingId, employeeId: { notIn: [...currentIds] } },
+            });
+            for (const employeeId of currentIds) {
+                if (!existingAttendees.some((attendee) => attendee.employeeId === employeeId)) {
+                    await tx.meetingAttendee.create({
+                        data: { meetingId, employeeId, rsvp: employeeId === lead.employee_id ? 'ACCEPTED' : 'PENDING' },
+                    });
+                }
+            }
         });
     }
     async createInterview(body) {
@@ -795,11 +1034,12 @@ let RecruitmentService = class RecruitmentService {
             linkUrl: '/recruitment',
         })
             .catch(() => undefined);
+        await this.syncInterviewMeeting(interview.id);
         return this.prisma.recruitment_interviews.findUnique({
             where: { id: interview.id },
             include: {
-                interview_panel_members: { include: { employees: true } },
-                interview_feedback: { include: { employees: true } },
+                interview_panel_members: { include: { employees: { select: EMPLOYEE_SUMMARY_SELECT } } },
+                interview_feedback: { include: { employees: { select: EMPLOYEE_SUMMARY_SELECT } } },
             },
         });
     }
@@ -811,18 +1051,29 @@ let RecruitmentService = class RecruitmentService {
         if (!interview)
             throw new common_1.NotFoundException('Interview not found.');
         if (body.status && !body.startsAt && !body.panelMembers) {
-            const allowed = ['Scheduled', 'Completed', 'Cancelled', 'No Show', 'Rescheduled'];
+            const allowed = [
+                'Scheduled',
+                'Confirmed',
+                'InProgress',
+                'Completed',
+                'Cancelled',
+                'NoShow',
+                'No Show',
+                'Rescheduled',
+            ];
             if (!allowed.includes(String(body.status))) {
                 throw new common_1.BadRequestException(`Invalid interview status "${body.status}".`);
             }
-            return this.prisma.recruitment_interviews.update({
+            const statusUpdated = await this.prisma.recruitment_interviews.update({
                 where: { id: interviewId },
                 data: { status: String(body.status), updated_at: new Date() },
                 include: {
-                    interview_panel_members: { include: { employees: true } },
-                    interview_feedback: { include: { employees: true } },
+                    interview_panel_members: { include: { employees: { select: EMPLOYEE_SUMMARY_SELECT } } },
+                    interview_feedback: { include: { employees: { select: EMPLOYEE_SUMMARY_SELECT } } },
                 },
             });
+            await this.syncInterviewMeeting(interviewId);
+            return statusUpdated;
         }
         const data = { updated_at: new Date() };
         if (body.title != null)
@@ -869,11 +1120,12 @@ let RecruitmentService = class RecruitmentService {
                 })),
             });
         }
+        await this.syncInterviewMeeting(interviewId);
         return this.prisma.recruitment_interviews.findUnique({
             where: { id: updated.id },
             include: {
-                interview_panel_members: { include: { employees: true } },
-                interview_feedback: { include: { employees: true } },
+                interview_panel_members: { include: { employees: { select: EMPLOYEE_SUMMARY_SELECT } } },
+                interview_feedback: { include: { employees: { select: EMPLOYEE_SUMMARY_SELECT } } },
             },
         });
     }
@@ -892,8 +1144,9 @@ let RecruitmentService = class RecruitmentService {
             throw new common_1.BadRequestException('overallScore must be between 1 and 5.');
         }
         const recommendation = String(body.recommendation || '');
-        if (!['Strong Yes', 'Yes', 'No', 'Strong No'].includes(recommendation)) {
-            throw new common_1.BadRequestException('recommendation must be one of Strong Yes / Yes / No / Strong No.');
+        const ALLOWED_RECOMMENDATIONS = ['StrongHire', 'Hire', 'Maybe', 'NoHire', 'StrongNoHire'];
+        if (!ALLOWED_RECOMMENDATIONS.includes(recommendation)) {
+            throw new common_1.BadRequestException(`recommendation must be one of ${ALLOWED_RECOMMENDATIONS.join(', ')}.`);
         }
         const scorecard = body.scorecard && Array.isArray(body.scorecard.criteria)
             ? {
@@ -923,7 +1176,7 @@ let RecruitmentService = class RecruitmentService {
                 comments: body.comments ? String(body.comments) : null,
                 submitted_at: new Date(),
             },
-            include: { employees: true },
+            include: { employees: { select: EMPLOYEE_SUMMARY_SELECT } },
         });
         return feedback;
     }
@@ -1020,7 +1273,7 @@ let RecruitmentService = class RecruitmentService {
         return this.prisma.candidate_notes.findMany({
             where: { candidate_id: candidateId },
             orderBy: { created_at: 'desc' },
-            include: { employees: true },
+            include: { employees: { select: EMPLOYEE_SUMMARY_SELECT } },
         });
     }
     async addNote(candidateId, body, authorId) {
@@ -1037,7 +1290,7 @@ let RecruitmentService = class RecruitmentService {
                 author_id: authorId,
                 note,
             },
-            include: { employees: true },
+            include: { employees: { select: EMPLOYEE_SUMMARY_SELECT } },
         });
     }
     async getTimeline(candidateId) {
@@ -1061,7 +1314,7 @@ let RecruitmentService = class RecruitmentService {
             this.prisma.candidate_notes.findMany({
                 where: { candidate_id: candidateId },
                 orderBy: { created_at: 'desc' },
-                include: { employees: true },
+                include: { employees: { select: EMPLOYEE_SUMMARY_SELECT } },
             }),
         ]);
         const items = [];
@@ -1102,15 +1355,29 @@ let RecruitmentService = class RecruitmentService {
         items.sort((a, b) => (a.timestamp < b.timestamp ? 1 : -1));
         return items;
     }
-    async getOffers(candidateId) {
-        return this.prisma.recruitment_offers.findMany({
-            where: { candidate_id: candidateId },
+    async getOffers(candidateId, actorId) {
+        const offers = await this.prisma.recruitment_offers.findMany({
+            where: candidateId ? { candidate_id: candidateId } : {},
             orderBy: [{ version: 'desc' }, { created_at: 'desc' }],
             include: {
-                recruitment_offer_approvals: { include: { employees: true } },
+                recruitment_offer_approvals: { include: { employees: { select: EMPLOYEE_SUMMARY_SELECT } } },
                 document_templates: true,
             },
         });
+        return offers.map((offer) => ({
+            ...offer,
+            approvalSummary: this.buildOfferApprovalSummary(offer, actorId),
+        }));
+    }
+    buildOfferApprovalSummary(offer, actorId) {
+        const steps = offer.recruitment_offer_approvals || [];
+        const completedLevels = steps.filter((s) => s.status === 'Approved').length;
+        const myStep = actorId ? steps.find((s) => s.approver_id === actorId) : undefined;
+        return {
+            completedLevels,
+            totalLevels: steps.length,
+            canCurrentUserApprove: offer.status === 'PendingApproval' && !!myStep && myStep.status === 'Pending',
+        };
     }
     buildSnapshot(offer) {
         const compensation = (0, offer_documents_1.calculateOfferCompensation)(offer.offeredCtc, offer.variablePayAnnual, offer.joiningBonus, offer.currency);
@@ -1164,7 +1431,7 @@ let RecruitmentService = class RecruitmentService {
                 updated_at: new Date(),
             },
             include: {
-                recruitment_offer_approvals: { include: { employees: true } },
+                recruitment_offer_approvals: { include: { employees: { select: EMPLOYEE_SUMMARY_SELECT } } },
                 document_templates: true,
             },
         });
@@ -1222,7 +1489,7 @@ let RecruitmentService = class RecruitmentService {
                 updated_at: new Date(),
             },
             include: {
-                recruitment_offer_approvals: { include: { employees: true } },
+                recruitment_offer_approvals: { include: { employees: { select: EMPLOYEE_SUMMARY_SELECT } } },
                 document_templates: true,
             },
         });
@@ -1240,13 +1507,15 @@ let RecruitmentService = class RecruitmentService {
         }
         const candidate = offer.recruitment_candidates;
         const job = await this.prisma.recruitmentJob.findUnique({ where: { id: candidate.jobId } });
-        const hiringManagerId = job?.hiring_manager_id;
+        const hiringManagerId = job?.hiring_manager_id || (await this.resolveFallbackApproverId());
         if (!hiringManagerId) {
             throw new common_1.BadRequestException('Job has no hiring manager to act as L1 approver.');
         }
-        const admin = await this.prisma.employee.findFirst({ where: { userRole: 'admin' } });
+        const admin = await this.prisma.employee.findFirst({
+            where: { userRole: 'admin', id: { not: hiringManagerId } },
+        });
         if (!admin) {
-            throw new common_1.BadRequestException('No admin approver available.');
+            throw new common_1.BadRequestException('No distinct admin approver available.');
         }
         const updated = await this.prisma.$transaction(async (tx) => {
             await tx.recruitment_offer_approvals.deleteMany({ where: { offer_id: offerId } });
@@ -1273,7 +1542,7 @@ let RecruitmentService = class RecruitmentService {
                 where: { id: offerId },
                 data: { status: 'PendingApproval', updated_at: new Date() },
                 include: {
-                    recruitment_offer_approvals: { include: { employees: true } },
+                    recruitment_offer_approvals: { include: { employees: { select: EMPLOYEE_SUMMARY_SELECT } } },
                     document_templates: true,
                 },
             });
@@ -1323,7 +1592,7 @@ let RecruitmentService = class RecruitmentService {
                     where: { id: offerId },
                     data: { status: allApproved ? 'Approved' : offer.status, updated_at: new Date() },
                     include: {
-                        recruitment_offer_approvals: { include: { employees: true } },
+                        recruitment_offer_approvals: { include: { employees: { select: EMPLOYEE_SUMMARY_SELECT } } },
                         document_templates: true,
                     },
                 });
@@ -1341,7 +1610,7 @@ let RecruitmentService = class RecruitmentService {
                     where: { id: offerId },
                     data: { status: 'Draft', updated_at: new Date() },
                     include: {
-                        recruitment_offer_approvals: { include: { employees: true } },
+                        recruitment_offer_approvals: { include: { employees: { select: EMPLOYEE_SUMMARY_SELECT } } },
                         document_templates: true,
                     },
                 });
@@ -1530,7 +1799,7 @@ let RecruitmentService = class RecruitmentService {
             where: { id: offerId },
             data: { status: 'Sent', sent_at: new Date(), updated_at: new Date() },
             include: {
-                recruitment_offer_approvals: { include: { employees: true } },
+                recruitment_offer_approvals: { include: { employees: { select: EMPLOYEE_SUMMARY_SELECT } } },
                 document_templates: true,
             },
         });

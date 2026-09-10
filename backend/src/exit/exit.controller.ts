@@ -15,6 +15,6 @@ export class ExitController {
 
   @Post()
   handleAction(@CurrentUser() user: any, @Body() body: any) {
-    return this.exitService.handleAction(user.id, body);
+    return this.exitService.handleAction({ id: user.id, userRole: user.userRole }, body);
   }
 }

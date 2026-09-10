@@ -23,4 +23,17 @@ export declare class NotificationsService {
         createdAt: Date;
     }>;
     markAllRead(userId: string): Promise<import("@prisma/client").Prisma.BatchPayload>;
+    remove(id: string, userId: string): Promise<{
+        message: string;
+        id: string;
+        userId: string;
+        title: string;
+        type: string;
+        linkUrl: string | null;
+        isRead: boolean;
+        createdAt: Date;
+    }>;
+    removeAll(userId: string): Promise<{
+        deleted: number;
+    }>;
 }

@@ -14,11 +14,20 @@ const common_1 = require("@nestjs/common");
 const passport_1 = require("@nestjs/passport");
 const passport_jwt_1 = require("passport-jwt");
 const prisma_service_1 = require("../prisma/prisma.service");
+const jwtFromRequest = passport_jwt_1.ExtractJwt.fromExtractors([
+    passport_jwt_1.ExtractJwt.fromAuthHeaderAsBearerToken(),
+    (req) => {
+        const token = req?.query?.token;
+        if (typeof token === 'string' && token.length > 0)
+            return token;
+        return null;
+    },
+]);
 let JwtStrategy = class JwtStrategy extends (0, passport_1.PassportStrategy)(passport_jwt_1.Strategy) {
     prisma;
     constructor(prisma) {
         super({
-            jwtFromRequest: passport_jwt_1.ExtractJwt.fromAuthHeaderAsBearerToken(),
+            jwtFromRequest,
             ignoreExpiration: false,
             secretOrKey: process.env.JWT_SECRET || 'hrms-secret-key',
         });
@@ -38,6 +47,9 @@ let JwtStrategy = class JwtStrategy extends (0, passport_1.PassportStrategy)(pas
                 status: true,
             },
         });
+        if (employee?.userRole === 'ceo') {
+            return { ...employee, userRole: 'admin' };
+        }
         return employee;
     }
 };

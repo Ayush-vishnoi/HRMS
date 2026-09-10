@@ -6,6 +6,7 @@ import { useHRMS } from '@/shared/providers/HRMSContext';
 import { Sidebar } from '@/shared/components/layout/Sidebar';
 import { Header } from '@/shared/components/layout/Header';
 import { LoginPage } from '@/features/auth/components/LoginPage';
+import { ForcedPasswordResetScreen } from '@/features/auth/components/ForcedPasswordResetScreen';
 import { ClockInPermissionModal } from '@/features/attendance/components/ClockInPermissionModal';
 import { ChatModal } from '@/features/chat/components/ChatModal';
 import { ChatToastNotification } from '@/features/chat/components/ChatToastNotification';
@@ -60,6 +61,9 @@ export const MainLayoutWrapper: React.FC<{ children: React.ReactNode }> = ({ chi
   }
 
   if (!isAuthenticated) return <LoginPage />;
+
+  // Onboarding STEP 2b: temporary password must be replaced before any access.
+  if (currentUser.mustChangePassword) return <ForcedPasswordResetScreen />;
 
   return (
     <div className="flex min-h-screen">

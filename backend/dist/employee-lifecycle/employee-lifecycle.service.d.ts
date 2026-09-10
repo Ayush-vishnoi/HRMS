@@ -1,23 +1,31 @@
 import { PrismaService } from '../prisma/prisma.service';
+import { NotifyService } from '../common/notifications/notify.service';
 export declare class EmployeeLifecycleService {
     private prisma;
-    constructor(prisma: PrismaService);
+    private notify;
+    constructor(prisma: PrismaService, notify: NotifyService);
     findAll(employeeId?: string): Promise<{
         candidates: ({
+            job: {
+                id: string;
+                location: string;
+                title: string;
+                department: string;
+            };
             recruitment_offers: ({
                 document_signatures: {
                     id: string;
                     status: import("@prisma/client").$Enums.DocumentSignatureStatus;
-                    signed_at: Date | null;
-                    created_at: Date;
                     updated_at: Date;
-                    provider: string;
+                    created_at: Date;
                     document_id: string | null;
                     signer_employee_id: string | null;
+                    provider: string;
                     external_reference: string | null;
                     signer_name: string;
                     signer_email: string;
                     requested_at: Date;
+                    signed_at: Date | null;
                     audit_note: string | null;
                     provider_metadata: import("@prisma/client/runtime/library").JsonValue | null;
                     recruitment_offer_id: string | null;
@@ -25,69 +33,63 @@ export declare class EmployeeLifecycleService {
             } & {
                 id: string;
                 status: import("@prisma/client").$Enums.RecruitmentOfferStatus;
-                template_id: string | null;
-                expires_at: Date | null;
-                created_at: Date;
                 updated_at: Date;
                 currency: string;
                 version: number;
+                created_at: Date;
                 candidate_id: string;
+                template_id: string | null;
                 offered_title: string;
                 offered_ctc: import("@prisma/client/runtime/library").Decimal | null;
                 proposed_join_date: Date | null;
+                expires_at: Date | null;
                 content_snapshot: string | null;
                 sent_at: Date | null;
                 viewed_at: Date | null;
                 responded_at: Date | null;
             })[];
-            job: {
-                id: string;
-                title: string;
-                department: string;
-                location: string;
-            };
         } & {
             id: string;
-            createdAt: Date;
+            jobId: string;
             name: string;
             email: string;
             phone: string;
             avatarUrl: string | null;
-            location: string;
-            updatedAt: Date;
             appliedOn: string;
-            source: import("@prisma/client").$Enums.CandidateSource;
-            jobId: string;
             stage: import("@prisma/client").$Enums.CandidateStage;
             score: number;
             experience: string;
             currentRole: string;
+            location: string;
             matchedSkills: string[];
             missingSkills: string[];
             summary: string;
             recommendation: import("@prisma/client").$Enums.CandidateRecommendation;
             tags: string[];
             assigned_recruiter_id: string | null;
+            createdAt: Date;
+            updatedAt: Date;
             ai_match_score: number | null;
             duplicate_key: string | null;
             parsed_resume: import("@prisma/client/runtime/library").JsonValue | null;
             referrer_id: string | null;
             resumeUrl: string | null;
+            source: import("@prisma/client").$Enums.CandidateSource;
             talent_pool: boolean;
         })[];
         employees: {
             id: string;
             name: string;
-            employeeCode: string;
             email: string;
-            roleTitle: string;
-            userRole: import("@prisma/client").$Enums.UserRole;
-            department: string;
             phone: string | null;
             avatarUrl: string | null;
-            status: import("@prisma/client").$Enums.EmploymentStatus;
-            joinDate: string;
             location: string;
+            status: import("@prisma/client").$Enums.EmploymentStatus;
+            department: string;
+            employeeCode: string;
+            roleTitle: string;
+            userRole: import("@prisma/client").$Enums.UserRole;
+            joinDate: string;
             salary: import("@prisma/client/runtime/library").Decimal;
             managerId: string | null;
             manager: {
@@ -97,14 +99,6 @@ export declare class EmployeeLifecycleService {
             } | null;
         }[];
         onboardingHistory: ({
-            employee: {
-                id: string;
-                name: string;
-                employeeCode: string;
-                email: string;
-                roleTitle: string;
-                department: string;
-            } | null;
             background_verifications: {
                 id: string;
                 createdAt: Date;
@@ -123,6 +117,14 @@ export declare class EmployeeLifecycleService {
                 email: string;
                 currentRole: string;
             };
+            employee: {
+                id: string;
+                name: string;
+                email: string;
+                department: string;
+                employeeCode: string;
+                roleTitle: string;
+            } | null;
             onboardedBy: {
                 id: string;
                 name: string;
@@ -130,30 +132,28 @@ export declare class EmployeeLifecycleService {
             } | null;
             onboarding_tasks: {
                 id: string;
-                title: string;
                 status: import("@prisma/client").$Enums.WorkItemStatus;
+                updated_at: Date;
+                title: string;
                 description: string | null;
                 created_at: Date;
-                updated_at: Date;
-                completedAt: Date | null;
                 onboarding_id: string;
                 owner: import("@prisma/client").$Enums.OnboardingTaskOwner;
                 assignee_id: string | null;
                 due_at: Date | null;
                 completed_by_id: string | null;
+                completedAt: Date | null;
             }[];
         } & {
             id: string;
-            status: import("@prisma/client").$Enums.OnboardingStatus;
-            employeeId: string | null;
-            confirmation_date: Date | null;
-            updated_at: Date;
             stage: import("@prisma/client").$Enums.OnboardingStage;
             candidateId: string;
+            employeeId: string | null;
             onboardedById: string | null;
             onboardedAt: Date;
             actual_joining_date: Date | null;
             buddy_employee_id: string | null;
+            confirmation_date: Date | null;
             expected_joining_date: Date | null;
             manager_employee_id: string | null;
             offer_id: string | null;
@@ -161,16 +161,18 @@ export declare class EmployeeLifecycleService {
             probation_outcome: import("@prisma/client").$Enums.ProbationOutcome;
             probation_review_date: Date | null;
             probation_start_date: Date | null;
+            status: import("@prisma/client").$Enums.OnboardingStatus;
+            updated_at: Date;
             welcome_email_triggered_at: Date | null;
         })[];
         offboardingHistory: ({
             employee: {
                 id: string;
                 name: string;
-                employeeCode: string;
                 email: string;
-                roleTitle: string;
                 department: string;
+                employeeCode: string;
+                roleTitle: string;
             };
             offboardedBy: {
                 id: string;
@@ -186,9 +188,10 @@ export declare class EmployeeLifecycleService {
         })[];
         employmentProfiles: {
             id: string;
+            confirmation_date: Date | null;
+            updated_at: Date;
             employee_id: string;
             date_of_joining: Date | null;
-            confirmation_date: Date | null;
             probation_end_date: Date | null;
             notice_start_date: Date | null;
             notice_end_date: Date | null;
@@ -199,26 +202,25 @@ export declare class EmployeeLifecycleService {
             cost_center: string | null;
             notice_period_days: number | null;
             created_at: Date;
-            updated_at: Date;
         }[];
         changeRequests: ({
             employees_employee_change_requests_employee_idToemployees: {
                 id: string;
                 name: string;
+                department: string;
                 employeeCode: string;
                 roleTitle: string;
-                department: string;
             };
         } & {
             id: string;
-            type: import("@prisma/client").$Enums.EmployeeChangeType;
             status: import("@prisma/client").$Enums.EmployeeChangeStatus;
+            updated_at: Date;
             reason: string;
             employee_id: string;
             created_at: Date;
-            updated_at: Date;
             requested_by_id: string;
             recommendation_id: string | null;
+            type: import("@prisma/client").$Enums.EmployeeChangeType;
             effective_date: Date;
             from_department_id: string | null;
             to_department_id: string | null;
@@ -237,6 +239,7 @@ export declare class EmployeeLifecycleService {
         salaryRevisions: {
             id: string;
             createdAt: Date;
+            source: string;
             employeeId: string;
             reason: string;
             previousCtcAnnual: number;
@@ -249,7 +252,6 @@ export declare class EmployeeLifecycleService {
             newSpecialMonthly: number;
             effectiveDate: string;
             revisionType: string;
-            source: string;
             approvedById: string | null;
             approvedAt: Date | null;
         }[];
@@ -267,41 +269,42 @@ export declare class EmployeeLifecycleService {
         }[];
         onboardingTasks: {
             id: string;
-            title: string;
             status: import("@prisma/client").$Enums.WorkItemStatus;
+            updated_at: Date;
+            title: string;
             description: string | null;
             created_at: Date;
-            updated_at: Date;
-            completedAt: Date | null;
             onboarding_id: string;
             owner: import("@prisma/client").$Enums.OnboardingTaskOwner;
             assignee_id: string | null;
             due_at: Date | null;
             completed_by_id: string | null;
+            completedAt: Date | null;
         }[];
     }>;
     onboard(user: any, body: any): Promise<{
         employee: {
             id: string;
-            createdAt: Date;
             name: string;
-            employeeCode: string;
             email: string;
+            phone: string | null;
+            avatarUrl: string | null;
+            location: string;
+            createdAt: Date;
+            updatedAt: Date;
+            status: import("@prisma/client").$Enums.EmploymentStatus;
+            department: string;
+            employeeCode: string;
             passwordHash: string | null;
             roleTitle: string;
             userRole: import("@prisma/client").$Enums.UserRole;
-            department: string;
-            phone: string | null;
-            avatarUrl: string | null;
-            status: import("@prisma/client").$Enums.EmploymentStatus;
             joinDate: string;
-            location: string;
             salary: import("@prisma/client/runtime/library").Decimal;
             managerId: string | null;
-            updatedAt: Date;
             failedLoginAttempts: number;
             lockedUntil: Date | null;
             lastLoginAt: Date | null;
+            mustChangePassword: boolean;
             organization_id: string | null;
             business_unit_id: string | null;
             department_id: string | null;
@@ -310,16 +313,14 @@ export declare class EmployeeLifecycleService {
         };
         onboarding: {
             id: string;
-            status: import("@prisma/client").$Enums.OnboardingStatus;
-            employeeId: string | null;
-            confirmation_date: Date | null;
-            updated_at: Date;
             stage: import("@prisma/client").$Enums.OnboardingStage;
             candidateId: string;
+            employeeId: string | null;
             onboardedById: string | null;
             onboardedAt: Date;
             actual_joining_date: Date | null;
             buddy_employee_id: string | null;
+            confirmation_date: Date | null;
             expected_joining_date: Date | null;
             manager_employee_id: string | null;
             offer_id: string | null;
@@ -327,6 +328,8 @@ export declare class EmployeeLifecycleService {
             probation_outcome: import("@prisma/client").$Enums.ProbationOutcome;
             probation_review_date: Date | null;
             probation_start_date: Date | null;
+            status: import("@prisma/client").$Enums.OnboardingStatus;
+            updated_at: Date;
             welcome_email_triggered_at: Date | null;
         };
         temporaryPassword: string;
@@ -334,25 +337,26 @@ export declare class EmployeeLifecycleService {
     convertOffer(user: any, body: any): Promise<{
         employee: {
             id: string;
-            createdAt: Date;
             name: string;
-            employeeCode: string;
             email: string;
+            phone: string | null;
+            avatarUrl: string | null;
+            location: string;
+            createdAt: Date;
+            updatedAt: Date;
+            status: import("@prisma/client").$Enums.EmploymentStatus;
+            department: string;
+            employeeCode: string;
             passwordHash: string | null;
             roleTitle: string;
             userRole: import("@prisma/client").$Enums.UserRole;
-            department: string;
-            phone: string | null;
-            avatarUrl: string | null;
-            status: import("@prisma/client").$Enums.EmploymentStatus;
             joinDate: string;
-            location: string;
             salary: import("@prisma/client/runtime/library").Decimal;
             managerId: string | null;
-            updatedAt: Date;
             failedLoginAttempts: number;
             lockedUntil: Date | null;
             lastLoginAt: Date | null;
+            mustChangePassword: boolean;
             organization_id: string | null;
             business_unit_id: string | null;
             department_id: string | null;
@@ -361,16 +365,14 @@ export declare class EmployeeLifecycleService {
         };
         onboarding: {
             id: string;
-            status: import("@prisma/client").$Enums.OnboardingStatus;
-            employeeId: string | null;
-            confirmation_date: Date | null;
-            updated_at: Date;
             stage: import("@prisma/client").$Enums.OnboardingStage;
             candidateId: string;
+            employeeId: string | null;
             onboardedById: string | null;
             onboardedAt: Date;
             actual_joining_date: Date | null;
             buddy_employee_id: string | null;
+            confirmation_date: Date | null;
             expected_joining_date: Date | null;
             manager_employee_id: string | null;
             offer_id: string | null;
@@ -378,23 +380,25 @@ export declare class EmployeeLifecycleService {
             probation_outcome: import("@prisma/client").$Enums.ProbationOutcome;
             probation_review_date: Date | null;
             probation_start_date: Date | null;
+            status: import("@prisma/client").$Enums.OnboardingStatus;
+            updated_at: Date;
             welcome_email_triggered_at: Date | null;
         };
         temporaryPassword: string;
     }>;
     updateTask(taskId: string, status: string): Promise<{
         id: string;
-        title: string;
         status: import("@prisma/client").$Enums.WorkItemStatus;
+        updated_at: Date;
+        title: string;
         description: string | null;
         created_at: Date;
-        updated_at: Date;
-        completedAt: Date | null;
         onboarding_id: string;
         owner: import("@prisma/client").$Enums.OnboardingTaskOwner;
         assignee_id: string | null;
         due_at: Date | null;
         completed_by_id: string | null;
+        completedAt: Date | null;
     }>;
     updateBgv(bgvId: string, status: string, vendorNotes?: string): Promise<{
         id: string;
@@ -410,9 +414,10 @@ export declare class EmployeeLifecycleService {
     }>;
     probationAction(body: any): Promise<{
         id: string;
+        confirmation_date: Date | null;
+        updated_at: Date;
         employee_id: string;
         date_of_joining: Date | null;
-        confirmation_date: Date | null;
         probation_end_date: Date | null;
         notice_start_date: Date | null;
         notice_end_date: Date | null;
@@ -423,18 +428,17 @@ export declare class EmployeeLifecycleService {
         cost_center: string | null;
         notice_period_days: number | null;
         created_at: Date;
-        updated_at: Date;
     } | undefined>;
     transferRequest(user: any, body: any): Promise<{
         id: string;
-        type: import("@prisma/client").$Enums.EmployeeChangeType;
         status: import("@prisma/client").$Enums.EmployeeChangeStatus;
+        updated_at: Date;
         reason: string;
         employee_id: string;
         created_at: Date;
-        updated_at: Date;
         requested_by_id: string;
         recommendation_id: string | null;
+        type: import("@prisma/client").$Enums.EmployeeChangeType;
         effective_date: Date;
         from_department_id: string | null;
         to_department_id: string | null;
@@ -453,6 +457,7 @@ export declare class EmployeeLifecycleService {
     promotionRequest(user: any, body: any): Promise<{
         id: string;
         createdAt: Date;
+        source: string;
         employeeId: string;
         reason: string;
         previousCtcAnnual: number;
@@ -465,8 +470,33 @@ export declare class EmployeeLifecycleService {
         newSpecialMonthly: number;
         effectiveDate: string;
         revisionType: string;
-        source: string;
         approvedById: string | null;
         approvedAt: Date | null;
+    }>;
+    getBankDetails(userId: string): Promise<{
+        id: string;
+        status: string;
+        updated_at: Date;
+        employee_id: string;
+        created_at: Date;
+        account_number: string | null;
+        ifsc_code: string | null;
+        bank_name: string | null;
+        account_holder_name: string | null;
+        submitted_at: Date | null;
+        verified_at: Date | null;
+    } | null>;
+    submitBankDetails(user: any, body: any): Promise<{
+        id: string;
+        status: string;
+        updated_at: Date;
+        employee_id: string;
+        created_at: Date;
+        account_number: string | null;
+        ifsc_code: string | null;
+        bank_name: string | null;
+        account_holder_name: string | null;
+        submitted_at: Date | null;
+        verified_at: Date | null;
     }>;
 }

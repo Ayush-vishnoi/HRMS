@@ -137,6 +137,12 @@ export default function ExpensesPage() {
 
   const closeSubmitModal = () => {
     setShowSubmitModal(false);
+    setTitle('');
+    setCategory('Cab');
+    setAmount('');
+    setExpenseDate(new Date().toISOString().split('T')[0]);
+    setMerchantName('');
+    setDescription('');
     setReceiptFile(null);
     setReceiptError('');
   };
@@ -205,10 +211,6 @@ export default function ExpensesPage() {
 
       if (res.ok) {
         closeSubmitModal();
-        setTitle('');
-        setAmount('');
-        setMerchantName('');
-        setDescription('');
         await fetchClaims();
       } else {
         const json = await res.json().catch(() => null);
@@ -857,7 +859,10 @@ export default function ExpensesPage() {
                   type="file"
                   accept="application/pdf,image/jpeg,image/png,image/webp"
                   className="sr-only"
-                  onChange={(e) => handleReceiptChange(e.target.files?.[0] ?? null)}
+                  onChange={(e) => {
+                    handleReceiptChange(e.target.files?.[0] ?? null);
+                    e.target.value = '';
+                  }}
                 />
                 {receiptError && <p className="mt-1 text-[11px] font-medium text-rose-600">{receiptError}</p>}
               </div>

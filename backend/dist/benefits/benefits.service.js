@@ -12,10 +12,13 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.BenefitsService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma/prisma.service");
+const notify_service_1 = require("../common/notifications/notify.service");
 let BenefitsService = class BenefitsService {
     prisma;
-    constructor(prisma) {
+    notify;
+    constructor(prisma, notify) {
         this.prisma = prisma;
+        this.notify = notify;
     }
     async findAll(employeeId) {
         const [plans, enrollments, claims] = await Promise.all([
@@ -31,7 +34,7 @@ let BenefitsService = class BenefitsService {
     async handleAction(body) {
         const { action } = body;
         if (action === 'enroll') {
-            return this.prisma.employeeBenefitEnrollment.create({
+            const created = await this.prisma.employeeBenefitEnrollment.create({
                 data: {
                     id: `ENR-${Date.now().toString(36)}`,
                     employeeId: body.employeeId, benefitPlanId: body.benefitPlanId,
@@ -41,9 +44,17 @@ let BenefitsService = class BenefitsService {
                 },
                 include: { plan: true },
             });
+            await this.notify.notifyUser({
+                userId: body.employeeId,
+                title: 'Benefit enrollment confirmed',
+                message: `You have been enrolled in "${created.plan.name}". Coverage: ${created.coverageStartDate} to ${created.coverageEndDate}.`,
+                type: 'Success',
+                linkUrl: '/benefits',
+            });
+            return created;
         }
         if (action === 'claim') {
-            return this.prisma.benefitClaim.create({
+            const created = await this.prisma.benefitClaim.create({
                 data: {
                     id: `CLM-${Date.now().toString(36)}`,
                     enrollmentId: body.enrollmentId, employeeId: body.employeeId,
@@ -51,6 +62,17 @@ let BenefitsService = class BenefitsService {
                     hospital: body.hospital, incidentDate: body.incidentDate, status: 'Submitted',
                 },
             });
+            const employee = await this.prisma.employee.findUnique({
+                where: { id: body.employeeId },
+                select: { name: true },
+            });
+            await this.notify.notifyAdmins({
+                title: 'New benefit claim',
+                message: `${employee?.name ?? 'An employee'} submitted a ${body.claimType} claim of ₹${Number(body.claimAmount).toFixed(2)}${body.hospital ? ` (${body.hospital})` : ''}.`,
+                type: 'Document',
+                linkUrl: '/benefits',
+            });
+            return created;
         }
         if (action === 'dependent') {
             return this.prisma.benefitDependent.create({
@@ -67,6 +89,6 @@ let BenefitsService = class BenefitsService {
 exports.BenefitsService = BenefitsService;
 exports.BenefitsService = BenefitsService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [prisma_service_1.PrismaService])
+    __metadata("design:paramtypes", [prisma_service_1.PrismaService, notify_service_1.NotifyService])
 ], BenefitsService);
 //# sourceMappingURL=benefits.service.js.map

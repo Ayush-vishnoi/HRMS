@@ -12,10 +12,13 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.TalentService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma/prisma.service");
+const notify_service_1 = require("../common/notifications/notify.service");
 let TalentService = class TalentService {
     prisma;
-    constructor(prisma) {
+    notify;
+    constructor(prisma, notify) {
         this.prisma = prisma;
+        this.notify = notify;
     }
     async findAll(userId, userRole, employeeId) {
         const targetId = employeeId || userId;
@@ -50,11 +53,25 @@ let TalentService = class TalentService {
             return this.prisma.talent_pools.create({ data: { organization_id: orgId, name: body.name, category: body.category || 'HighPotential', description: body.description, is_confidential: Boolean(body.isConfidential ?? true), created_by_id: userId } });
         }
         if (action === 'add_talent_pool_member') {
-            return this.prisma.talent_pool_members.upsert({
+            const pool = await this.prisma.talent_pools.findUnique({
+                where: { id: body.poolId },
+                select: { name: true, is_confidential: true },
+            });
+            const member = await this.prisma.talent_pool_members.upsert({
                 where: { pool_id_employee_id: { pool_id: body.poolId, employee_id: body.employeeId } },
                 update: { notes: body.notes },
                 create: { pool_id: body.poolId, employee_id: body.employeeId, added_by_id: userId, notes: body.notes || null },
             });
+            if (pool && !pool.is_confidential) {
+                await this.notify.notifyUser({
+                    userId: body.employeeId,
+                    title: 'Added to talent pool',
+                    message: `You have been added to the "${pool.name}" talent pool.`,
+                    type: 'Performance',
+                    linkUrl: '/talent',
+                });
+            }
+            return member;
         }
         if (action === 'save_succession_plan') {
             const existing = await this.prisma.succession_plans.findFirst({ where: { critical_role_title: body.criticalRoleTitle, department: body.department } });
@@ -69,6 +86,6 @@ let TalentService = class TalentService {
 exports.TalentService = TalentService;
 exports.TalentService = TalentService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [prisma_service_1.PrismaService])
+    __metadata("design:paramtypes", [prisma_service_1.PrismaService, notify_service_1.NotifyService])
 ], TalentService);
 //# sourceMappingURL=talent.service.js.map

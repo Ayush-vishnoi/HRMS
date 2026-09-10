@@ -18,4 +18,14 @@ export class AuthController {
   getSession(@CurrentUser('id') userId: string) {
     return this.authService.getSession(userId);
   }
+
+  /** Forced first-login password reset (mustChangePassword onboarding flow). */
+  @Post('change-password')
+  @UseGuards(AuthGuard('jwt'))
+  changePassword(
+    @CurrentUser('id') userId: string,
+    @Body() body: { currentPassword?: string; newPassword?: string },
+  ) {
+    return this.authService.changePassword(userId, body);
+  }
 }

@@ -12,6 +12,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.PoliciesService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma/prisma.service");
+const notify_service_1 = require("../common/notifications/notify.service");
 const mapPolicyCategory = (cat) => {
     const clean = (cat || '').toLowerCase().replace(/[^a-z]/g, '');
     if (clean.includes('conduct'))
@@ -30,8 +31,10 @@ const mapPolicyCategory = (cat) => {
 };
 let PoliciesService = class PoliciesService {
     prisma;
-    constructor(prisma) {
+    notify;
+    constructor(prisma, notify) {
         this.prisma = prisma;
+        this.notify = notify;
     }
     async findAll(employeeId, isAdmin) {
         return this.prisma.companyPolicy.findMany({
@@ -50,7 +53,7 @@ let PoliciesService = class PoliciesService {
     }
     async create(data, uploadedById) {
         const count = await this.prisma.companyPolicy.count();
-        return this.prisma.companyPolicy.create({
+        const created = await this.prisma.companyPolicy.create({
             data: {
                 id: data.id || `POL-${String(count + 1).padStart(3, '0')}`,
                 title: data.title,
@@ -66,11 +69,22 @@ let PoliciesService = class PoliciesService {
                 fileSize: data.fileSize || '1.0 MB',
             },
         });
+        const employees = await this.prisma.employee.findMany({
+            where: { status: { in: ['Active', 'OnLeave', 'Remote'] } },
+            select: { id: true },
+        });
+        await this.notify.notifyUsers(employees.map((e) => e.id), {
+            title: 'New company policy published',
+            message: `A new policy "${created.title}" (${created.version}) is now effective from ${created.effectiveDate}.${created.acknowledgementRequired ? ' Please review and acknowledge it.' : ''}`,
+            type: 'Policy',
+            linkUrl: '/policies',
+        });
+        return created;
     }
 };
 exports.PoliciesService = PoliciesService;
 exports.PoliciesService = PoliciesService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [prisma_service_1.PrismaService])
+    __metadata("design:paramtypes", [prisma_service_1.PrismaService, notify_service_1.NotifyService])
 ], PoliciesService);
 //# sourceMappingURL=policies.service.js.map

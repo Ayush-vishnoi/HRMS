@@ -30,6 +30,17 @@ let NotificationsService = class NotificationsService {
     async markAllRead(userId) {
         return this.prisma.userNotification.updateMany({ where: { userId }, data: { isRead: true } });
     }
+    async remove(id, userId) {
+        const notification = await this.prisma.userNotification.findUnique({ where: { id } });
+        if (!notification || notification.userId !== userId) {
+            throw new common_1.NotFoundException('Notification not found.');
+        }
+        return this.prisma.userNotification.delete({ where: { id } });
+    }
+    async removeAll(userId) {
+        const result = await this.prisma.userNotification.deleteMany({ where: { userId } });
+        return { deleted: result.count };
+    }
 };
 exports.NotificationsService = NotificationsService;
 exports.NotificationsService = NotificationsService = __decorate([

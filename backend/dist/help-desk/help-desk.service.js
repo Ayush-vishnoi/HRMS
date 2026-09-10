@@ -12,21 +12,43 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.HelpDeskService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma/prisma.service");
+const notify_service_1 = require("../common/notifications/notify.service");
 const uuid_1 = require("uuid");
+const CATEGORY_LABEL_TO_ENUM = {
+    'Grievance / Complaint': 'GrievanceOrComplaint',
+};
+const CATEGORY_ENUM_TO_LABEL = {
+    GrievanceOrComplaint: 'Grievance / Complaint',
+};
+const STATUS_LABEL_TO_ENUM = {
+    'In Progress': 'InProgress',
+};
+const STATUS_ENUM_TO_LABEL = {
+    InProgress: 'In Progress',
+};
+const categoryToEnum = (value) => (CATEGORY_LABEL_TO_ENUM[value] ?? value);
+const statusToEnum = (value) => (STATUS_LABEL_TO_ENUM[value] ?? value);
+const toApiTicket = (ticket) => ({
+    ...ticket,
+    category: CATEGORY_ENUM_TO_LABEL[ticket.category] ?? ticket.category,
+    status: STATUS_ENUM_TO_LABEL[ticket.status] ?? ticket.status,
+});
 let HelpDeskService = class HelpDeskService {
     prisma;
-    constructor(prisma) {
+    notify;
+    constructor(prisma, notify) {
         this.prisma = prisma;
+        this.notify = notify;
     }
     async findAll(employeeId, status, category) {
         const where = {};
         if (employeeId)
             where.employeeId = employeeId;
         if (status)
-            where.status = status;
+            where.status = statusToEnum(status);
         if (category)
-            where.category = category;
-        return this.prisma.helpDeskTicket.findMany({
+            where.category = categoryToEnum(category);
+        const tickets = await this.prisma.helpDeskTicket.findMany({
             where,
             include: {
                 employee: { select: { id: true, name: true, employeeCode: true, avatarUrl: true } },
@@ -34,33 +56,61 @@ let HelpDeskService = class HelpDeskService {
             },
             orderBy: { createdAt: 'desc' },
         });
+        return tickets.map(toApiTicket);
     }
     async create(employeeId, data) {
-        return this.prisma.helpDeskTicket.create({
+        const created = await this.prisma.helpDeskTicket.create({
             data: {
                 id: (0, uuid_1.v4)(),
                 employeeId,
-                ...data,
+                category: categoryToEnum(data.category),
+                priority: data.priority ?? 'Medium',
+                subject: data.subject,
+                description: data.description,
                 createdAt: new Date().toISOString(),
             },
         });
+        const employee = await this.prisma.employee.findUnique({
+            where: { id: employeeId },
+            select: { name: true },
+        });
+        await this.notify.notifyAdmins({
+            title: 'New help desk ticket',
+            message: `${employee?.name ?? 'An employee'} raised a ${data.priority ?? 'Medium'} priority ticket: ${data.subject}.`,
+            type: 'HelpDesk',
+            linkUrl: '/help-desk',
+        });
+        return toApiTicket(created);
     }
     async update(id, data) {
+        const ticket = await this.prisma.helpDeskTicket.findUnique({ where: { id } });
         const updateData = {};
         if (data.status)
-            updateData.status = data.status;
+            updateData.status = statusToEnum(data.status);
         if (typeof data.resolution === 'string' && data.resolution.trim())
             updateData.resolution = data.resolution;
         if (data.status === 'Resolved') {
             updateData.resolvedById = data.resolvedById;
             updateData.resolvedAt = new Date().toISOString();
         }
-        return this.prisma.helpDeskTicket.update({ where: { id }, data: updateData });
+        const updated = await this.prisma.helpDeskTicket.update({ where: { id }, data: updateData });
+        if (ticket && data.status) {
+            await this.notify.notifyUser({
+                userId: ticket.employeeId,
+                title: data.status === 'Resolved' ? 'Help desk ticket resolved' : `Ticket ${String(data.status).toLowerCase()}`,
+                message: data.status === 'Resolved'
+                    ? `Your ticket "${ticket.subject}" has been resolved${typeof data.resolution === 'string' && data.resolution.trim() ? `: ${data.resolution}` : ''}.`
+                    : `Your ticket "${ticket.subject}" is now ${data.status}.`,
+                type: 'HelpDesk',
+                linkUrl: '/help-desk',
+            });
+        }
+        return toApiTicket(updated);
     }
 };
 exports.HelpDeskService = HelpDeskService;
 exports.HelpDeskService = HelpDeskService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [prisma_service_1.PrismaService])
+    __metadata("design:paramtypes", [prisma_service_1.PrismaService, notify_service_1.NotifyService])
 ], HelpDeskService);
 //# sourceMappingURL=help-desk.service.js.map

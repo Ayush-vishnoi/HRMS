@@ -2,34 +2,34 @@ import { AttendanceService } from './attendance.service';
 export declare class AttendanceController {
     private attendanceService;
     constructor(attendanceService: AttendanceService);
-    findAll(employeeId?: string, from?: string, to?: string): Promise<({
+    findAll(userId: string, employeeId?: string, from?: string, to?: string): Promise<({
         employee: {
             id: string;
-            name: string;
             employeeCode: string;
+            name: string;
             avatarUrl: string | null;
         };
     } & {
         id: string;
-        createdAt: Date;
-        status: import("@prisma/client").$Enums.AttendanceStatus;
-        location: string;
         employeeId: string;
         date: string;
         checkIn: string;
         checkOut: string;
         hoursWorked: string;
+        status: import("@prisma/client").$Enums.AttendanceStatus;
+        location: string;
+        createdAt: Date;
     })[]>;
     create(userId: string, body: any): Promise<{
         id: string;
-        createdAt: Date;
-        status: import("@prisma/client").$Enums.AttendanceStatus;
-        location: string;
         employeeId: string;
         date: string;
         checkIn: string;
         checkOut: string;
         hoursWorked: string;
+        status: import("@prisma/client").$Enums.AttendanceStatus;
+        location: string;
+        createdAt: Date;
     }>;
     update(body: {
         id: string;
@@ -37,29 +37,29 @@ export declare class AttendanceController {
         hoursWorked?: string;
     }): Promise<{
         id: string;
-        createdAt: Date;
-        status: import("@prisma/client").$Enums.AttendanceStatus;
-        location: string;
         employeeId: string;
         date: string;
         checkIn: string;
         checkOut: string;
         hoursWorked: string;
+        status: import("@prisma/client").$Enums.AttendanceStatus;
+        location: string;
+        createdAt: Date;
     }>;
     getLateRequests(status?: string): Promise<({
         requester: {
             id: string;
-            name: string;
             employeeCode: string;
+            name: string;
             avatarUrl: string | null;
         };
     } & {
         id: string;
-        createdAt: Date;
         status: import("@prisma/client").$Enums.LateClockInStatus;
-        reason: string;
+        createdAt: Date;
         requesterId: string;
         requestDate: string;
+        reason: string;
         requestedAt: string;
         reviewedById: string | null;
         reviewedAt: string | null;
@@ -69,11 +69,11 @@ export declare class AttendanceController {
         reason: string;
     }): Promise<{
         id: string;
-        createdAt: Date;
         status: import("@prisma/client").$Enums.LateClockInStatus;
-        reason: string;
+        createdAt: Date;
         requesterId: string;
         requestDate: string;
+        reason: string;
         requestedAt: string;
         reviewedById: string | null;
         reviewedAt: string | null;
@@ -82,11 +82,11 @@ export declare class AttendanceController {
         status: 'approved' | 'rejected';
     }, userId: string): Promise<{
         id: string;
-        createdAt: Date;
         status: import("@prisma/client").$Enums.LateClockInStatus;
-        reason: string;
+        createdAt: Date;
         requesterId: string;
         requestDate: string;
+        reason: string;
         requestedAt: string;
         reviewedById: string | null;
         reviewedAt: string | null;

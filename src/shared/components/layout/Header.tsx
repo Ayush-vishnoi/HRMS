@@ -131,11 +131,13 @@ export const Header: React.FC<HeaderProps> = ({ onClockAction }) => {
       })
       .catch(() => {});
   }, [currentUser.id]);
-  const roleLabel = currentUser.userRole === 'admin'
-    ? 'HR Admin'
-    : currentUser.userRole === 'manager'
-      ? 'Manager'
-      : 'Employee';
+  const roleLabel = currentUser.rawRole === 'ceo'
+    ? 'CEO'
+    : currentUser.userRole === 'admin'
+      ? 'HR Admin'
+      : currentUser.userRole === 'manager'
+        ? 'Manager'
+        : 'Employee';
   const profileLinks = currentUser.userRole === 'manager'
     ? [
         { label: 'My Team', href: '/my-team', icon: UsersRound },
@@ -173,7 +175,8 @@ export const Header: React.FC<HeaderProps> = ({ onClockAction }) => {
     const loadNotifications = async () => {
       try {
         // Backend returns a raw array of notifications for the current user.
-        const data = await authFetch<UserNotificationItem[]>('/api/notifications');
+        const res = await authFetch<{ success: boolean; data: UserNotificationItem[] } | UserNotificationItem[]>('/api/notifications');
+        const data = Array.isArray(res) ? res : (res as any)?.data;
         if (isMounted && Array.isArray(data)) {
           setNotifications(data);
           setUnreadNotificationCount(data.filter((n) => !n.isRead).length);
@@ -196,7 +199,8 @@ export const Header: React.FC<HeaderProps> = ({ onClockAction }) => {
 
   const refreshNotifications = async () => {
     try {
-      const data = await authFetch<UserNotificationItem[]>('/api/notifications');
+      const res = await authFetch<{ success: boolean; data: UserNotificationItem[] } | UserNotificationItem[]>('/api/notifications');
+      const data = Array.isArray(res) ? res : (res as any)?.data;
       if (Array.isArray(data)) {
         setNotifications(data);
         setUnreadNotificationCount(data.filter((n) => !n.isRead).length);
@@ -230,16 +234,16 @@ export const Header: React.FC<HeaderProps> = ({ onClockAction }) => {
     const target = notifications.find((notification) => notification.id === notificationId);
     if (!target) return;
 
-    // Backend has no per-notification delete; mark as read instead so it
-    // stops counting towards the unread badge.
+    // Optimistically remove the row; the DELETE removes it server-side so
+    // the 60-second poll can no longer resurrect it.
     setNotifications((prev) => prev.filter((notification) => notification.id !== notificationId));
     if (!target.isRead) {
       setUnreadNotificationCount((prev) => Math.max(0, prev - 1));
     }
 
     try {
-      await authFetch(`/api/notifications/${encodeURIComponent(notificationId)}/read`, {
-        method: 'PATCH',
+      await authFetch(`/api/notifications/${encodeURIComponent(notificationId)}`, {
+        method: 'DELETE',
       });
     } catch (error) {
       console.error('Failed to clear notification:', error);
@@ -250,8 +254,10 @@ export const Header: React.FC<HeaderProps> = ({ onClockAction }) => {
     setNotifications([]);
     setUnreadNotificationCount(0);
 
+    // Permanently delete every notification server-side so the 60-second
+    // poll cannot bring them back.
     try {
-      await authFetch('/api/notifications/read-all', { method: 'PATCH' });
+      await authFetch('/api/notifications', { method: 'DELETE' });
     } catch (error) {
       console.error('Failed to clear all notifications:', error);
     }

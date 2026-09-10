@@ -63,7 +63,7 @@ export const NAV_ITEMS: readonly NavigationItem[] = [
   { name: 'Employee Engagement', href: '/engagement', icon: Heart, section: 'Growth & Talent', roles: ALL_ROLES },
 
   // HR Operations
-  { name: 'Recruitment ATS', href: '/recruitment', icon: ScanSearch, section: 'HR Operations', roles: ['admin'] },
+  { name: 'Recruitment ATS', href: '/recruitment', icon: ScanSearch, section: 'HR Operations', roles: ['admin', 'manager'] },
   { name: 'Onboarding & BGV', href: '/employee-lifecycle', icon: UserPlus, section: 'HR Operations', roles: ['admin'] },
   { name: 'Exit & Clearance', href: '/exit', icon: DoorOpen, section: 'HR Operations', roles: ALL_ROLES },
   { name: 'Documents', href: '/documents', icon: FileText, section: 'HR Operations', roles: ALL_ROLES },

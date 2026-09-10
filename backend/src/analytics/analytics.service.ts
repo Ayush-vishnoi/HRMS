@@ -1,23 +1,100 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
+const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
 @Injectable()
 export class AnalyticsService {
   constructor(private prisma: PrismaService) {}
 
   async getMetrics() {
-    const [totalHeadcount, openTicketsCount, pendingLeavesCount, pendingDocRequestsCount, attendanceRecords, candidates, employeesByDept] =
-      await Promise.all([
-        this.prisma.employee.count(),
-        this.prisma.helpDeskTicket.count({ where: { status: { in: ['Open', 'InProgress'] } } }),
-        this.prisma.leaveRequest.count({ where: { status: 'Pending' } }),
-        this.prisma.documentRequest.count({ where: { status: { in: ['Pending', 'InProgress'] } } }),
-        this.prisma.attendanceRecord.findMany({ select: { date: true, status: true }, take: 100, orderBy: { createdAt: 'desc' } }),
-        this.prisma.recruitmentCandidate.findMany({ select: { stage: true } }),
-        this.prisma.employee.groupBy({ by: ['department'], _count: { id: true } }),
-      ]);
+    const now = new Date();
+    const currentYear = now.getUTCFullYear();
+    const monthPadded = String(now.getUTCMonth() + 1).padStart(2, '0');
+    const monthName = MONTH_NAMES[now.getUTCMonth()];
+
+    const [
+      totalHeadcount,
+      openTicketsCount,
+      pendingLeavesCount,
+      pendingDocRequestsCount,
+      attendanceRecords,
+      candidates,
+      employeesByDept,
+      employeeJoinDates,
+      openJobs,
+      departedCount,
+      activeExitRequests,
+    ] = await Promise.all([
+      this.prisma.employee.count(),
+      this.prisma.helpDeskTicket.count({ where: { status: { in: ['Open', 'InProgress'] } } }),
+      this.prisma.leaveRequest.count({ where: { status: 'Pending' } }),
+      this.prisma.documentRequest.count({ where: { status: { in: ['Pending', 'InProgress'] } } }),
+      this.prisma.attendanceRecord.findMany({ select: { date: true, status: true }, take: 100, orderBy: { createdAt: 'desc' } }),
+      this.prisma.recruitmentCandidate.findMany({ select: { stage: true } }),
+      this.prisma.employee.groupBy({ by: ['department'], _count: { id: true } }),
+      this.prisma.employee.findMany({ select: { joinDate: true } }),
+      this.prisma.recruitmentJob.findMany({ where: { status: 'Open' }, select: { department: true, openings: true } }),
+      this.prisma.employee.count({ where: { status: { in: ['Offboarded', 'Exited'] } } }),
+      this.prisma.exitRequest.count({ where: { status: { notIn: ['Completed', 'Rejected', 'Withdrawn'] } } }),
+    ]);
 
     const openHrActions = openTicketsCount + pendingLeavesCount + pendingDocRequestsCount;
+
+    const newHiresThisMonth = employeeJoinDates.filter((employee) => {
+      const joined = employee.joinDate || '';
+      return joined.startsWith(`${currentYear}-${monthPadded}`) || joined.includes(` ${monthName} ${currentYear}`);
+    }).length;
+
+    const openJobCount = openJobs.length;
+    const activeJobOpenings = openJobs.reduce((total, job) => total + (job.openings ?? 1), 0);
+    const openingsByDept: Record<string, number> = {};
+    openJobs.forEach((job) => {
+      const dept = job.department || 'Other';
+      openingsByDept[dept] = (openingsByDept[dept] ?? 0) + (job.openings ?? 1);
+    });
+    const topOpeningsDept = Object.entries(openingsByDept).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+
+    const attritionRate = totalHeadcount > 0 ? Math.round((departedCount / totalHeadcount) * 1000) / 10 : 0;
+    const attritionNote =
+      departedCount === 0
+        ? 'No departures on record'
+        : attritionRate < 5
+          ? 'Below industry avg (5%)'
+          : attritionRate === 5
+            ? 'At industry avg (5%)'
+            : 'Above industry avg (5%)';
+
+    const complianceItems = [
+      {
+        id: 'document-requests',
+        title: 'Pending Document Requests',
+        badge: `${pendingDocRequestsCount} Pending`,
+        detail: `${pendingDocRequestsCount} employee document request${pendingDocRequestsCount === 1 ? '' : 's'} awaiting HR review.`,
+        count: pendingDocRequestsCount,
+      },
+      {
+        id: 'leave-approvals',
+        title: 'Pending Leave Approvals',
+        badge: `${pendingLeavesCount} Pending`,
+        detail: `${pendingLeavesCount} leave request${pendingLeavesCount === 1 ? '' : 's'} awaiting approval.`,
+        count: pendingLeavesCount,
+      },
+      {
+        id: 'help-desk-tickets',
+        title: 'Open Help Desk Tickets',
+        badge: `${openTicketsCount} Open`,
+        detail: `${openTicketsCount} help desk ticket${openTicketsCount === 1 ? '' : 's'} open or in progress.`,
+        count: openTicketsCount,
+      },
+      {
+        id: 'exit-requests',
+        title: 'In-flight Exit Requests',
+        badge: `${activeExitRequests} Active`,
+        detail: `${activeExitRequests} exit request${activeExitRequests === 1 ? '' : 's'} moving through the clearance workflow.`,
+        count: activeExitRequests,
+      },
+    ];
 
     let attendanceRate = 96.4;
     if (attendanceRecords.length > 0) {
@@ -65,6 +142,22 @@ export class AnalyticsService {
       color: DEPT_COLORS[d.department || ''] || '#8B9BAA',
     }));
 
-    return { totalHeadcount, openHrActions, attendanceRate: `${attendanceRate}%`, recruitmentPipeline, attendanceTrends, headcountByDept };
+    return {
+      totalHeadcount,
+      newHiresThisMonth,
+      openJobCount,
+      activeJobOpenings,
+      topOpeningsDept,
+      attritionRate: `${attritionRate}%`,
+      attritionNote,
+      departedCount,
+      activeExitRequests,
+      complianceItems,
+      openHrActions,
+      attendanceRate: `${attendanceRate}%`,
+      recruitmentPipeline,
+      attendanceTrends,
+      headcountByDept,
+    };
   }
 }
