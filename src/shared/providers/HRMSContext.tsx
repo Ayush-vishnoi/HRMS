@@ -7,6 +7,12 @@ import type { LeaveRequest } from '@/features/leaves/data/leaves';
 import type { AttendanceRecord } from '@/features/attendance/data/attendance';
 
 export type UserRole = 'employee' | 'manager' | 'admin';
+/**
+ * The real backend role. `ceo` and `super_admin` sit above `admin` and are
+ * collapsed onto the `admin` RBAC surface for `UserRole`, while the true value
+ * is preserved on `UserAccount.rawRole` to drive executive / system-admin UI.
+ */
+export type RawRole = UserRole | 'ceo' | 'super_admin';
 export type LateClockInRequestStatus = 'pending' | 'approved' | 'rejected';
 export type HelpDeskTicketStatus = 'Open' | 'In Progress' | 'Resolved';
 export type HelpDeskTicketPriority = 'Low' | 'Medium' | 'High';
@@ -245,11 +251,15 @@ interface HRMSProviderProps {
 /**
  * Map a backend user (login/session response) to the frontend UserAccount shape.
  *
- * The database keeps a distinct 'ceo' role for executive accounts, but the
- * app's RBAC surface is employee/manager/admin (mirroring the backend's JWT
- * strategy). CEO is normalized to admin-level here; the raw role is preserved
- * on `rawRole` so the UI can label executives correctly.
+ * The database keeps distinct executive/system roles ('ceo', 'super_admin'), but
+ * the app's day-to-day RBAC surface is employee/manager/admin (mirroring the
+ * backend's JWT strategy). Both 'ceo' and 'super_admin' are normalized to
+ * admin-level here so they inherit full HR Admin access; the raw role is
+ * preserved on `rawRole` so the UI can label them and unlock their dedicated
+ * dashboards and consoles.
  */
+const ADMIN_LEVEL_RAW_ROLES = new Set(['admin', 'ceo', 'super_admin']);
+
 const mapBackendUser = (user: {
   id: string;
   email: string;
@@ -264,7 +274,9 @@ const mapBackendUser = (user: {
   name: user.name,
   email: user.email,
   role: user.department || 'Staff Member',
-  userRole: user.userRole === 'ceo' ? 'admin' : ((user.userRole as UserRole) || 'employee'),
+  userRole: ADMIN_LEVEL_RAW_ROLES.has(user.userRole ?? '')
+    ? 'admin'
+    : ((user.userRole as UserRole) || 'employee'),
   rawRole: user.userRole || undefined,
   department: user.department || 'General',
   avatar:

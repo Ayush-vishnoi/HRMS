@@ -34,6 +34,7 @@ import { ChatModule } from './chat/chat.module';
 import { AnnouncementsModule } from './announcements/announcements.module';
 import { TasksModule } from './tasks/tasks.module';
 import { DocumentsModule } from './documents/documents.module';
+import { AdministrationModule } from './administration/administration.module';
 
 @Module({
   providers: [
@@ -79,6 +80,7 @@ import { DocumentsModule } from './documents/documents.module';
     AnnouncementsModule,
     TasksModule,
     DocumentsModule,
+    AdministrationModule,
   ],
 })
 export class AppModule {}

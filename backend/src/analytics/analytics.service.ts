@@ -160,4 +160,38 @@ export class AnalyticsService {
       headcountByDept,
     };
   }
+
+  /**
+   * A curated, org-wide read-only view for the CEO's executive dashboard. Built
+   * on top of the proven getMetrics() aggregation, with a headcount-by-role
+   * breakdown layered on so leadership can see the shape of the organization.
+   */
+  async getExecutiveSummary() {
+    const [metrics, roleGroups] = await Promise.all([
+      this.getMetrics(),
+      this.prisma.employee.groupBy({ by: ['userRole'], _count: { id: true } }),
+    ]);
+
+    const workforceByRole = roleGroups
+      .map((group) => ({ role: group.userRole as string, count: group._count.id }))
+      .sort((a, b) => b.count - a.count);
+
+    return {
+      generatedAt: new Date().toISOString(),
+      headline: {
+        totalHeadcount: metrics.totalHeadcount,
+        newHiresThisMonth: metrics.newHiresThisMonth,
+        attritionRate: metrics.attritionRate,
+        attritionNote: metrics.attritionNote,
+        openPositions: metrics.activeJobOpenings,
+        openHrActions: metrics.openHrActions,
+        attendanceRate: metrics.attendanceRate,
+        activeExitRequests: metrics.activeExitRequests,
+      },
+      headcountByDept: metrics.headcountByDept,
+      workforceByRole,
+      recruitmentPipeline: metrics.recruitmentPipeline,
+      compliance: metrics.complianceItems,
+    };
+  }
 }

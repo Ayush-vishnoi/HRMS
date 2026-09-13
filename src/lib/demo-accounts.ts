@@ -8,7 +8,7 @@
  */
 
 export interface DemoAccount {
-  role: 'Employee' | 'Manager' | 'HR Admin';
+  role: 'Employee' | 'Manager' | 'HR Admin' | 'CEO' | 'Super Admin';
   name: string;
   email: string;
   password: string;
@@ -32,6 +32,18 @@ const DEMO_ACCOUNT_ENV_KEYS = [
     name: 'Priya Sharma',
     email: process.env.NEXT_PUBLIC_DEMO_HR_ADMIN_EMAIL?.trim(),
     password: process.env.NEXT_PUBLIC_DEMO_HR_ADMIN_PASSWORD,
+  },
+  {
+    role: 'CEO',
+    name: 'Rohan Kapoor',
+    email: process.env.NEXT_PUBLIC_DEMO_CEO_EMAIL?.trim(),
+    password: process.env.NEXT_PUBLIC_DEMO_CEO_PASSWORD,
+  },
+  {
+    role: 'Super Admin',
+    name: 'System Owner',
+    email: process.env.NEXT_PUBLIC_DEMO_SUPER_ADMIN_EMAIL?.trim(),
+    password: process.env.NEXT_PUBLIC_DEMO_SUPER_ADMIN_PASSWORD,
   },
 ] as const;
 

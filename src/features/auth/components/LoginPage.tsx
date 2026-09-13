@@ -4,10 +4,12 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   ArrowRight,
   BriefcaseBusiness,
+  Crown,
   LoaderCircle,
   Lock,
   Mail,
   ShieldCheck,
+  ShieldPlus,
   UserRound,
 } from 'lucide-react';
 import { login } from '@/lib/api-client';
@@ -18,6 +20,8 @@ const demoAccountIcons = {
   Employee: UserRound,
   Manager: BriefcaseBusiness,
   'HR Admin': ShieldCheck,
+  CEO: Crown,
+  'Super Admin': ShieldPlus,
 } as const;
 
 export const LoginPage: React.FC = () => {
@@ -263,7 +267,7 @@ export const LoginPage: React.FC = () => {
               </div>
               {isDemoMode && (
                 <p id="demo-login-hint" className="mt-1.5 text-[11px] text-[#667085]">
-                  Click the identifier field and select Employee, Manager, or HR Admin.
+                  Click the identifier field and select Employee, Manager, HR Admin, CEO, or Super Admin.
                 </p>
               )}
             </div>

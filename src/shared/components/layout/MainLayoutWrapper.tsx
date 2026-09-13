@@ -19,7 +19,7 @@ export const MainLayoutWrapper: React.FC<{ children: React.ReactNode }> = ({ chi
   const [isPermissionModalOpen, setIsPermissionModalOpen] = React.useState(false);
   const [notice, setNotice] = React.useState('');
   const isCurrentRouteAllowed = !isAuthenticated
-    || isRouteAllowedForRole(pathname, currentUser.userRole);
+    || isRouteAllowedForRole(pathname, currentUser.userRole, currentUser.rawRole);
 
   const handleClockAction = () => {
     const result = toggleClockIn();

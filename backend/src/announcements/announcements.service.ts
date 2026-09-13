@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, BadRequestException, ForbiddenException 
 import { PrismaService } from '../prisma/prisma.service';
 import { NotifyService } from '../common/notifications/notify.service';
 import type { AnnouncementAudience, AnnouncementCategory, EmploymentStatus, UserRole } from '@prisma/client';
+import { hasRoleAtLeast } from '../common/auth/roles';
 
 @Injectable()
 export class AnnouncementsService {
@@ -42,7 +43,7 @@ export class AnnouncementsService {
     }
 
     if (scope === 'admin') {
-      if (viewer.userRole !== 'admin' && viewer.userRole !== 'ceo') {
+      if (!hasRoleAtLeast(viewer.userRole, 'admin')) {
         throw new ForbiddenException('Admin access required');
       }
       const announcements = await this.prisma.announcement.findMany({
@@ -86,7 +87,7 @@ export class AnnouncementsService {
       select: { id: true, userRole: true, department: true },
     });
 
-    if (!admin || (admin.userRole !== 'admin' && admin.userRole !== 'ceo')) {
+    if (!admin || !hasRoleAtLeast(admin.userRole, 'admin')) {
       throw new ForbiddenException('Admin access required');
     }
 
@@ -147,7 +148,7 @@ export class AnnouncementsService {
       where: { id: userId },
       select: { userRole: true },
     });
-    if (!admin || (admin.userRole !== 'admin' && admin.userRole !== 'ceo')) {
+    if (!admin || !hasRoleAtLeast(admin.userRole, 'admin')) {
       throw new ForbiddenException('Admin access required');
     }
 
@@ -195,7 +196,7 @@ export class AnnouncementsService {
       where: { id: userId },
       select: { userRole: true },
     });
-    if (!admin || (admin.userRole !== 'admin' && admin.userRole !== 'ceo')) {
+    if (!admin || !hasRoleAtLeast(admin.userRole, 'admin')) {
       throw new ForbiddenException('Admin access required');
     }
 

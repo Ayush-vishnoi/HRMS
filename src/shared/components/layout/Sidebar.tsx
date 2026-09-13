@@ -7,22 +7,31 @@ import {
   Briefcase,
   Building2,
   ChevronRight,
+  Crown,
   LockKeyhole,
   ShieldCheck,
+  ShieldPlus,
   UserCheck,
 } from 'lucide-react';
 import { useHRMS } from '@/shared/providers/HRMSContext';
-import { isNavigationItemActive, NAV_ITEMS } from '@/shared/lib/navigation';
+import { getAllowedNavItems, isNavigationItemActive } from '@/shared/lib/navigation';
 
 export const Sidebar: React.FC = () => {
   const pathname = usePathname();
   const { currentUser } = useHRMS();
 
   const role = currentUser.userRole;
-  const allowedNav = NAV_ITEMS.filter((item) => item.roles.includes(role));
+  const rawRole = currentUser.rawRole;
+  const allowedNav = getAllowedNavItems(role, rawRole);
   const navSections = Array.from(new Set(allowedNav.map((item) => item.section)));
 
   const getRoleBadge = () => {
+    if (rawRole === 'super_admin') {
+      return { label: 'System Administrator', icon: ShieldPlus, color: 'bg-violet-500/15 text-violet-700 border-violet-500/30' };
+    }
+    if (rawRole === 'ceo') {
+      return { label: 'Executive · CEO', icon: Crown, color: 'bg-indigo-500/15 text-indigo-700 border-indigo-500/30' };
+    }
     switch (role) {
       case 'admin':
         return { label: 'HR Admin Portal', icon: ShieldCheck, color: 'bg-amber-500/15 text-amber-700 border-amber-500/30' };

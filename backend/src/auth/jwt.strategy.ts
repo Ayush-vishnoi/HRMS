@@ -3,6 +3,7 @@ import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import type { Request } from 'express';
 import { PrismaService } from '../prisma/prisma.service';
+import { resolveRbacRole } from '../common/auth/roles';
 
 /**
  * Reads the JWT from the standard `Authorization: Bearer <token>` header, and
@@ -45,15 +46,21 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       },
     });
 
-    // The database keeps a distinct 'ceo' role for executive accounts, but the
-    // API's RBAC surface is employee/manager/admin. Normalize CEO to admin
-    // level on req.user so every guard and @CurrentUser role check treats
-    // executives as admins. The raw role still reaches clients through the
-    // /api/auth/login and /api/auth/session responses.
-    if (employee?.userRole === 'ceo') {
-      return { ...employee, userRole: 'admin' as const };
-    }
+    // The database stores the true role (employee/manager/admin/ceo/super_admin),
+    // but the legacy RBAC surface used by inline checks only understands
+    // employee/manager/admin. We expose BOTH on req.user:
+    //   - `rawRole`  : the real role, used by the hierarchy-aware RolesGuard
+    //     and `@Roles()` decorator for executive/system-admin-only endpoints.
+    //   - `userRole` : the resolved legacy role (ceo/super_admin -> admin) so
+    //     every existing `userRole === 'admin'` check still passes for them.
+    // The raw role also reaches clients through /api/auth/login and
+    // /api/auth/session so the UI can label and route executives correctly.
+    if (!employee) return null;
 
-    return employee;
+    return {
+      ...employee,
+      rawRole: employee.userRole,
+      userRole: resolveRbacRole(employee.userRole),
+    };
   }
 }

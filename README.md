@@ -48,7 +48,34 @@ The current implementation uses in-memory mock fixtures and browser `localStorag
 
 This is not a production persistence or security boundary. Before deployment with real employee data, replace mock services with authenticated server APIs, PostgreSQL-backed storage, authorization checks on the server, audit logging, and protected handling of payroll and personally identifiable information.
 
-## Core Stack
+## Roles & Access
+
+The application recognizes five roles on a single privilege ladder, each inheriting the access of the roles below it:
+
+| Role | Purpose |
+| --- | --- |
+| `employee` | Self-service: own profile, attendance, leave, payslips. |
+| `manager` | The above, plus management of their direct team. |
+| `admin` | HR operations: employees, payroll, recruitment, policies, analytics. |
+| `ceo` | Executive oversight: org-wide visibility and a dedicated Executive Dashboard. |
+| `super_admin` | System owner: user & role administration and the audit trail. |
+
+`ceo` and `super_admin` both inherit full HR Admin (`admin`) access, so no HR workflow is lost. The finer distinctions are enforced by the hierarchy-aware `RolesGuard` together with the `@Roles()` decorator:
+
+- The CEO's executive summary lives at `GET /api/analytics/executive` (`@Roles('ceo')` — CEO and Super Admin).
+- System administration lives under `GET|PATCH /api/administration/*` (`@Roles('super_admin')` — Super Admin only), backing the `/administration` console for managing users, assigning roles, and reading audit logs.
+
+The database stores the true role on `employees.user_role`; the JWT strategy exposes it as `rawRole` while collapsing `userRole` onto the legacy `employee/manager/admin` surface so existing inline checks keep working.
+
+### Bootstrapping the first Super Admin
+
+Because the Super Admin console itself requires a Super Admin, promote one account directly in the database once, then manage everyone else through the UI:
+
+```sql
+UPDATE employees SET user_role = 'super_admin' WHERE email = 'you@company.com';
+```
+
+
 
 - Next.js 16 App Router
 - React 19

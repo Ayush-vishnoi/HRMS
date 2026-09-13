@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, BadRequestException, ForbiddenException 
 import { PrismaService } from '../prisma/prisma.service';
 import { NotifyService } from '../common/notifications/notify.service';
 import { TaskStatus, TaskPriority, UserRole } from '@prisma/client';
+import { hasRoleAtLeast } from '../common/auth/roles';
 
 const taskInclude = {
   assignedTo: {
@@ -54,13 +55,13 @@ export class TasksService {
     if (!employee) throw new NotFoundException('Employee not found');
 
     if (scope === 'team') {
-      if (employee.userRole !== 'manager' && employee.userRole !== 'admin' && employee.userRole !== 'ceo') {
+      if (!hasRoleAtLeast(employee.userRole, 'manager')) {
         throw new ForbiddenException('Manager or admin access required');
       }
 
       const tasks = await this.prisma.task.findMany({
         where:
-          employee.userRole === 'admin' || employee.userRole === 'ceo'
+          hasRoleAtLeast(employee.userRole, 'admin')
             ? {}
             : {
                 OR: [
@@ -216,14 +217,14 @@ export class TasksService {
       select: { id: true, userRole: true },
     });
     if (!employee) throw new NotFoundException('Employee not found');
-    if (employee.userRole !== 'manager' && employee.userRole !== 'admin' && employee.userRole !== 'ceo') {
+    if (!hasRoleAtLeast(employee.userRole, 'manager')) {
       throw new ForbiddenException('Manager or admin access required');
     }
 
     return this.prisma.employee.findMany({
       where: {
         status: { not: 'Offboarded' },
-        ...((employee.userRole === 'admin' || employee.userRole === 'ceo') ? {} : { managerId: employee.id }),
+        ...(hasRoleAtLeast(employee.userRole, 'admin') ? {} : { managerId: employee.id }),
       },
       select: {
         id: true,

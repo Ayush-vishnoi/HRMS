@@ -65,7 +65,7 @@ export class NotifyService {
     try {
       const admins = await this.prisma.employee.findMany({
         where: {
-          userRole: { in: ['admin', 'ceo'] },
+          userRole: { in: ['admin', 'ceo', 'super_admin'] },
           status: { in: ['Active', 'OnLeave', 'Remote'] },
         },
         select: { id: true },

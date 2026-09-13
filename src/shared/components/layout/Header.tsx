@@ -131,13 +131,15 @@ export const Header: React.FC<HeaderProps> = ({ onClockAction }) => {
       })
       .catch(() => {});
   }, [currentUser.id]);
-  const roleLabel = currentUser.rawRole === 'ceo'
-    ? 'CEO'
-    : currentUser.userRole === 'admin'
-      ? 'HR Admin'
-      : currentUser.userRole === 'manager'
-        ? 'Manager'
-        : 'Employee';
+  const roleLabel = currentUser.rawRole === 'super_admin'
+    ? 'Super Admin'
+    : currentUser.rawRole === 'ceo'
+      ? 'CEO'
+      : currentUser.userRole === 'admin'
+        ? 'HR Admin'
+        : currentUser.userRole === 'manager'
+          ? 'Manager'
+          : 'Employee';
   const profileLinks = currentUser.userRole === 'manager'
     ? [
         { label: 'My Team', href: '/my-team', icon: UsersRound },

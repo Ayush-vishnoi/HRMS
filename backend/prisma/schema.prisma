@@ -1856,6 +1856,7 @@ enum UserRole {
   manager
   admin
   ceo
+  super_admin
 }
 
 enum EmploymentStatus {
