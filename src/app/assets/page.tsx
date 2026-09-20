@@ -1,6 +1,7 @@
 'use client';
 
 import { authFetch } from '@/lib/api-client';
+import PageLoader from '@/shared/components/PageLoader';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
@@ -121,6 +122,7 @@ const inputClass = 'w-full rounded-lg border border-[#9FC2DC] bg-white px-3 py-2
 export default function AssetsPage() {
   const { currentUser, employees } = useHRMS();
   const [assets, setAssets] = useState<Asset[]>([]);
+  const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState<'All' | AssetStatus>('All');
   const [category, setCategory] = useState<'All' | AssetCategory>('All');
@@ -187,8 +189,7 @@ export default function AssetsPage() {
   };
 
   useEffect(() => {
-    fetchAssets();
-    fetchRequests();
+    Promise.all([fetchAssets(), fetchRequests()]).finally(() => setLoading(false));
     // Deep-link support: /assets?tab=requests (used by admin notifications)
     if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('tab') === 'requests') {
       setActiveTab('requests');
@@ -345,6 +346,10 @@ export default function AssetsPage() {
   };
 
   if (!isAdmin) return <div className="rounded-2xl border border-rose-200 bg-rose-50 p-8 text-center"><Archive className="mx-auto h-10 w-10 text-rose-600" /><h1 className="mt-3 text-xl font-black text-[#17324A]">Asset & Inventory</h1><p className="mt-2 text-sm text-rose-700">This workspace is available only to HR Admin users.</p></div>;
+
+  if (loading) {
+    return <PageLoader label="Loading assets…" />;
+  }
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">

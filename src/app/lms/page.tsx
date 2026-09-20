@@ -1,6 +1,7 @@
 'use client';
 
 import { authFetch } from '@/lib/api-client';
+import PageLoader from '@/shared/components/PageLoader';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   Award,
@@ -122,6 +123,10 @@ export default function LmsPage() {
     () => enrollments.filter((e) => e.status === 'Completed').length,
     [enrollments]
   );
+
+  if (loading) {
+    return <PageLoader label="Loading learning courses…" />;
+  }
 
   return (
     <div className="space-y-6">

@@ -14,6 +14,7 @@ import {
 import { useHRMS } from '@/shared/providers/HRMSContext';
 import { exportToExcel } from '@/shared/lib/exportUtils';
 import { ClockInPermissionModal } from '@/features/attendance/components/ClockInPermissionModal';
+import PageLoader from '@/shared/components/PageLoader';
 
 export default function AttendancePage() {
   const {
@@ -24,6 +25,7 @@ export default function AttendancePage() {
     lateClockInRequest,
     attendanceLogs,
     currentUser,
+    isDataReady,
   } = useHRMS();
 
   const [isPermissionModalOpen, setIsPermissionModalOpen] = useState(false);
@@ -56,6 +58,10 @@ export default function AttendancePage() {
   const noticeIsSuccess =
     clockNotice.includes('successfully') ||
     clockNotice.includes('clocked in');
+
+  if (!isDataReady && attendanceLogs.length === 0) {
+    return <PageLoader label="Loading attendance…" />;
+  }
 
   return (
     <div className="space-y-6">

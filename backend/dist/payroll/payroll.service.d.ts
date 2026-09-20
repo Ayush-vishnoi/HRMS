@@ -325,8 +325,8 @@ export declare class PayrollService {
         updatedAt: Date;
         employeeId: string;
         rejectionReason: string | null;
-        financialYear: string;
         regime: string;
+        financialYear: string;
         section80C: number;
         section80D: number;
         section80G: number;
@@ -336,8 +336,8 @@ export declare class PayrollService {
         hraExemptionRent: number;
         homeLoanInterest: number;
         otherExemptions: number;
-        otherDeductionsTotal: number;
         declarationStatus: string;
+        otherDeductionsTotal: number;
         proofUrls: string[];
         verifiedByAdminId: string | null;
         verifiedAmountJson: string | null;
@@ -349,8 +349,8 @@ export declare class PayrollService {
         updatedAt: Date;
         employeeId: string;
         rejectionReason: string | null;
-        financialYear: string;
         regime: string;
+        financialYear: string;
         section80C: number;
         section80D: number;
         section80G: number;
@@ -360,8 +360,8 @@ export declare class PayrollService {
         hraExemptionRent: number;
         homeLoanInterest: number;
         otherExemptions: number;
-        otherDeductionsTotal: number;
         declarationStatus: string;
+        otherDeductionsTotal: number;
         proofUrls: string[];
         verifiedByAdminId: string | null;
         verifiedAmountJson: string | null;
@@ -377,8 +377,8 @@ export declare class PayrollService {
         updatedAt: Date;
         employeeId: string;
         rejectionReason: string | null;
-        financialYear: string;
         regime: string;
+        financialYear: string;
         section80C: number;
         section80D: number;
         section80G: number;
@@ -388,8 +388,8 @@ export declare class PayrollService {
         hraExemptionRent: number;
         homeLoanInterest: number;
         otherExemptions: number;
-        otherDeductionsTotal: number;
         declarationStatus: string;
+        otherDeductionsTotal: number;
         proofUrls: string[];
         verifiedByAdminId: string | null;
         verifiedAmountJson: string | null;
@@ -405,8 +405,8 @@ export declare class PayrollService {
         updatedAt: Date;
         employeeId: string;
         rejectionReason: string | null;
-        financialYear: string;
         regime: string;
+        financialYear: string;
         section80C: number;
         section80D: number;
         section80G: number;
@@ -416,8 +416,8 @@ export declare class PayrollService {
         hraExemptionRent: number;
         homeLoanInterest: number;
         otherExemptions: number;
-        otherDeductionsTotal: number;
         declarationStatus: string;
+        otherDeductionsTotal: number;
         proofUrls: string[];
         verifiedByAdminId: string | null;
         verifiedAmountJson: string | null;
@@ -429,7 +429,7 @@ export declare class PayrollService {
         id: string;
         userRole: string;
     }, body: any): Promise<import("./engines/types").ReconciliationSummary>;
-    getReports(type?: string, monthYear?: string): Promise<{
+    getReports(type?: string, monthYear?: string): Promise<import("./engines/reports-service").PayrollReportRow[] | {
         UAN: any;
         MemberName: any;
         GrossWages: any;
@@ -456,7 +456,7 @@ export declare class PayrollService {
         employerStatutoryCost: number;
         totalPayrollCost: number;
         averageCostPerEmployee: number;
-    }[] | import("./engines/reports-service").PayrollReportRow[]>;
+    }[]>;
     getForm16(employeeId: string, financialYear: string): Promise<Form16StatementData>;
     getPayrollOverview(user: {
         id: string;
@@ -689,8 +689,8 @@ export declare class PayrollService {
             updatedAt: Date;
             effectiveFrom: string;
             isActive: boolean;
-            country: string;
             financialYear: string;
+            country: string;
             ruleType: string;
             state: string;
             effectiveTo: string | null;
@@ -700,7 +700,7 @@ export declare class PayrollService {
             slabsJson: string;
             configJson: string;
         }[];
-        salaryComponents: {
+        salaryComponents: import("./salary-components").SalaryComponentMetadata[] | {
             id: string;
             type: string;
             createdAt: Date;
@@ -715,7 +715,7 @@ export declare class PayrollService {
             isStatutory: boolean;
             isEncashable: boolean;
             isPartCTC: boolean;
-        }[] | import("./salary-components").SalaryComponentMetadata[];
+        }[];
     }>;
     createStatutoryRule(user: {
         id: string;
@@ -726,8 +726,8 @@ export declare class PayrollService {
         updatedAt: Date;
         effectiveFrom: string;
         isActive: boolean;
-        country: string;
         financialYear: string;
+        country: string;
         ruleType: string;
         state: string;
         effectiveTo: string | null;

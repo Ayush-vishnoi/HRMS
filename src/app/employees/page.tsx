@@ -18,9 +18,10 @@ import { useHRMS } from '@/shared/providers/HRMSContext';
 import type { Employee } from '@/features/employees/data/employees';
 import { EmployeeDetailsModal } from '@/features/employees/components/EmployeeDetailsModal';
 import { AddEmployeeModal } from '@/features/employees/components/AddEmployeeModal';
+import PageLoader from '@/shared/components/PageLoader';
 
 export default function EmployeesPage() {
-  const { employees, currentUser } = useHRMS();
+  const { employees, currentUser, isDataReady } = useHRMS();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDept, setSelectedDept] = useState('All');
@@ -54,6 +55,10 @@ export default function EmployeesPage() {
   });
 
   const isEmployee = currentUser.userRole === 'employee';
+
+  if (!isDataReady && employees.length === 0) {
+    return <PageLoader label="Loading employee directory…" />;
+  }
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">

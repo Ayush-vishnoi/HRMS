@@ -1,6 +1,7 @@
 'use client';
 
 import { authFetch } from '@/lib/api-client';
+import PageLoader from '@/shared/components/PageLoader';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   Heart,
@@ -236,6 +237,10 @@ export default function EngagementPage() {
       console.error('Failed to upvote suggestion:', err);
     }
   };
+
+  if (loading) {
+    return <PageLoader label="Loading engagement hub…" />;
+  }
 
   return (
     <div className="space-y-6">

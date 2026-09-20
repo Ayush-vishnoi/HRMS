@@ -1,6 +1,7 @@
 'use client';
 
 import { authFetch } from '@/lib/api-client';
+import PageLoader from '@/shared/components/PageLoader';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   AlertCircle,
@@ -171,6 +172,10 @@ export default function BenefitsPage() {
   };
 
   const activeEnrollment = enrollments[0];
+
+  if (loading) {
+    return <PageLoader label="Loading benefits…" />;
+  }
 
   return (
     <div className="space-y-6">

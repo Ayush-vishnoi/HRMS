@@ -12,6 +12,7 @@ import {
   HelpDeskTicketPriority,
   useHRMS,
 } from '@/shared/providers/HRMSContext';
+import PageLoader from '@/shared/components/PageLoader';
 
 const statusStyles = {
   Open: 'border-amber-200 bg-amber-50 text-amber-700',
@@ -20,7 +21,7 @@ const statusStyles = {
 };
 
 export default function GrievancesPage() {
-  const { currentUser, helpDeskTickets, submitHelpDeskTicket } = useHRMS();
+  const { currentUser, helpDeskTickets, submitHelpDeskTicket, isDataReady } = useHRMS();
   const [priority, setPriority] = useState<HelpDeskTicketPriority>('Medium');
   const [subject, setSubject] = useState('');
   const [description, setDescription] = useState('');
@@ -60,6 +61,10 @@ export default function GrievancesPage() {
         <p className="mt-2 text-sm text-rose-700">This confidential submission workspace is available only to employees and managers. HR reviews grievances from the Help Desk.</p>
       </div>
     );
+  }
+
+  if (!isDataReady && helpDeskTickets.length === 0) {
+    return <PageLoader label="Loading grievances…" cards={3} />;
   }
 
   return (

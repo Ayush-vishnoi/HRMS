@@ -1,6 +1,7 @@
 'use client';
 
 import { authFetch } from '@/lib/api-client';
+import PageLoader from '@/shared/components/PageLoader';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
@@ -137,6 +138,7 @@ export default function MyTeamPage() {
   }, [teamTasksQuery.data]);
 
   const [teams, setTeams] = useState<FormattedTeam[]>([]);
+  const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('All');
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
@@ -273,6 +275,8 @@ export default function MyTeamPage() {
       }
     } catch (err) {
       console.error('Failed to load teams from database:', err);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -482,6 +486,10 @@ export default function MyTeamPage() {
         </div>
       </div>
     );
+  }
+
+  if (loading) {
+    return <PageLoader label="Loading your team…" />;
   }
 
   return (

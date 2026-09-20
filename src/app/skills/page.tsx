@@ -1,6 +1,7 @@
 'use client';
 
 import { authFetch } from '@/lib/api-client';
+import PageLoader from '@/shared/components/PageLoader';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   BadgeCheck,
@@ -113,6 +114,10 @@ export default function SkillsPage() {
   const categories = useMemo(() => {
     return ['All', ...Array.from(new Set(allSkills.map((s) => s.category)))];
   }, [allSkills]);
+
+  if (loading) {
+    return <PageLoader label="Loading skills matrix…" />;
+  }
 
   return (
     <div className="space-y-6">

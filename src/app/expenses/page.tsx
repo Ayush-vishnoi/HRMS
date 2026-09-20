@@ -1,6 +1,7 @@
 'use client';
 
 import { authFetch } from '@/lib/api-client';
+import PageLoader from '@/shared/components/PageLoader';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   Check,
@@ -415,6 +416,10 @@ export default function ExpensesPage() {
       selectedClaim.managerStatus === 'Approved' &&
       selectedClaim.financeStatus === 'Approved'
     : false;
+
+  if (loading) {
+    return <PageLoader label="Loading expense claims…" />;
+  }
 
   return (
     <div className="space-y-6">

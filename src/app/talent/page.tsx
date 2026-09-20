@@ -32,6 +32,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { useHRMS } from '@/shared/providers/HRMSContext';
+import PageLoader from '@/shared/components/PageLoader';
 
 export default function TalentPage() {
   const { currentUser, employees } = useHRMS();
@@ -39,7 +40,7 @@ export default function TalentPage() {
   const isManager = currentUser.userRole === 'manager';
 
   const [activeSubTab, setActiveSubTab] = useState<'paths' | 'skills_gap' | 'aspirations' | 'mobility' | 'succession'>('paths');
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [toastMessage, setToastMessage] = useState('');
 
   const [talentData, setTalentData] = useState<any>({
@@ -170,6 +171,10 @@ export default function TalentPage() {
   };
 
   const skillGap = talentData.skillGap;
+
+  if (loading) {
+    return <PageLoader label="Loading talent ecosystem…" />;
+  }
 
   return (
     <div className="min-h-screen bg-slate-50/60 p-6">

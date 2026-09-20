@@ -1,6 +1,7 @@
 'use client';
 
 import { authFetch } from '@/lib/api-client';
+import PageLoader from '@/shared/components/PageLoader';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   BookOpenCheck,
@@ -100,6 +101,7 @@ export default function PoliciesPage() {
   const [showUpload, setShowUpload] = useState(false);
   const [notice, setNotice] = useState('');
   const [isAcknowledging, setIsAcknowledging] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   // Upload Form State
   const [title, setTitle] = useState('');
@@ -119,6 +121,8 @@ export default function PoliciesPage() {
       }
     } catch (err) {
       console.error('Failed to fetch policies from database:', err);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -199,6 +203,10 @@ export default function PoliciesPage() {
     setSummary('');
     setNotice('Updated policy published and saved in database.');
   };
+
+  if (loading) {
+    return <PageLoader label="Loading policies…" />;
+  }
 
   return (
     <div className="space-y-6">

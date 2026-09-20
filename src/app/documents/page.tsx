@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { authFetch } from '@/lib/api-client';
+import PageLoader from '@/shared/components/PageLoader';
 import {
   CheckCircle2,
   Clock3,
@@ -216,6 +217,7 @@ export default function DocumentsPage() {
   const [requests, setRequests] = useState<DocumentRequest[]>([]);
   const [templates, setTemplates] = useState<Template[]>(STATIC_TEMPLATES);
   const [staff, setStaff] = useState<StaffMember[]>(STATIC_STAFF);
+  const [loading, setLoading] = useState(true);
 
   const loadDocumentsData = useCallback(async () => {
     try {
@@ -229,6 +231,8 @@ export default function DocumentsPage() {
     } catch {
       setDocuments(INITIAL_DOCUMENTS);
       setRequests(INITIAL_REQUESTS);
+    } finally {
+      setLoading(false);
     }
   }, []);
 
@@ -459,6 +463,10 @@ export default function DocumentsPage() {
       setError(error instanceof Error ? error.message : 'Download failed.');
     }
   };
+
+  if (loading) {
+    return <PageLoader label="Loading documents…" />;
+  }
 
   return (
     <div className="space-y-6">

@@ -14,6 +14,7 @@ import {
   HelpDeskTicketStatus,
   useHRMS,
 } from '@/shared/providers/HRMSContext';
+import PageLoader from '@/shared/components/PageLoader';
 
 const statusStyles: Record<HelpDeskTicketStatus, string> = {
   Open: 'border-amber-200 bg-amber-50 text-amber-700',
@@ -28,7 +29,7 @@ const priorityStyles = {
 };
 
 export default function HelpDeskPage() {
-  const { currentUser, helpDeskTickets, updateHelpDeskTicket } = useHRMS();
+  const { currentUser, helpDeskTickets, updateHelpDeskTicket, isDataReady } = useHRMS();
   const [statusFilter, setStatusFilter] = useState<'All' | HelpDeskTicketStatus>('All');
   const [search, setSearch] = useState('');
   const [resolutionNotes, setResolutionNotes] = useState<Record<string, string>>({});
@@ -63,6 +64,10 @@ export default function HelpDeskPage() {
         <p className="mt-2 text-sm text-rose-700">This workspace is available only to HR Admin users.</p>
       </div>
     );
+  }
+
+  if (!isDataReady && helpDeskTickets.length === 0) {
+    return <PageLoader label="Loading help desk…" />;
   }
 
   return (

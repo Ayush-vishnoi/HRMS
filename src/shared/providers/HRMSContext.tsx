@@ -187,6 +187,8 @@ const mapDbBalances = (balances: any[]): LeaveBalances => {
 interface HRMSContextType {
   isAuthenticated: boolean;
   isAuthReady: boolean;
+  /** True once the initial bulk fetch (employees, leaves, help-desk, attendance) has settled. */
+  isDataReady: boolean;
   currentUser: UserAccount;
   logout: () => void;
   employees: Employee[];
@@ -278,6 +280,7 @@ export const HRMSProvider: React.FC<HRMSProviderProps> = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [currentUser, setCurrentUser] = useState<UserAccount>(DEMO_ACCOUNTS.employee);
   const [isAuthReady, setIsAuthReady] = useState(false);
+  const [isDataReady, setIsDataReady] = useState(false);
 
   // Bootstrap auth from the stored backend JWT on mount (client-side only).
   useEffect(() => {
@@ -360,7 +363,10 @@ export const HRMSProvider: React.FC<HRMSProviderProps> = ({ children }) => {
   // Skipped while unauthenticated so we never fire requests that would 401 and
   // trigger the global redirect to /login.
   useEffect(() => {
-    if (!isAuthReady || !isAuthenticated) return;
+    if (!isAuthReady || !isAuthenticated) {
+      setIsDataReady(false);
+      return;
+    }
 
     const storedLateRequests = window.localStorage.getItem(LATE_REQUEST_STORAGE_KEY);
     if (storedLateRequests) {
@@ -422,6 +428,8 @@ export const HRMSProvider: React.FC<HRMSProviderProps> = ({ children }) => {
         }
       } catch (err) {
         console.error('Error fetching initial database state:', err);
+      } finally {
+        setIsDataReady(true);
       }
     };
 
@@ -810,6 +818,7 @@ export const HRMSProvider: React.FC<HRMSProviderProps> = ({ children }) => {
       value={{
         isAuthenticated,
         isAuthReady,
+        isDataReady,
         currentUser,
         logout,
         employees,

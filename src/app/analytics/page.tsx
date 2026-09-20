@@ -1,6 +1,7 @@
 'use client';
 
 import { authFetch } from '@/lib/api-client';
+import PageLoader from '@/shared/components/PageLoader';
 import React, { useEffect, useState } from 'react';
 import {
   BarChart3,
@@ -68,6 +69,10 @@ export default function AnalyticsPage() {
         </div>
       </div>
     );
+  }
+
+  if (loading) {
+    return <PageLoader label="Loading analytics…" />;
   }
 
   return (

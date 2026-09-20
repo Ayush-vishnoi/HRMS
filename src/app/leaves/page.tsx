@@ -12,6 +12,7 @@ import {
 import { useHRMS } from '@/shared/providers/HRMSContext';
 import { ApplyLeaveModal } from '@/features/leaves/components/ApplyLeaveModal';
 import { exportToExcel } from '@/shared/lib/exportUtils';
+import PageLoader from '@/shared/components/PageLoader';
 
 export default function LeavesPage() {
   const {
@@ -20,6 +21,7 @@ export default function LeavesPage() {
     updateLeaveStatus,
     currentUser,
     employees,
+    isDataReady,
   } = useHRMS();
 
   const [isApplyModalOpen, setIsApplyModalOpen] = useState(false);
@@ -42,6 +44,10 @@ export default function LeavesPage() {
     if (filterStatus === 'All') return true;
     return request.status === filterStatus;
   });
+
+  if (!isDataReady && leaveRequests.length === 0) {
+    return <PageLoader label="Loading leaves…" />;
+  }
 
   return (
     <div className="space-y-6">
