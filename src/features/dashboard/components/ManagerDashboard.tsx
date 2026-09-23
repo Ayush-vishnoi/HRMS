@@ -1,7 +1,7 @@
 'use client';
 
 import { authFetch } from '@/lib/api-client';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Check,
   X,
@@ -19,6 +19,23 @@ import {
 import { useHRMS } from '@/shared/providers/HRMSContext';
 import { useChat } from '@/shared/providers/ChatContext';
 
+type TeamPerson = {
+  employee: {
+    id: string;
+    name: string;
+    role: string;
+    department: string;
+    email: string;
+    phone: string;
+    avatar: string;
+    status: string;
+  };
+  metadata?: {
+    goalProgress: number;
+    workload: number;
+  };
+};
+
 type LiveTeam = {
   id: string;
   name: string;
@@ -26,29 +43,8 @@ type LiveTeam = {
   manager: string;
   leaderId: string;
   focus: string;
-  leader: {
-    employee: {
-      id: string;
-      name: string;
-      role: string;
-      department: string;
-      email: string;
-      phone: string;
-      avatar: string;
-      status: string;
-    };
-  };
-  members: Array<{
-    employee: {
-      id: string;
-      name: string;
-      role: string;
-      avatar: string;
-      status: string;
-      email: string;
-      phone: string;
-    };
-  }>;
+  leader: TeamPerson;
+  members: TeamPerson[];
 };
 
 export const ManagerDashboard: React.FC = () => {
@@ -82,6 +78,34 @@ export const ManagerDashboard: React.FC = () => {
   const pendingApprovals = leaveRequests.filter(
     (r) => r.status === 'Pending'
   );
+
+  // Derive every headline number from the live team roster so a manager with
+  // no (or a fresh) team sees real zeros instead of placeholder figures.
+  // Attendance disposition comes from each person's employment `status`;
+  // "delivery" is the average of the goal-progress the manager tracks per member.
+  const teamStats = useMemo(() => {
+    const people = new Map<string, string>(); // id -> status (dedupe across teams)
+    const goals: number[] = [];
+    for (const team of liveTeams) {
+      for (const person of [team.leader, ...team.members]) {
+        if (!person?.employee) continue;
+        people.set(person.employee.id, person.employee.status);
+        if (typeof person.metadata?.goalProgress === 'number') {
+          goals.push(person.metadata.goalProgress);
+        }
+      }
+    }
+    const statuses = [...people.values()];
+    const total = statuses.length;
+    const present = statuses.filter((s) => s === 'Active').length;
+    const onLeave = statuses.filter((s) => s === 'On Leave').length;
+    const remote = statuses.filter((s) => s === 'Remote').length;
+    const attendanceRate = total > 0 ? Math.round(((present + remote) / total) * 100) : 0;
+    const sprintDelivery = goals.length > 0
+      ? Math.round(goals.reduce((a, b) => a + b, 0) / goals.length)
+      : 0;
+    return { total, present, onLeave, remote, attendanceRate, sprintDelivery };
+  }, [liveTeams]);
 
   return (
     <div className="space-y-6">
@@ -148,7 +172,7 @@ export const ManagerDashboard: React.FC = () => {
           </div>
 
           <div className="text-2xl font-black text-[#17324A] mt-2">
-            94%
+            {teamStats.attendanceRate}%
           </div>
 
           <span className="text-[11px] text-[#17324A]/70">
@@ -165,7 +189,7 @@ export const ManagerDashboard: React.FC = () => {
           </div>
 
           <div className="text-2xl font-black text-[#17324A] mt-2">
-            88%
+            {teamStats.sprintDelivery}%
           </div>
 
           <span className="text-[11px] text-[#17324A]/70">
@@ -243,19 +267,19 @@ export const ManagerDashboard: React.FC = () => {
           <div className="space-y-3">
             <div className="flex justify-between items-center text-xs p-2.5 rounded-md bg-[#B0D0EA]/20 border border-[#B0D0EA]">
               <span className="font-semibold text-[#17324A]">Present Today</span>
-              <span className="font-bold text-[#17324A]">12</span>
+              <span className="font-bold text-[#17324A]">{teamStats.present}</span>
             </div>
             <div className="flex justify-between items-center text-xs p-2.5 rounded-md bg-[#B0D0EA]/20 border border-[#B0D0EA]">
               <span className="font-semibold text-[#17324A]">On Leave</span>
-              <span className="font-bold text-[#17324A]">2</span>
-            </div>
-            <div className="flex justify-between items-center text-xs p-2.5 rounded-md bg-[#B0D0EA]/20 border border-[#B0D0EA]">
-              <span className="font-semibold text-[#17324A]">Late Clock-ins</span>
-              <span className="font-bold text-[#17324A]">1</span>
+              <span className="font-bold text-[#17324A]">{teamStats.onLeave}</span>
             </div>
             <div className="flex justify-between items-center text-xs p-2.5 rounded-md bg-[#B0D0EA]/20 border border-[#B0D0EA]">
               <span className="font-semibold text-[#17324A]">Remote / WFH</span>
-              <span className="font-bold text-[#17324A]">3</span>
+              <span className="font-bold text-[#17324A]">{teamStats.remote}</span>
+            </div>
+            <div className="flex justify-between items-center text-xs p-2.5 rounded-md bg-[#B0D0EA]/20 border border-[#B0D0EA]">
+              <span className="font-semibold text-[#17324A]">Team Members</span>
+              <span className="font-bold text-[#17324A]">{teamStats.total}</span>
             </div>
           </div>
         </div>

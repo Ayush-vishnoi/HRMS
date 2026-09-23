@@ -48,15 +48,31 @@ let RecruitmentController = class RecruitmentController {
     getMyApprovals(user) {
         return this.recruitmentService.getMyApprovals(user.id);
     }
+    getCeoApprovalQueue() {
+        return this.recruitmentService.getCeoApprovalQueue();
+    }
+    decideCeoApproval(user, candidateId, body) {
+        return this.recruitmentService.decideCeoApproval(user.id, candidateId, body);
+    }
     getJobs() {
         return this.recruitmentService.findAll();
     }
-    async createJob(body) {
-        const job = await this.recruitmentService.createJob(body);
+    async createJob(body, user) {
+        const job = await this.recruitmentService.createJob(body, { id: user?.id, rawRole: user?.rawRole });
         return { success: true, data: job };
+    }
+    getRequisitionApprovalQueue() {
+        return this.recruitmentService.getRequisitionApprovalQueue();
+    }
+    decideRequisitionApproval(user, jobId, body) {
+        return this.recruitmentService.decideRequisitionApproval(user.id, jobId, body);
     }
     updateJob(id, body) {
         return this.recruitmentService.updateJob(id, body);
+    }
+    async deleteJob(id) {
+        await this.recruitmentService.deleteJob(id);
+        return { success: true };
     }
     jobApprovalAction(id, body, user) {
         return this.recruitmentService.jobApprovalAction(id, body, user.id);
@@ -133,6 +149,12 @@ let RecruitmentController = class RecruitmentController {
     }
     submitFeedback(id, body, user) {
         return this.recruitmentService.submitFeedback(id, body, user.id);
+    }
+    getInterviewForMeeting(meetingId, user) {
+        return this.recruitmentService.getInterviewForMeeting(meetingId, user.id);
+    }
+    submitInterviewerDecision(meetingId, body, user) {
+        return this.recruitmentService.submitInterviewerDecision(meetingId, body, user.id);
     }
     async getNotes(id) {
         const notes = await this.recruitmentService.getNotes(id);
@@ -211,6 +233,21 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], RecruitmentController.prototype, "getMyApprovals", null);
 __decorate([
+    (0, common_1.Get)('ceo-approvals'),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", void 0)
+], RecruitmentController.prototype, "getCeoApprovalQueue", null);
+__decorate([
+    (0, common_1.Post)('ceo-approvals/:candidateId'),
+    __param(0, (0, current_user_decorator_1.CurrentUser)()),
+    __param(1, (0, common_1.Param)('candidateId')),
+    __param(2, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, Object]),
+    __metadata("design:returntype", void 0)
+], RecruitmentController.prototype, "decideCeoApproval", null);
+__decorate([
     (0, common_1.Get)('jobs'),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", []),
@@ -219,10 +256,26 @@ __decorate([
 __decorate([
     (0, common_1.Post)('jobs'),
     __param(0, (0, common_1.Body)()),
+    __param(1, (0, current_user_decorator_1.CurrentUser)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
+    __metadata("design:paramtypes", [Object, Object]),
     __metadata("design:returntype", Promise)
 ], RecruitmentController.prototype, "createJob", null);
+__decorate([
+    (0, common_1.Get)('requisition-approvals'),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", void 0)
+], RecruitmentController.prototype, "getRequisitionApprovalQueue", null);
+__decorate([
+    (0, common_1.Post)('requisition-approvals/:jobId'),
+    __param(0, (0, current_user_decorator_1.CurrentUser)()),
+    __param(1, (0, common_1.Param)('jobId')),
+    __param(2, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, Object]),
+    __metadata("design:returntype", void 0)
+], RecruitmentController.prototype, "decideRequisitionApproval", null);
 __decorate([
     (0, common_1.Patch)('jobs/:id'),
     __param(0, (0, common_1.Param)('id')),
@@ -231,6 +284,13 @@ __decorate([
     __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", void 0)
 ], RecruitmentController.prototype, "updateJob", null);
+__decorate([
+    (0, common_1.Delete)('jobs/:id'),
+    __param(0, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], RecruitmentController.prototype, "deleteJob", null);
 __decorate([
     (0, common_1.Post)('jobs/:id/approvals'),
     __param(0, (0, common_1.Param)('id')),
@@ -379,6 +439,23 @@ __decorate([
     __metadata("design:paramtypes", [String, Object, Object]),
     __metadata("design:returntype", void 0)
 ], RecruitmentController.prototype, "submitFeedback", null);
+__decorate([
+    (0, common_1.Get)('interviews/by-meeting/:meetingId'),
+    __param(0, (0, common_1.Param)('meetingId')),
+    __param(1, (0, current_user_decorator_1.CurrentUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", void 0)
+], RecruitmentController.prototype, "getInterviewForMeeting", null);
+__decorate([
+    (0, common_1.Post)('interviews/by-meeting/:meetingId/decision'),
+    __param(0, (0, common_1.Param)('meetingId')),
+    __param(1, (0, common_1.Body)()),
+    __param(2, (0, current_user_decorator_1.CurrentUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object, Object]),
+    __metadata("design:returntype", void 0)
+], RecruitmentController.prototype, "submitInterviewerDecision", null);
 __decorate([
     (0, common_1.Get)('candidates/:id/notes'),
     __param(0, (0, common_1.Param)('id')),

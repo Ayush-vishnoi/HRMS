@@ -49,6 +49,7 @@ export interface ParsedDraft {
 }
 export declare const PARSER_VERSION = "v1.2.0";
 export declare function extractResumeText(buffer: Buffer, mimetype: string): string;
+export declare const SKILL_CATALOG: Record<string, string>;
 export declare function parseResumeDraft(rawText: string): ParsedDraft;
 export interface MatchInput {
     candidateSkills: string[];

@@ -226,6 +226,8 @@ export default function EmployeesPage() {
                         ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                         : emp.status === 'Remote'
                         ? 'bg-[#B0D0EA] text-[#17324A] border border-[#B0D0EA]'
+                        : emp.status === 'Terminated' || emp.status === 'Exited'
+                        ? 'bg-red-50 text-red-700 border border-red-200'
                         : 'bg-amber-50 text-amber-700 border border-amber-200'
                     }`}
                   >
@@ -377,6 +379,8 @@ export default function EmployeesPage() {
                             ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                             : emp.status === 'Remote'
                             ? 'bg-[#B0D0EA] text-[#17324A] border border-[#B0D0EA]'
+                            : emp.status === 'Terminated' || emp.status === 'Exited'
+                            ? 'bg-red-50 text-red-700 border border-red-200'
                             : 'bg-amber-50 text-amber-700 border border-amber-200'
                         }`}
                       >

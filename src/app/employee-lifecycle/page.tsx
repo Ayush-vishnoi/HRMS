@@ -62,9 +62,14 @@ const DEPARTMENT_OPTIONS = [
 ];
 
 export default function EmployeeLifecyclePage() {
-  const { currentUser } = useHRMS();
+  const { currentUser, hasCeoPermission } = useHRMS();
   const [activeTab, setActiveTab] = useState<TabKey>('onboarding');
   const [loading, setLoading] = useState<boolean>(true);
+  // Inline onboarding CEO-approval (for the CEO or a delegate holding
+  // ONBOARDING_APPROVAL) — lets them clear the gate right here instead of
+  // going to the Governance page. Mirrors the requisition-approval inline flow.
+  const [ceoApprovalBusy, setCeoApprovalBusy] = useState<string | null>(null);
+  const [ceoApprovalNote, setCeoApprovalNote] = useState<Record<string, string>>({});
   const [data, setData] = useState<any>({
     candidates: [],
     awaitingSignatureCandidates: [],
@@ -176,6 +181,50 @@ export default function EmployeeLifecyclePage() {
     fetchData();
   }, [fetchData]);
 
+  // Re-fetch when the tab regains focus/visibility so a CEO's onboarding
+  // approval (decided in another tab/session) is reflected here without a
+  // manual reload — otherwise the "Pending CEO Approval" pill stays stale.
+  useEffect(() => {
+    const refetch = () => {
+      if (document.visibilityState === 'visible') void fetchData();
+    };
+    window.addEventListener('focus', refetch);
+    document.addEventListener('visibilitychange', refetch);
+    return () => {
+      window.removeEventListener('focus', refetch);
+      document.removeEventListener('visibilitychange', refetch);
+    };
+  }, [fetchData]);
+
+  // CEO / delegate decides the onboarding gate inline from this list.
+  const decideOnboardingApproval = useCallback(
+    async (candidateId: string, decision: 'Approved' | 'Rejected') => {
+      setCeoApprovalBusy(candidateId);
+      setActionError(null);
+      try {
+        const res = await authFetch<Response>(`/api/recruitment/ceo-approvals/${candidateId}`, {
+          raw: true,
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ decision, note: ceoApprovalNote[candidateId]?.trim() || undefined }),
+        });
+        const json = await res.json();
+        if (!json?.success) {
+          setActionError(json?.error || 'Could not record the decision.');
+          return;
+        }
+        setActionSuccess(`Onboarding ${decision.toLowerCase()}.`);
+        setTimeout(() => setActionSuccess(null), 2500);
+        await fetchData();
+      } catch (err) {
+        setActionError((err as Error)?.message || 'Could not record the decision.');
+      } finally {
+        setCeoApprovalBusy(null);
+      }
+    },
+    [ceoApprovalNote, fetchData],
+  );
+
   const copyToClipboard = async (text: string) => {
     try {
       await navigator.clipboard.writeText(text);
@@ -201,6 +250,7 @@ export default function EmployeeLifecyclePage() {
             customJoinDate: onboardForm.joinDate,
             customManagerId: onboardForm.managerId || undefined,
             customProbationMonths: Number(onboardForm.probationMonths || 6),
+            customUserRole: onboardForm.userRole || undefined,
             customRoleTitle: onboardForm.roleTitle || undefined,
             customDepartment: onboardForm.department || undefined,
             customLocation: onboardForm.location || undefined,
@@ -575,28 +625,95 @@ export default function EmployeeLifecyclePage() {
                         <div className="flex items-center gap-1.5"><Building2 className="h-3.5 w-3.5 text-[#8FAEC5]" /> {c.job?.department || 'Department'} · {c.location}</div>
                       </div>
                     </div>
-                    {['Sent', 'Viewed', 'Accepted'].includes(c.recruitment_offers?.[0]?.status) ? (
-                      <button
-                        onClick={() => {
-                          setSelectedCandidate(c);
-                         setOnboardForm((prev: any) => ({
-                           ...prev,
-                           roleTitle: c.job?.title || c.recruitment_offers?.[0]?.offered_title || 'Engineer',
-                           department: c.job?.department || 'Engineering',
-                           location: c.job?.location || prev.location,
-                           salary: Number(c.recruitment_offers?.[0]?.offered_ctc || prev.salary),
-                         }));
-                         setShowOnboardModal(true);
-                        }}
-                        className="w-full rounded-lg bg-[#23587E] py-2 text-xs font-bold text-white hover:bg-[#1b4461] transition-all flex items-center justify-center gap-1.5"
-                      >
-                        <UserPlus className="h-3.5 w-3.5" /> Start Onboarding
-                      </button>
-                    ) : (
-                      <div className="w-full rounded-lg border border-[#D5E2EC] bg-[#F4F8FB] py-2 text-center text-[11px] font-bold text-[#7895AE]">
-                        Offer {c.recruitment_offers?.[0]?.status || 'Not Created'} — Not Eligible for Onboarding
-                      </div>
-                    )}
+                    {(() => {
+                      const offerReady = ['Sent', 'Viewed', 'Accepted'].includes(c.recruitment_offers?.[0]?.status);
+                      // Paid roles (CTC > 0) require CEO onboarding approval before
+                      // HR can start onboarding. Unpaid roles skip the gate. This
+                      // mirrors the server-side block in convertOffer/onboard.
+                      const isPaid = Number(c.recruitment_offers?.[0]?.offered_ctc || 0) > 0;
+                      const approvalStatus = c.onboardingApproval?.status;
+                      const blockedForApproval = isPaid && approvalStatus !== 'Approved';
+
+                      if (offerReady && blockedForApproval) {
+                        // A CEO or a delegate holding ONBOARDING_APPROVAL can clear
+                        // the gate right here; everyone else just sees the status pill.
+                        if (approvalStatus !== 'Rejected' && hasCeoPermission('ONBOARDING_APPROVAL')) {
+                          const busy = ceoApprovalBusy === c.id;
+                          return (
+                            <div className="w-full rounded-lg border border-amber-200 bg-amber-50 p-2.5">
+                              <div className="mb-2 text-center text-[11px] font-bold text-amber-700">
+                                Pending CEO Approval — you can decide
+                              </div>
+                              <textarea
+                                value={ceoApprovalNote[c.id] ?? ''}
+                                onChange={(e) =>
+                                  setCeoApprovalNote((cur) => ({ ...cur, [c.id]: e.target.value }))
+                                }
+                                placeholder="Optional decision note…"
+                                rows={2}
+                                className="mb-2 w-full resize-none rounded-lg border border-amber-200 bg-white px-2.5 py-1.5 text-[11px] text-[#17324A] outline-none placeholder:text-[#B7986A] focus:border-amber-400"
+                              />
+                              <div className="flex gap-2">
+                                <button
+                                  type="button"
+                                  disabled={busy}
+                                  onClick={() => decideOnboardingApproval(c.id, 'Rejected')}
+                                  className="flex-1 rounded-lg border border-rose-200 bg-white py-1.5 text-[10px] font-bold text-rose-700 hover:bg-rose-50 disabled:opacity-50"
+                                >
+                                  Reject
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={busy}
+                                  onClick={() => decideOnboardingApproval(c.id, 'Approved')}
+                                  className="flex-1 rounded-lg bg-emerald-600 py-1.5 text-[10px] font-bold text-white hover:bg-emerald-700 disabled:opacity-50"
+                                >
+                                  {busy ? 'Saving…' : 'Approve'}
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        }
+                        return (
+                          <div
+                            className={`w-full rounded-lg border py-2 text-center text-[11px] font-bold ${
+                              approvalStatus === 'Rejected'
+                                ? 'border-rose-200 bg-rose-50 text-rose-700'
+                                : 'border-amber-200 bg-amber-50 text-amber-700'
+                            }`}
+                          >
+                            {approvalStatus === 'Rejected' ? 'CEO Rejected Onboarding' : 'Pending CEO Approval'}
+                          </div>
+                        );
+                      }
+
+                      if (offerReady) {
+                        return (
+                          <button
+                            onClick={() => {
+                              setSelectedCandidate(c);
+                              setOnboardForm((prev: any) => ({
+                                ...prev,
+                                roleTitle: c.job?.title || c.recruitment_offers?.[0]?.offered_title || 'Engineer',
+                                department: c.job?.department || 'Engineering',
+                                location: c.job?.location || prev.location,
+                                salary: Number(c.recruitment_offers?.[0]?.offered_ctc || prev.salary),
+                              }));
+                              setShowOnboardModal(true);
+                            }}
+                            className="w-full rounded-lg bg-[#23587E] py-2 text-xs font-bold text-white hover:bg-[#1b4461] transition-all flex items-center justify-center gap-1.5"
+                          >
+                            <UserPlus className="h-3.5 w-3.5" /> Start Onboarding
+                          </button>
+                        );
+                      }
+
+                      return (
+                        <div className="w-full rounded-lg border border-[#D5E2EC] bg-[#F4F8FB] py-2 text-center text-[11px] font-bold text-[#7895AE]">
+                          Offer {c.recruitment_offers?.[0]?.status || 'Not Created'} — Not Eligible for Onboarding
+                        </div>
+                      );
+                    })()}
                   </div>
                 ))}
               </div>
@@ -1235,6 +1352,23 @@ export default function EmployeeLifecyclePage() {
                         <option key={e.id} value={e.id}>{e.name} ({e.employeeCode})</option>
                       ))}
                     </select>
+                  </div>
+                </div>
+                <div className="mt-3 grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-bold text-[#4B6882] mb-1">System Access</label>
+                    <select
+                      value={onboardForm.userRole}
+                      onChange={(e) => setOnboardForm({ ...onboardForm, userRole: e.target.value })}
+                      className="w-full rounded-xl border border-[#CBDDE9] px-3 py-2 text-xs"
+                    >
+                      <option value="employee">Employee (self-service)</option>
+                      <option value="manager">Manager (team access)</option>
+                      <option value="admin">HR (admin access)</option>
+                    </select>
+                    <p className="mt-1 text-[10px] text-[#8FAEC5]">
+                      Decides the login access level for the new ID.
+                    </p>
                   </div>
                 </div>
               </div>

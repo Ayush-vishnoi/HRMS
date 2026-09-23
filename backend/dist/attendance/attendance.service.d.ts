@@ -65,32 +65,32 @@ export declare class AttendanceService {
         createdAt: Date;
         status: import("@prisma/client").$Enums.LateClockInStatus;
         reason: string;
+        reviewedById: string | null;
+        reviewedAt: string | null;
         requesterId: string;
         requestDate: string;
         requestedAt: string;
-        reviewedById: string | null;
-        reviewedAt: string | null;
     })[]>;
     createLateRequest(requesterId: string, requestDate: string, reason: string): Promise<{
         id: string;
         createdAt: Date;
         status: import("@prisma/client").$Enums.LateClockInStatus;
         reason: string;
+        reviewedById: string | null;
+        reviewedAt: string | null;
         requesterId: string;
         requestDate: string;
         requestedAt: string;
-        reviewedById: string | null;
-        reviewedAt: string | null;
     }>;
     reviewLateRequest(id: string, status: 'approved' | 'rejected', reviewedById: string): Promise<{
         id: string;
         createdAt: Date;
         status: import("@prisma/client").$Enums.LateClockInStatus;
         reason: string;
+        reviewedById: string | null;
+        reviewedAt: string | null;
         requesterId: string;
         requestDate: string;
         requestedAt: string;
-        reviewedById: string | null;
-        reviewedAt: string | null;
     }>;
 }

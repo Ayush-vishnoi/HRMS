@@ -169,7 +169,7 @@ export const ForcedPasswordResetScreen: React.FC = () => {
         </div>
 
         <p className="mt-5 text-center text-[11px] text-[#667085]">
-          MYLOTIC GROUP HRMS · Your session is protected
+          M360 HRMS · Your session is protected
         </p>
       </div>
     </div>

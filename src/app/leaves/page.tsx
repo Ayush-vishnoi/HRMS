@@ -30,8 +30,23 @@ export default function LeavesPage() {
     'All' | 'Pending' | 'Approved' | 'Rejected'
   >('All');
 
-  const roleVisibleRequests =
-    currentUser.userRole === 'employee'
+  // The CEO never applies for leave — they only review time-off from HR and
+  // managers (leadership layer), not the whole workforce.
+  const isCeo = currentUser.rawRole === 'ceo';
+
+  // Set of employee ids who are managers (they appear as someone's manager).
+  const managerNames = new Set(employees.map((e) => e.manager).filter(Boolean));
+  const isLeadershipRequest = (employeeId: string) => {
+    const emp = employees.find((item) => item.id === employeeId);
+    if (!emp) return false;
+    const isHr = (emp.department || '').toLowerCase() === 'human resources';
+    const isManager = managerNames.has(emp.name);
+    return isHr || isManager;
+  };
+
+  const roleVisibleRequests = isCeo
+    ? leaveRequests.filter((request) => isLeadershipRequest(request.employeeId))
+    : currentUser.userRole === 'employee'
       ? leaveRequests.filter((request) => request.employeeId === currentUser.id)
       : currentUser.userRole === 'manager'
         ? leaveRequests.filter((request) => {
@@ -61,11 +76,13 @@ export default function LeavesPage() {
           </h1>
 
           <p className="mt-1 text-sm text-[#667085]">
-            {currentUser.userRole === 'employee'
-              ? 'Request time off and review only your own leave history'
-              : currentUser.userRole === 'manager'
-                ? 'Review and approve time-off requests from your direct reports'
-                : 'Review leave balances and manage employee time-off requests'}
+            {isCeo
+              ? 'Review and approve time-off requests from HR and managers'
+              : currentUser.userRole === 'employee'
+                ? 'Request time off and review only your own leave history'
+                : currentUser.userRole === 'manager'
+                  ? 'Review and approve time-off requests from your direct reports'
+                  : 'Review leave balances and manage employee time-off requests'}
           </p>
         </div>
 
@@ -135,19 +152,22 @@ export default function LeavesPage() {
             Export Excel
           </button>
 
-          {/* Apply Leave */}
-          <button
-            onClick={() => setIsApplyModalOpen(true)}
-            className="px-4 py-2.5 rounded-xl bg-[#B0D0EA] hover:bg-[#9FC5E2] text-[#17324A] border border-[#9FC5E2] text-xs font-semibold shadow-md flex items-center gap-2 transition-all cursor-pointer"
-          >
-            <Plus className="w-4 h-4" />
-            Apply for Time Off
-          </button>
+          {/* Apply Leave — the CEO reviews only, so no apply action for them */}
+          {!isCeo && (
+            <button
+              onClick={() => setIsApplyModalOpen(true)}
+              className="px-4 py-2.5 rounded-xl bg-[#B0D0EA] hover:bg-[#9FC5E2] text-[#17324A] border border-[#9FC5E2] text-xs font-semibold shadow-md flex items-center gap-2 transition-all cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              Apply for Time Off
+            </button>
+          )}
 
         </div>
       </div>
 
-      {/* Leave Balances Grid */}
+      {/* Leave Balances Grid — hidden for the CEO (their own balance is irrelevant here) */}
+      {!isCeo && (
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
 
         {/* Casual Leave */}
@@ -283,6 +303,7 @@ export default function LeavesPage() {
         </div>
 
       </div>
+      )}
 
       {/* Leave Requests Table Card */}
       <div className="p-6 rounded-2xl bg-white border border-[#D9E5EE] shadow-md space-y-4">

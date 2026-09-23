@@ -694,7 +694,7 @@ let ExitService = class ExitService {
             year: 'numeric',
         });
         const header = [
-            { text: 'MYLOTIC GROUP', bold: true, size: 16 },
+            { text: 'M360', bold: true, size: 16 },
             { text: 'Human Resources Department', size: 10 },
             { text: '' },
             { text: `Date: ${today}`, size: 10 },
@@ -718,7 +718,7 @@ let ExitService = class ExitService {
                 },
                 { text: '' },
                 {
-                    text: `You joined MYLOTIC GROUP on ${fmtDateLong(emp.joinDate)} and served the organization until ${fmtDateLong(relievingDate)}. During your tenure, we found you to be sincere, professional and dedicated towards your responsibilities.`,
+                    text: `You joined M360 on ${fmtDateLong(emp.joinDate)} and served the organization until ${fmtDateLong(relievingDate)}. During your tenure, we found you to be sincere, professional and dedicated towards your responsibilities.`,
                     size: 10,
                 },
                 { text: '' },
@@ -732,7 +732,7 @@ let ExitService = class ExitService {
                 { text: '' },
                 { text: 'Sincerely,', size: 10 },
                 { text: 'HR Operations', bold: true, size: 10 },
-                { text: 'MYLOTIC GROUP', size: 10 },
+                { text: 'M360', size: 10 },
             ];
         }
         return [
@@ -742,7 +742,7 @@ let ExitService = class ExitService {
             { text: 'TO WHOMSOEVER IT MAY CONCERN', bold: true, size: 10 },
             { text: '' },
             {
-                text: `This is to certify that ${emp.name} (Employee ID: ${emp.employeeCode}) was employed with MYLOTIC GROUP as ${emp.roleTitle} in the ${emp.department} department from ${fmtDateLong(emp.joinDate)} to ${fmtDateLong(relievingDate)}.`,
+                text: `This is to certify that ${emp.name} (Employee ID: ${emp.employeeCode}) was employed with M360 as ${emp.roleTitle} in the ${emp.department} department from ${fmtDateLong(emp.joinDate)} to ${fmtDateLong(relievingDate)}.`,
                 size: 10,
             },
             { text: '' },
@@ -761,7 +761,7 @@ let ExitService = class ExitService {
             { text: '' },
             { text: 'Sincerely,', size: 10 },
             { text: 'HR Operations', bold: true, size: 10 },
-            { text: 'MYLOTIC GROUP', size: 10 },
+            { text: 'M360', size: 10 },
         ];
     }
 };

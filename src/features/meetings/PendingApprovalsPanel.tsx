@@ -19,10 +19,14 @@ type MyApprovalsResponse = {
 
 /**
  * Pending recruitment approvals (job requisitions + offers) surfaced on the
- * Meetings page so approvers can act without hopping over to Recruitment ATS.
- * Employees never see it, and it hides itself when nothing is pending.
+ * Meetings page (and the Recruitment page) so approvers — including a hiring
+ * manager who never opens Recruitment ATS — can act without hunting for the
+ * candidate. Employees never see it, and it hides itself when nothing pends.
+ *
+ * `onActionComplete` lets a host page (e.g. Recruitment) refresh its own data
+ * after an inline approve/reject so the offer card stays in sync.
  */
-export function PendingApprovalsPanel() {
+export function PendingApprovalsPanel({ onActionComplete }: { onActionComplete?: () => void } = {}) {
   const { currentUser } = useHRMS();
   const [jobs, setJobs] = useState<PendingJobApproval[]>([]);
   const [offers, setOffers] = useState<PendingOfferApproval[]>([]);
@@ -72,6 +76,7 @@ export function PendingApprovalsPanel() {
       const json = (await res.json().catch(() => ({}))) as { success?: boolean; error?: string };
       if (!res.ok || !json.success) throw new Error(json.error || `Failed to process ${action}`);
       await load();
+      onActionComplete?.();
     } catch (err: any) {
       setActionError(err.message || `Error processing ${action}`);
     } finally {

@@ -742,8 +742,9 @@ export default function ResumeReviewQueue({
                         )}
 
                       <p className="border-t border-[#DCEAF4] pt-2 text-[10px] text-[#6F91A8]">
-                        In-house heuristic parser — extracted fields are approximate; always verify before
-                        saving.
+                        {activeItem.parsed.parserVersion?.startsWith('python-')
+                          ? 'Automated resume parser — extracted fields may need review; always verify before saving.'
+                          : 'In-house heuristic parser — extracted fields are approximate; always verify before saving.'}
                       </p>
                     </div>
                   )}

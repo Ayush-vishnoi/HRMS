@@ -28,6 +28,7 @@ import { useChat } from '@/shared/providers/ChatContext';
 import { authFetch } from '@/lib/api-client';
 import { HRHelpDeskModal } from '@/features/help-desk/components/HRHelpDeskModal';
 import { getTimeGreeting } from '@/shared/lib/formatters';
+import { isRouteAllowedForRole } from '@/shared/lib/navigation';
 
 interface HeaderProps {
   onClockAction: () => void;
@@ -83,6 +84,28 @@ const getNotificationIcon = (type: string): { Icon: typeof Bell; className: stri
   }
 };
 
+// A notification's module, inferred from its `type` when it carries no
+// linkUrl — used to hide notifications for modules a role can't reach
+// (e.g. the CEO doesn't see Expense/Asset/Performance/Onboarding items).
+const NOTIFICATION_TYPE_ROUTE: Record<string, string> = {
+  Leave: '/leaves',
+  Approval: '/leaves',
+  Attendance: '/attendance',
+  Meeting: '/meetings/calendar',
+  Expense: '/expenses',
+  Payroll: '/payroll',
+  Policy: '/policies',
+  Document: '/documents',
+  Documents: '/documents',
+  Exit: '/exit',
+  Asset: '/assets',
+  Performance: '/performance',
+  TaskAssignment: '/tasks',
+  Recruitment: '/recruitment',
+  Onboarding: '/employee-lifecycle',
+  HelpDesk: '/grievances',
+};
+
 const formatNotificationTime = (createdAt: string) => {
   const date = new Date(createdAt);
   if (Number.isNaN(date.getTime())) return '';
@@ -109,7 +132,6 @@ export const Header: React.FC<HeaderProps> = ({ onClockAction }) => {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [notifications, setNotifications] = useState<UserNotificationItem[]>([]);
-  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
   const [isLoadingNotifications, setIsLoadingNotifications] = useState(true);
   const [greeting, setGreeting] = useState('Good Morning');
   const [isGreetingReady, setIsGreetingReady] = useState(false);
@@ -179,7 +201,6 @@ export const Header: React.FC<HeaderProps> = ({ onClockAction }) => {
         const data = Array.isArray(res) ? res : (res as any)?.data;
         if (isMounted && Array.isArray(data)) {
           setNotifications(data);
-          setUnreadNotificationCount(data.filter((n) => !n.isRead).length);
         }
       } catch (error) {
         console.error('Failed to fetch notifications:', error);
@@ -203,7 +224,6 @@ export const Header: React.FC<HeaderProps> = ({ onClockAction }) => {
       const data = Array.isArray(res) ? res : (res as any)?.data;
       if (Array.isArray(data)) {
         setNotifications(data);
-        setUnreadNotificationCount(data.filter((n) => !n.isRead).length);
       }
     } catch (error) {
       console.error('Failed to refresh notifications:', error);
@@ -219,7 +239,6 @@ export const Header: React.FC<HeaderProps> = ({ onClockAction }) => {
         notification.id === notificationId ? { ...notification, isRead: true } : notification,
       ),
     );
-    setUnreadNotificationCount((prev) => Math.max(0, prev - 1));
 
     try {
       await authFetch(`/api/notifications/${encodeURIComponent(notificationId)}/read`, {
@@ -237,9 +256,6 @@ export const Header: React.FC<HeaderProps> = ({ onClockAction }) => {
     // Optimistically remove the row; the DELETE removes it server-side so
     // the 60-second poll can no longer resurrect it.
     setNotifications((prev) => prev.filter((notification) => notification.id !== notificationId));
-    if (!target.isRead) {
-      setUnreadNotificationCount((prev) => Math.max(0, prev - 1));
-    }
 
     try {
       await authFetch(`/api/notifications/${encodeURIComponent(notificationId)}`, {
@@ -252,7 +268,6 @@ export const Header: React.FC<HeaderProps> = ({ onClockAction }) => {
 
   const clearAllNotifications = async () => {
     setNotifications([]);
-    setUnreadNotificationCount(0);
 
     // Permanently delete every notification server-side so the 60-second
     // poll cannot bring them back.
@@ -297,6 +312,17 @@ export const Header: React.FC<HeaderProps> = ({ onClockAction }) => {
     }
   };
 
+  // Hide notifications that point at modules this role can't reach — the CEO,
+  // for instance, has no Tasks/Expenses/Assets/Performance/Onboarding pages, so
+  // surfacing those (or letting them link to a blocked route) is noise.
+  const isNotificationVisible = (n: UserNotificationItem): boolean => {
+    const route = n.linkUrl || NOTIFICATION_TYPE_ROUTE[n.type];
+    if (!route) return true; // no known destination → keep (generic alert)
+    return isRouteAllowedForRole(route, currentUser.userRole, currentUser.rawRole);
+  };
+  const visibleNotifications = notifications.filter(isNotificationVisible);
+  const visibleUnreadCount = visibleNotifications.filter((n) => !n.isRead).length;
+
   return (
     <header className="h-14 border-b border-border bg-surface/90 backdrop-blur-md sticky top-0 z-30 px-4 sm:px-6 flex items-center justify-between gap-4">
       <p className="truncate text-xs font-semibold text-[#17324A]" aria-live="polite">
@@ -305,8 +331,9 @@ export const Header: React.FC<HeaderProps> = ({ onClockAction }) => {
 
       {/* Right Header Actions */}
       <div className="flex shrink-0 items-center gap-3">
-        {/* Every role uses the same clock-in policy and shared attendance state. */}
-        <div className="flex items-center bg-surface-elevated border border-border rounded-md p-0.5">
+        {/* Clock-in is an employee/manager/HR attendance action — not relevant for the CEO. */}
+        {currentUser.rawRole !== 'ceo' && (
+          <div className="flex items-center bg-surface-elevated border border-border rounded-md p-0.5">
             <button
               onClick={onClockAction}
               className={`px-2.5 py-1 rounded text-xs font-medium flex items-center gap-1.5 transition-colors ${
@@ -320,7 +347,8 @@ export const Header: React.FC<HeaderProps> = ({ onClockAction }) => {
               <span className={`w-1.5 h-1.5 rounded-full ${isClockedIn ? 'bg-success' : lateClockInRequest?.status === 'pending' ? 'bg-amber-500' : 'bg-[#17324A]'}`} />
               {isClockedIn ? `Clocked In (${clockInTime})` : lateClockInRequest?.status === 'pending' ? 'HR Approval Pending' : 'Clock In Now'}
             </button>
-        </div>
+          </div>
+        )}
 
         {currentUser.userRole === 'employee' && (
           <button
@@ -371,9 +399,9 @@ export const Header: React.FC<HeaderProps> = ({ onClockAction }) => {
             aria-expanded={showNotifications}
           >
             <Bell className="w-4 h-4" />
-            {unreadNotificationCount > 0 && (
+            {visibleUnreadCount > 0 && (
               <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#8B3A4A] px-1 text-[9px] font-black text-white ring-2 ring-white">
-                {unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}
+                {visibleUnreadCount > 9 ? '9+' : visibleUnreadCount}
               </span>
             )}
           </button>
@@ -384,12 +412,12 @@ export const Header: React.FC<HeaderProps> = ({ onClockAction }) => {
                 <h4 className="text-xs font-semibold text-foreground flex items-center gap-1.5">
                   <Bell className="w-3.5 h-3.5 text-accent" />
                   Notifications
-                  {unreadNotificationCount > 0 && (
-                    <span className="rounded-full bg-[#8B3A4A] px-1.5 py-0.5 text-[9px] font-black text-white">+{unreadNotificationCount}</span>
+                  {visibleUnreadCount > 0 && (
+                    <span className="rounded-full bg-[#8B3A4A] px-1.5 py-0.5 text-[9px] font-black text-white">+{visibleUnreadCount}</span>
                   )}
                 </h4>
                 <div className="flex items-center gap-2">
-                  {notifications.length > 0 && (
+                  {visibleNotifications.length > 0 && (
                     <button type="button" onClick={clearAllNotifications} className="text-[10px] font-semibold text-rose-600 hover:underline">
                       Clear all
                     </button>
@@ -402,10 +430,10 @@ export const Header: React.FC<HeaderProps> = ({ onClockAction }) => {
               <div className="py-2 space-y-2 max-h-60 overflow-y-auto">
                 {isLoadingNotifications ? (
                   <p className="px-2 py-4 text-center text-[11px] text-secondary">Loading notifications…</p>
-                ) : notifications.length === 0 ? (
+                ) : visibleNotifications.length === 0 ? (
                   <p className="px-2 py-4 text-center text-[11px] text-secondary">No notifications yet. Updates across HRMS will appear here.</p>
                 ) : (
-                  notifications.map((notification) => {
+                  visibleNotifications.map((notification) => {
                     const { Icon, className } = getNotificationIcon(notification.type);
                     const rowClass = notification.isRead
                       ? 'bg-surface-elevated hover:bg-[#E8F2FA]'

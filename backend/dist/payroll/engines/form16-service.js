@@ -82,7 +82,7 @@ function generateForm16Statement(params) {
         financialYear,
         assessmentYear: `${Number.parseInt(financialYear.split('-')[0], 10) + 1}-${Number.parseInt(financialYear.split('-')[1], 10) + 1}`,
         employer: {
-            name: 'MYLOTIC GROUP PRIVATE LIMITED',
+            name: 'M360',
             address: '100 Innovation Park, Whitefield, Bengaluru, Karnataka 560066',
             pan: 'AABCM9876E',
             tan: 'BLRA12345E',

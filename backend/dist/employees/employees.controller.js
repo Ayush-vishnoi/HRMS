@@ -40,6 +40,9 @@ let EmployeesController = class EmployeesController {
     update(id, body) {
         return this.employeesService.update(id, body);
     }
+    terminate(user, id, body) {
+        return this.employeesService.terminate(user.id, id, body);
+    }
 };
 exports.EmployeesController = EmployeesController;
 __decorate([
@@ -83,6 +86,15 @@ __decorate([
     __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", void 0)
 ], EmployeesController.prototype, "update", null);
+__decorate([
+    (0, common_1.Post)(':id/terminate'),
+    __param(0, (0, current_user_decorator_1.CurrentUser)()),
+    __param(1, (0, common_1.Param)('id')),
+    __param(2, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, Object]),
+    __metadata("design:returntype", void 0)
+], EmployeesController.prototype, "terminate", null);
 exports.EmployeesController = EmployeesController = __decorate([
     (0, common_1.Controller)('employees'),
     (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),

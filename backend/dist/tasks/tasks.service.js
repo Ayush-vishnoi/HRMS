@@ -214,7 +214,7 @@ let TasksService = class TasksService {
         }
         return this.prisma.employee.findMany({
             where: {
-                status: { not: 'Offboarded' },
+                status: { notIn: ['Offboarded', 'Exited', 'Terminated'] },
                 ...((employee.userRole === 'admin' || employee.userRole === 'ceo') ? {} : { managerId: employee.id }),
             },
             select: {

@@ -40,6 +40,17 @@ export declare class EmployeeLifecycleController {
                 viewed_at: Date | null;
                 responded_at: Date | null;
             })[];
+            onboardingApproval: {
+                id: string;
+                createdAt: Date;
+                status: import("@prisma/client").$Enums.OnboardingApprovalStatus;
+                onBehalfOfId: string | null;
+                note: string | null;
+                candidateId: string;
+                decidedById: string | null;
+                decidedAt: Date | null;
+                offerId: string | null;
+            } | null;
             job: {
                 id: string;
                 title: string;

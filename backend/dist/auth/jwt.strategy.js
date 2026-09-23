@@ -14,6 +14,7 @@ const common_1 = require("@nestjs/common");
 const passport_1 = require("@nestjs/passport");
 const passport_jwt_1 = require("passport-jwt");
 const prisma_service_1 = require("../prisma/prisma.service");
+const access_control_constants_1 = require("../auth/access-control.constants");
 const jwtFromRequest = passport_jwt_1.ExtractJwt.fromExtractors([
     passport_jwt_1.ExtractJwt.fromAuthHeaderAsBearerToken(),
     (req) => {
@@ -45,12 +46,21 @@ let JwtStrategy = class JwtStrategy extends (0, passport_1.PassportStrategy)(pas
                 department: true,
                 avatarUrl: true,
                 status: true,
+                lockedUntil: true,
             },
         });
-        if (employee?.userRole === 'ceo') {
-            return { ...employee, userRole: 'admin' };
+        if (!employee)
+            return null;
+        if (access_control_constants_1.LOCKOUT_STATUSES.includes(employee.status)) {
+            if (!employee.lockedUntil || employee.lockedUntil <= new Date()) {
+                throw new common_1.UnauthorizedException('Access revoked.');
+            }
         }
-        return employee;
+        return {
+            ...employee,
+            rawRole: employee.userRole,
+            userRole: employee.userRole === 'ceo' ? 'admin' : employee.userRole,
+        };
     }
 };
 exports.JwtStrategy = JwtStrategy;

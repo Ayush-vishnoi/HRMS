@@ -31,6 +31,7 @@ import {
   TrendingUp,
   User,
   Users,
+  Ban,
 } from 'lucide-react';
 import { useHRMS } from '@/shared/providers/HRMSContext';
 
@@ -38,11 +39,16 @@ export default function Employee360Page() {
   const params = useParams();
   const router = useRouter();
   const employeeId = params?.id as string;
-  const { currentUser } = useHRMS();
+  const { currentUser, hasCeoPermission, activeDelegations, refreshEmployees } = useHRMS();
 
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showTerminateModal, setShowTerminateModal] = useState(false);
+  const [terminateReason, setTerminateReason] = useState('');
+  const [terminateConfirmName, setTerminateConfirmName] = useState('');
+  const [terminating, setTerminating] = useState(false);
+  const [terminateError, setTerminateError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<
     | 'overview'
     | 'lifecycle'
@@ -57,31 +63,30 @@ export default function Employee360Page() {
     | 'exit'
   >('overview');
 
-  useEffect(() => {
+  const fetch360 = React.useCallback(async () => {
     if (!employeeId) return;
-
-    const fetch360 = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const res = await authFetch<Response>(`/api/employees/${encodeURIComponent(employeeId)}/360?role=${encodeURIComponent(
-            currentUser.userRole
-          )}&currentUserId=${encodeURIComponent(currentUser.id)}`, { raw: true });
-        const json = await res.json();
-        if (json.success && json.data) {
-          setData(json.data);
-        } else {
-          setError(json.error || 'Failed to load employee 360 profile');
-        }
-      } catch (err: any) {
-        setError(err.message || 'Error loading employee 360');
-      } finally {
-        setLoading(false);
+    try {
+      setLoading(true);
+      setError(null);
+      const res = await authFetch<Response>(`/api/employees/${encodeURIComponent(employeeId)}/360?role=${encodeURIComponent(
+          currentUser.userRole
+        )}&currentUserId=${encodeURIComponent(currentUser.id)}`, { raw: true });
+      const json = await res.json();
+      if (json.success && json.data) {
+        setData(json.data);
+      } else {
+        setError(json.error || 'Failed to load employee 360 profile');
       }
-    };
-
-    fetch360();
+    } catch (err: any) {
+      setError(err.message || 'Error loading employee 360');
+    } finally {
+      setLoading(false);
+    }
   }, [employeeId, currentUser.id, currentUser.userRole]);
+
+  useEffect(() => {
+    void fetch360();
+  }, [fetch360]);
 
   if (loading) {
     return (
@@ -140,6 +145,51 @@ export default function Employee360Page() {
     feedback = [],
   } = data;
 
+  // Feature 3 — Immediate Termination gating. Visible only to the CEO or an
+  // admin holding IMMEDIATE_TERMINATION via active delegation, and hidden once
+  // the employee is already terminated/exited or is the acting user.
+  const canTerminate =
+    hasCeoPermission('IMMEDIATE_TERMINATION') &&
+    employee.id !== currentUser.id &&
+    employee.status !== 'Terminated' &&
+    employee.status !== 'Exited' &&
+    (employee.userRole ?? '') !== 'ceo';
+  const terminationDelegator =
+    currentUser.rawRole !== 'ceo'
+      ? activeDelegations.find((d) => d.permission === 'IMMEDIATE_TERMINATION')?.delegatorName
+      : undefined;
+  const confirmNameMatches =
+    terminateConfirmName.trim().toLowerCase() === (employee.name ?? '').trim().toLowerCase();
+
+  const closeTerminateModal = () => {
+    if (terminating) return;
+    setShowTerminateModal(false);
+    setTerminateReason('');
+    setTerminateConfirmName('');
+    setTerminateError(null);
+  };
+
+  const handleTerminate = async () => {
+    if (!terminateReason.trim() || !confirmNameMatches) return;
+    setTerminating(true);
+    setTerminateError(null);
+    try {
+      await authFetch(`/api/employees/${encodeURIComponent(employeeId)}/terminate`, {
+        method: 'POST',
+        body: { reason: terminateReason.trim(), confirmationName: terminateConfirmName.trim() },
+      });
+      setShowTerminateModal(false);
+      setTerminateReason('');
+      setTerminateConfirmName('');
+      await fetch360();
+      await refreshEmployees();
+    } catch (err: any) {
+      setTerminateError(err?.message || 'Termination failed. Please try again.');
+    } finally {
+      setTerminating(false);
+    }
+  };
+
   const TABS = [
     { key: 'overview', label: 'Overview & Profile', icon: User },
     { key: 'lifecycle', label: 'Lifecycle & Career History', icon: History },
@@ -190,6 +240,8 @@ export default function Employee360Page() {
                       ? 'bg-emerald-100 text-emerald-700'
                       : employee.status === 'Remote'
                       ? 'bg-blue-100 text-blue-700'
+                      : employee.status === 'Terminated'
+                      ? 'bg-red-900 text-white'
                       : 'bg-rose-100 text-rose-700'
                   }`}
                 >
@@ -232,6 +284,15 @@ export default function Employee360Page() {
                 </span>
               )}
             </div>
+            {canTerminate && (
+              <button
+                type="button"
+                onClick={() => setShowTerminateModal(true)}
+                className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-[10px] font-bold text-red-700 hover:bg-red-100 transition-colors"
+              >
+                <Ban className="h-3.5 w-3.5" /> Immediate Termination
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -697,6 +758,88 @@ export default function Employee360Page() {
           ) : (
             <p className="text-xs text-emerald-600 font-semibold">Active Employee in Good Standing · No Exit Filed.</p>
           )}
+        </div>
+      )}
+
+      {/* Feature 3 — Immediate Termination confirmation modal */}
+      {showTerminateModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={closeTerminateModal}>
+          <div
+            className="w-full max-w-md rounded-2xl border border-red-200 bg-white p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-100">
+                <ShieldAlert className="h-5 w-5 text-red-700" />
+              </div>
+              <div>
+                <h2 className="text-base font-bold text-[#17324A]">Immediate Termination</h2>
+                <p className="mt-1 text-xs text-[#667085]">
+                  This cuts {employee.name}’s access immediately, ends their session, raises asset-recovery requests, and
+                  files a Terminated exit record. This cannot be undone.
+                </p>
+              </div>
+            </div>
+
+            {terminationDelegator && (
+              <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] font-semibold text-amber-800">
+                Acting on behalf of {terminationDelegator} (delegated authority).
+              </div>
+            )}
+
+            <div className="mt-4 space-y-3">
+              <div>
+                <label className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-[#52677A]">
+                  Reason for termination (required)
+                </label>
+                <textarea
+                  value={terminateReason}
+                  onChange={(e) => setTerminateReason(e.target.value)}
+                  rows={3}
+                  placeholder="Recorded in the high-severity audit log…"
+                  className="w-full resize-none rounded-lg border border-[#D9E5EE] bg-white px-3 py-2 text-xs text-[#17324A] outline-none placeholder:text-[#98A2B3] focus:border-red-400"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-[#52677A]">
+                  Type <span className="text-red-700">{employee.name}</span> to confirm
+                </label>
+                <input
+                  type="text"
+                  value={terminateConfirmName}
+                  onChange={(e) => setTerminateConfirmName(e.target.value)}
+                  placeholder={employee.name}
+                  className="w-full rounded-lg border border-[#D9E5EE] bg-white px-3 py-2 text-xs text-[#17324A] outline-none placeholder:text-[#98A2B3] focus:border-red-400"
+                />
+              </div>
+            </div>
+
+            {terminateError && (
+              <p className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-[11px] font-semibold text-rose-700">
+                {terminateError}
+              </p>
+            )}
+
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={closeTerminateModal}
+                disabled={terminating}
+                className="rounded-lg border border-[#D9E5EE] bg-white px-4 py-2 text-xs font-bold text-[#52677A] hover:bg-[#F4F8FB] disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleTerminate}
+                disabled={terminating || !terminateReason.trim() || !confirmNameMatches}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-red-700 px-4 py-2 text-xs font-bold text-white hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Ban className="h-3.5 w-3.5" />
+                {terminating ? 'Terminating…' : 'Terminate now'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

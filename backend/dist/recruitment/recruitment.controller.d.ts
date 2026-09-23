@@ -38,6 +38,24 @@ export declare class RecruitmentController {
                     acted_at: Date | null;
                     job_id: string;
                 })[];
+                requisitionApproval: {
+                    id: string;
+                    createdAt: Date;
+                    status: import("@prisma/client").$Enums.RequisitionApprovalStatus;
+                    onBehalfOfId: string | null;
+                    note: string | null;
+                    requestedById: string;
+                    currency: string;
+                    jobId: string;
+                    requestedOpenings: number;
+                    requestedSalaryMin: import("@prisma/client/runtime/library").Decimal | null;
+                    requestedSalaryMax: import("@prisma/client/runtime/library").Decimal | null;
+                    approvedOpenings: number | null;
+                    approvedSalaryMin: import("@prisma/client/runtime/library").Decimal | null;
+                    approvedSalaryMax: import("@prisma/client/runtime/library").Decimal | null;
+                    decidedById: string | null;
+                    decidedAt: Date | null;
+                } | null;
                 candidates: {
                     id: string;
                     stage: import("@prisma/client").$Enums.CandidateStage;
@@ -236,6 +254,21 @@ export declare class RecruitmentController {
             context: any;
         }[];
     }>;
+    getCeoApprovalQueue(): Promise<any[]>;
+    decideCeoApproval(user: any, candidateId: string, body: {
+        decision: 'Approved' | 'Rejected';
+        note?: string;
+    }): Promise<{
+        id: string;
+        createdAt: Date;
+        status: import("@prisma/client").$Enums.OnboardingApprovalStatus;
+        onBehalfOfId: string | null;
+        note: string | null;
+        candidateId: string;
+        decidedById: string | null;
+        decidedAt: Date | null;
+        offerId: string | null;
+    }>;
     getJobs(): Promise<{
         jobs: ({
             recruitment_job_approvals: ({
@@ -261,6 +294,24 @@ export declare class RecruitmentController {
                 acted_at: Date | null;
                 job_id: string;
             })[];
+            requisitionApproval: {
+                id: string;
+                createdAt: Date;
+                status: import("@prisma/client").$Enums.RequisitionApprovalStatus;
+                onBehalfOfId: string | null;
+                note: string | null;
+                requestedById: string;
+                currency: string;
+                jobId: string;
+                requestedOpenings: number;
+                requestedSalaryMin: import("@prisma/client/runtime/library").Decimal | null;
+                requestedSalaryMax: import("@prisma/client/runtime/library").Decimal | null;
+                approvedOpenings: number | null;
+                approvedSalaryMin: import("@prisma/client/runtime/library").Decimal | null;
+                approvedSalaryMax: import("@prisma/client/runtime/library").Decimal | null;
+                decidedById: string | null;
+                decidedAt: Date | null;
+            } | null;
             candidates: {
                 id: string;
                 stage: import("@prisma/client").$Enums.CandidateStage;
@@ -443,7 +494,7 @@ export declare class RecruitmentController {
             talent_pool: boolean;
         })[];
     }>;
-    createJob(body: any): Promise<{
+    createJob(body: any, user: any): Promise<{
         success: boolean;
         data: {
             id: string;
@@ -471,7 +522,58 @@ export declare class RecruitmentController {
             target_close_date: Date | null;
         };
     }>;
+    getRequisitionApprovalQueue(): Promise<{
+        id: string;
+        jobId: string;
+        title: string;
+        department: string;
+        location: string;
+        employmentType: import("@prisma/client").$Enums.JobEmploymentType;
+        priority: string;
+        requirements: string[];
+        experienceMin: number | null;
+        experienceMax: number | null;
+        hiringManager: {
+            id: string;
+            name: string;
+            employeeCode: string;
+            email: string;
+            roleTitle: string;
+            userRole: import("@prisma/client").$Enums.UserRole;
+            department: string;
+            avatarUrl: string | null;
+            status: import("@prisma/client").$Enums.EmploymentStatus;
+        } | null;
+        requestedBy: string;
+        requestedOpenings: number;
+        requestedSalaryMin: number | null;
+        requestedSalaryMax: number | null;
+        currency: string;
+        createdAt: Date;
+    }[]>;
+    decideRequisitionApproval(user: any, jobId: string, body: {
+        decision: 'Approved' | 'Rejected';
+        note?: string;
+        approvedOpenings?: number;
+        approvedSalaryMin?: number | null;
+        approvedSalaryMax?: number | null;
+    }): Promise<{
+        jobId: string;
+        status: string;
+        approvedOpenings: number;
+        approvedSalaryMin: number | null;
+        approvedSalaryMax: number | null;
+    } | {
+        jobId: string;
+        status: string;
+        approvedOpenings?: undefined;
+        approvedSalaryMin?: undefined;
+        approvedSalaryMax?: undefined;
+    }>;
     updateJob(id: string, body: any): Promise<any>;
+    deleteJob(id: string): Promise<{
+        success: boolean;
+    }>;
     jobApprovalAction(id: string, body: any, user: any): Promise<any>;
     rediscover(id: string, minScore?: string): Promise<{
         rediscoveredCandidates: any[];
@@ -1113,6 +1215,46 @@ export declare class RecruitmentController {
         interview_id: string;
         overall_score: number;
         scorecard: import("@prisma/client/runtime/library").JsonValue | null;
+    }>;
+    getInterviewForMeeting(meetingId: string, user: any): Promise<{
+        interviewId: string;
+        round: number;
+        status: string;
+        candidateName: string;
+        myDecision: {
+            decision: string;
+            remark: string;
+            submittedAt: Date;
+        } | null;
+    } | null>;
+    submitInterviewerDecision(meetingId: string, body: {
+        decision: 'SELECT' | 'REJECT';
+        remark: string;
+    }, user: any): Promise<{
+        decision: string;
+        recommendation: string;
+        feedback: {
+            employees: {
+                id: string;
+                name: string;
+                employeeCode: string;
+                email: string;
+                roleTitle: string;
+                userRole: import("@prisma/client").$Enums.UserRole;
+                department: string;
+                avatarUrl: string | null;
+                status: import("@prisma/client").$Enums.EmploymentStatus;
+            };
+        } & {
+            id: string;
+            reviewer_id: string;
+            comments: string | null;
+            submitted_at: Date;
+            recommendation: string;
+            interview_id: string;
+            overall_score: number;
+            scorecard: import("@prisma/client/runtime/library").JsonValue | null;
+        };
     }>;
     getNotes(id: string): Promise<{
         success: boolean;

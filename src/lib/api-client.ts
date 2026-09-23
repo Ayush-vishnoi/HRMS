@@ -141,8 +141,12 @@ export async function authFetch<T = unknown>(
     let message = `Request failed: ${response.status} ${response.statusText}`;
     try {
       const data = await response.json();
-      if (data && typeof data === 'object' && 'message' in data) {
-        message = String((data as { message: unknown }).message);
+      if (data && typeof data === 'object') {
+        // Backend error shape is { success:false, error } via the global
+        // interceptor; Nest's default is { message }. Prefer whichever is set.
+        const d = data as { message?: unknown; error?: unknown };
+        if (d.error != null && d.error !== '') message = String(d.error);
+        else if (d.message != null && d.message !== '') message = String(d.message);
       }
     } catch {
       /* ignore parse errors */

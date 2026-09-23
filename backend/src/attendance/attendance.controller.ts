@@ -10,15 +10,23 @@ export class AttendanceController {
 
   @Get()
   findAll(
-    @CurrentUser('id') userId: string,
+    @CurrentUser() user: any,
     @Query('employeeId') employeeId?: string,
     @Query('from') from?: string,
     @Query('to') to?: string,
+    @Query('scope') scope?: string,
   ) {
+    // Org-wide view: only the CEO or an HR Admin may pull every employee's
+    // attendance (scope=all). Everyone else — and any non-privileged caller
+    // who passes scope=all — is silently confined to their own logs.
+    const isPrivileged = user?.rawRole === 'ceo' || user?.userRole === 'admin';
+    if (scope === 'all' && isPrivileged && !employeeId) {
+      return this.attendanceService.findAll(undefined, from, to);
+    }
     // Default-scope to the authenticated user so nobody sees other
     // employees' attendance logs. An explicit employeeId (e.g. an admin
     // inspecting one person) still overrides the default.
-    return this.attendanceService.findAll(employeeId || userId, from, to);
+    return this.attendanceService.findAll(employeeId || user.id, from, to);
   }
 
   /**

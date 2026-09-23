@@ -9,9 +9,9 @@ export declare class DisciplinaryService {
         status: string;
         updatedAt: Date;
         employeeId: string;
+        severity: string;
         reason: string;
         acknowledgedAt: Date | null;
-        severity: string;
         incidentDate: string;
         issuedById: string;
         issuedByName: string;
@@ -26,9 +26,9 @@ export declare class DisciplinaryService {
         status: string;
         updatedAt: Date;
         employeeId: string;
+        severity: string;
         reason: string;
         acknowledgedAt: Date | null;
-        severity: string;
         incidentDate: string;
         issuedById: string;
         issuedByName: string;

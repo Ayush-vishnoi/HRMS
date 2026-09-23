@@ -6,7 +6,7 @@ export interface Employee {
   email: string;
   phone: string;
   avatar: string;
-  status: 'Active' | 'On Leave' | 'Remote';
+  status: 'Active' | 'On Leave' | 'Remote' | 'Onboarding' | 'Offboarded' | 'Exited' | 'Terminated';
   joinDate: string;
   location: string;
   salary: number;

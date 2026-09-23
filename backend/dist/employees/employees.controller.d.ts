@@ -90,8 +90,8 @@ export declare class EmployeesController {
             id: string;
             createdAt: Date;
             updatedAt: Date;
-            year: number;
             employeeId: string;
+            year: number;
             leaveType: import("@prisma/client").$Enums.LeaveType;
             total: number;
             used: number;
@@ -102,8 +102,8 @@ export declare class EmployeesController {
             createdAt: Date;
             status: import("@prisma/client").$Enums.LeaveRequestStatus;
             updatedAt: Date;
-            days: number;
             employeeId: string;
+            days: number;
             leaveType: import("@prisma/client").$Enums.LeaveType;
             startDate: string;
             endDate: string;
@@ -186,9 +186,9 @@ export declare class EmployeesController {
             status: import("@prisma/client").$Enums.DocumentStatus;
             updatedAt: Date;
             employeeId: string;
+            note: string | null;
             fileUrl: string | null;
             size: string;
-            note: string | null;
             uploadedOn: string;
             category_id: string | null;
             template_id: string | null;
@@ -342,9 +342,9 @@ export declare class EmployeesController {
             status: string;
             updatedAt: Date;
             employeeId: string;
+            severity: string;
             reason: string;
             acknowledgedAt: Date | null;
-            severity: string;
             incidentDate: string;
             issuedById: string;
             issuedByName: string;
@@ -560,8 +560,8 @@ export declare class EmployeesController {
             id: string;
             createdAt: Date;
             updatedAt: Date;
-            year: number;
             employeeId: string;
+            year: number;
             leaveType: import("@prisma/client").$Enums.LeaveType;
             total: number;
             used: number;
@@ -622,5 +622,13 @@ export declare class EmployeesController {
         department_id: string | null;
         designation_id: string | null;
         work_location_id: string | null;
+    }>;
+    terminate(user: any, id: string, body: {
+        reason?: string;
+        confirmationName?: string;
+    }): Promise<{
+        success: boolean;
+        status: string;
+        viaDelegation: boolean;
     }>;
 }

@@ -90,7 +90,7 @@ let PayrollService = class PayrollService {
         const year = startDateObj.getFullYear();
         const financialYear = monthIndex >= 4 ? `${year}-${String(year + 1).slice(2)}` : `${year - 1}-${String(year).slice(2)}`;
         const employees = await this.prisma.employee.findMany({
-            where: { status: { not: 'Offboarded' } },
+            where: { status: { notIn: ['Offboarded', 'Exited', 'Terminated'] } },
             select: {
                 id: true,
                 employeeCode: true,
@@ -851,7 +851,7 @@ let PayrollService = class PayrollService {
         const [structures, employees, revisions] = await Promise.all([
             this.prisma.salaryStructure.findMany(),
             this.prisma.employee.findMany({
-                where: { status: { not: 'Offboarded' } },
+                where: { status: { notIn: ['Offboarded', 'Exited', 'Terminated'] } },
                 select: {
                     id: true,
                     name: true,

@@ -20,6 +20,7 @@ import {
   Receipt,
   ScanSearch,
   ShieldAlert,
+  ShieldCheck,
   Sparkles,
   Target,
   UserPlus,
@@ -42,6 +43,7 @@ const ALL_ROLES = ['employee', 'manager', 'admin'] as const satisfies readonly U
 export const NAV_ITEMS: readonly NavigationItem[] = [
   // Workspace
   { name: 'Dashboard', href: '/', icon: LayoutDashboard, section: 'Workspace', roles: ALL_ROLES },
+  { name: 'Governance & Controls', href: '/governance', icon: ShieldCheck, section: 'Workspace', roles: ['admin'] },
   { name: 'My Team', href: '/my-team', icon: UsersRound, section: 'Workspace', roles: ['manager'] },
   { name: 'Employee Directory', href: '/employees', icon: Users, section: 'Workspace', roles: ALL_ROLES },
 
@@ -73,6 +75,28 @@ export const NAV_ITEMS: readonly NavigationItem[] = [
   { name: 'People Analytics', href: '/analytics', icon: BarChart3, section: 'HR Operations', roles: ['admin'] },
 ];
 
+/**
+ * Routes hidden from the CEO specifically. The CEO's DB role is normalized to
+ * `admin` for RBAC, so we key these off the raw role instead — the CEO oversees
+ * rather than performs individual-contributor work like personal task lists.
+ */
+const CEO_HIDDEN_HREFS = new Set([
+  '/tasks',
+  '/expenses',
+  '/benefits',
+  '/my-assets',
+  // Growth & Talent — individual-contributor development tooling, not CEO oversight
+  '/performance',
+  '/talent',
+  '/skills',
+  '/lms',
+  '/engagement',
+  // HR Operations — operational HR workflows, not CEO oversight
+  '/assets',
+  '/documents',
+  '/employee-lifecycle',
+]);
+
 const matchesRoute = (pathname: string, item: NavigationItem) => {
   if (item.href === '/') return pathname === '/';
 
@@ -80,9 +104,17 @@ const matchesRoute = (pathname: string, item: NavigationItem) => {
   return pathname === route || pathname.startsWith(`${route}/`);
 };
 
-export const isRouteAllowedForRole = (pathname: string, role: UserRole) => {
+/** Nav items visible to a user, honoring both RBAC role and CEO-specific hides. */
+export const getVisibleNavItems = (role: UserRole, rawRole?: string) =>
+  NAV_ITEMS.filter(
+    (item) => item.roles.includes(role) && !(rawRole === 'ceo' && CEO_HIDDEN_HREFS.has(item.href)),
+  );
+
+export const isRouteAllowedForRole = (pathname: string, role: UserRole, rawRole?: string) => {
   const route = NAV_ITEMS.find((item) => matchesRoute(pathname, item));
-  return route?.roles.includes(role) ?? true;
+  if (!route) return true;
+  if (rawRole === 'ceo' && CEO_HIDDEN_HREFS.has(route.href)) return false;
+  return route.roles.includes(role);
 };
 
 export const isNavigationItemActive = (pathname: string, item: NavigationItem) =>

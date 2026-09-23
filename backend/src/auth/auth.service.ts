@@ -2,6 +2,7 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
 import { LoginDto } from './dto/login.dto';
+import { LOCKOUT_STATUSES } from './access-control.constants';
 import * as argon2 from 'argon2';
 
 @Injectable()
@@ -27,12 +28,13 @@ export class AuthService {
     }
 
     const now = new Date();
-    if (employee.status === 'Exited') {
-      // Exited accounts: lockedUntil is the END of the post-relieving grace
+    if (LOCKOUT_STATUSES.includes(employee.status)) {
+      // Exited/Terminated accounts: lockedUntil is the END of any grace
       // window — login access is allowed only until that moment, then revoked.
+      // Immediate termination sets lockedUntil = now, so login is blocked at once.
       if (!employee.lockedUntil || employee.lockedUntil <= now) {
         throw new UnauthorizedException(
-          'Your employment has ended. Login access has been revoked after the exit grace window.',
+          'Your employment has ended. Login access has been revoked.',
         );
       }
     } else if (employee.lockedUntil && employee.lockedUntil > now) {

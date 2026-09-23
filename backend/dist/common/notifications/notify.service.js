@@ -84,6 +84,21 @@ let NotifyService = class NotifyService {
             this.logger.error('Failed to notify manager', error);
         }
     }
+    async notifyDepartment(department, payload) {
+        try {
+            const members = await this.prisma.employee.findMany({
+                where: {
+                    department: { equals: department, mode: 'insensitive' },
+                    status: { in: ['Active', 'OnLeave', 'Remote'] },
+                },
+                select: { id: true },
+            });
+            await this.notifyUsers(members.map((member) => member.id), payload);
+        }
+        catch (error) {
+            this.logger.error(`Failed to notify department ${department}`, error);
+        }
+    }
 };
 exports.NotifyService = NotifyService;
 exports.NotifyService = NotifyService = __decorate([

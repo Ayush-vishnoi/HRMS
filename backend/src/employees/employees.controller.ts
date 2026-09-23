@@ -43,4 +43,18 @@ export class EmployeesController {
   update(@Param('id') id: string, @Body() body: any) {
     return this.employeesService.update(id, body);
   }
+
+  /**
+   * POST /api/employees/:id/terminate — Feature 3, immediate termination.
+   * Authorization (CEO-direct or active delegation) is enforced inside the
+   * service via hasCeoPermission; the controller just wires the route.
+   */
+  @Post(':id/terminate')
+  terminate(
+    @CurrentUser() user: any,
+    @Param('id') id: string,
+    @Body() body: { reason?: string; confirmationName?: string },
+  ) {
+    return this.employeesService.terminate(user.id, id, body);
+  }
 }

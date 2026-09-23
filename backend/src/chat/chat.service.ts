@@ -23,7 +23,8 @@ export class ChatService {
     ]);
 
     if (!sender || !receiver) return false;
-    if (sender.status === 'Offboarded' || receiver.status === 'Offboarded') return false;
+    const inactive = ['Offboarded', 'Exited', 'Terminated'];
+    if (inactive.includes(sender.status) || inactive.includes(receiver.status)) return false;
 
     return true;
   }

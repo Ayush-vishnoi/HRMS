@@ -1,11 +1,18 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotifyService } from '../common/notifications/notify.service';
+import { AuditService } from '../common/audit/audit.service';
+import { PermissionsService } from '../permissions/permissions.service';
 import { defaultLeaveBalanceRows } from '../leaves/default-balances';
 
 @Injectable()
 export class EmployeesService {
-  constructor(private prisma: PrismaService, private notify: NotifyService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notify: NotifyService,
+    private audit: AuditService,
+    private permissions: PermissionsService,
+  ) {}
 
   async findAll(query: { department?: string; status?: string; search?: string }) {
     const where: any = {};
@@ -128,6 +135,159 @@ export class EmployeesService {
     const employee = await this.prisma.employee.findUnique({ where: { id } });
     if (!employee) throw new NotFoundException('Employee not found');
     return this.prisma.employee.update({ where: { id }, data });
+  }
+
+  /**
+   * Feature 3 — Immediate Termination (CEO-only, delegable).
+   *
+   * Instantly cuts an employee's access and bypasses the normal Exit workflow
+   * while still leaving a completed Exit record behind so Finance can run F&F.
+   * Gated by hasCeoPermission(actor, 'IMMEDIATE_TERMINATION') — the raw CEO role
+   * always passes; an HR Admin passes only while holding an active delegation.
+   *
+   * In one transaction we: (1) validate the typed name matches server-side,
+   * (2) flip status→Terminated + lockedUntil=now (JwtStrategy then 401s the
+   * live session on its next request), (3) write a pre-approved, Completed
+   * ExitRequest tagged "Terminated", (4) raise Return asset-recovery requests
+   * for every assigned asset, (5) record the offboarding + a high-severity
+   * audit row flagging CEO-direct vs delegated. Notifications fire after commit.
+   */
+  async terminate(
+    actorId: string,
+    employeeId: string,
+    body: { reason?: string; confirmationName?: string },
+  ) {
+    const check = await this.permissions.assertCeoPermission(actorId, 'IMMEDIATE_TERMINATION');
+
+    const reason = (body?.reason ?? '').trim();
+    if (!reason) throw new BadRequestException('A termination reason is required.');
+
+    const employee = await this.prisma.employee.findUnique({ where: { id: employeeId } });
+    if (!employee) throw new NotFoundException('Employee not found');
+
+    if (employee.status === 'Terminated' || employee.status === 'Exited') {
+      throw new BadRequestException(`${employee.name} is already ${employee.status.toLowerCase()}.`);
+    }
+    if ((employee.userRole ?? '') === 'ceo') {
+      throw new BadRequestException('The CEO account cannot be terminated.');
+    }
+    if (employeeId === actorId) {
+      throw new BadRequestException('You cannot terminate your own account.');
+    }
+
+    const typed = (body?.confirmationName ?? '').trim().toLowerCase();
+    if (typed !== employee.name.trim().toLowerCase()) {
+      throw new BadRequestException('Confirmation name does not match the employee name.');
+    }
+
+    const now = new Date();
+    const today = now.toISOString().split('T')[0];
+    const onBehalfOfId = check.viaDelegation ? check.delegatorId ?? null : null;
+
+    await this.prisma.$transaction(async (tx) => {
+      // (2) Immediate lockout. A past lockedUntil + Terminated status makes the
+      // next authenticated request fail in JwtStrategy (force-logout).
+      await tx.employee.update({
+        where: { id: employeeId },
+        data: { status: 'Terminated', lockedUntil: now },
+      });
+
+      // (3) Pre-populated, already-approved Exit record so F&F can proceed
+      // without walking the normal notice/approval branches.
+      const existingExit = await tx.exitRequest.findFirst({
+        where: { employeeId, status: { not: 'Completed' } },
+      });
+      if (!existingExit) {
+        await tx.exitRequest.create({
+          data: {
+            employeeId,
+            resignationDate: today,
+            requestedRelievingDate: today,
+            approvedRelievingDate: today,
+            reasonCategory: 'Terminated',
+            reasonDetails: reason,
+            managerApproval: 'Approved',
+            hrApproval: 'Approved',
+            managerApprovedAt: now,
+            hrApprovedAt: now,
+            noticePeriodDays: 0,
+            workflowStage: 'Exited',
+            status: 'Completed',
+          },
+        });
+      }
+
+      // (4) Asset recovery — one Return request per currently-assigned asset,
+      // processed by IT through the existing reviewAssetRequest flow.
+      const assets = await tx.asset.findMany({ where: { assignedToId: employeeId } });
+      if (assets.length) {
+        let seq = (await tx.assetRequest.count()) + 1;
+        for (const asset of assets) {
+          let arId = `AR-${String(seq).padStart(3, '0')}`;
+          while (await tx.assetRequest.findUnique({ where: { id: arId } })) {
+            seq += 1;
+            arId = `AR-${String(seq).padStart(3, '0')}`;
+          }
+          await tx.assetRequest.create({
+            data: {
+              id: arId,
+              type: 'Return',
+              status: 'Pending',
+              requestedById: employeeId,
+              assetId: asset.id,
+              category: asset.category,
+              reason: `Asset recovery — immediate termination of ${employee.name}`,
+              updatedAt: now,
+            },
+          });
+          seq += 1;
+        }
+      }
+
+      // (5) Offboarding audit-table row (upsert-safe: employeeId is unique).
+      await tx.employeeOffboarding.upsert({
+        where: { employeeId },
+        create: { employeeId, reason, offboardedById: actorId, offboardedAt: now },
+        update: { reason, offboardedById: actorId, offboardedAt: now },
+      });
+    });
+
+    // (5) High-severity audit — flags CEO-direct vs delegated for the trail.
+    await this.audit.record({
+      action: 'IMMEDIATE_TERMINATION',
+      module: 'Employees',
+      employeeId,
+      actorId,
+      onBehalfOfId,
+      severity: 'high',
+      details: {
+        employeeName: employee.name,
+        reason,
+        viaDelegation: check.viaDelegation,
+      },
+    });
+
+    // (6) Notifications — manager, the terminated employee, and IT.
+    await this.notify.notifyManagerOf(employeeId, {
+      title: 'Employee terminated',
+      message: `${employee.name} has been terminated with immediate effect. Reason: ${reason}`,
+      type: 'Alert',
+      linkUrl: `/employees/${employeeId}`,
+    });
+    await this.notify.notifyUser({
+      userId: employeeId,
+      title: 'Employment terminated',
+      message: 'Your employment has been terminated with immediate effect. Please contact HR for the exit settlement.',
+      type: 'Alert',
+    });
+    await this.notify.notifyDepartment('IT', {
+      title: 'Asset recovery required',
+      message: `${employee.name} has been terminated. Please recover assigned assets and revoke system access.`,
+      type: 'Alert',
+      linkUrl: '/assets',
+    });
+
+    return { success: true, status: 'Terminated', viaDelegation: check.viaDelegation };
   }
 
   /**

@@ -5,6 +5,8 @@ import { LegacyResponseInterceptor } from './common/interceptors/legacy-response
 import { LegacyExceptionFilter } from './common/filters/legacy-exception.filter';
 import { PrismaModule } from './prisma/prisma.module';
 import { NotifyModule } from './common/notifications/notify.module';
+import { AuditModule } from './common/audit/audit.module';
+import { PermissionsModule } from './permissions/permissions.module';
 import { AuthModule } from './auth/auth.module';
 import { EmployeesModule } from './employees/employees.module';
 import { AttendanceModule } from './attendance/attendance.module';
@@ -50,6 +52,8 @@ import { DocumentsModule } from './documents/documents.module';
     ConfigModule.forRoot({ isGlobal: true }),
     PrismaModule,
     NotifyModule,
+    AuditModule,
+    PermissionsModule,
     AuthModule,
     EmployeesModule,
     AttendanceModule,

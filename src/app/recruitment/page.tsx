@@ -1,7 +1,7 @@
 'use client';
 
 import { authFetch, tokenStore } from '@/lib/api-client';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import {
@@ -42,9 +42,12 @@ import {
   Eye,
   Printer,
   Wallet,
+  Pencil,
+  ShieldCheck,
 } from 'lucide-react';
 
 import { useHRMS } from '@/shared/providers/HRMSContext';
+import PageLoader from '@/shared/components/PageLoader';
 import type {
   CandidateStageType,
   JobStatusType,
@@ -53,6 +56,7 @@ import type {
 } from '@/features/recruitment/data/recruitment';
 import ResumeReviewQueue from '@/features/recruitment/components/ResumeReviewQueue';
 import AddCandidateManualModal from '@/features/recruitment/components/AddCandidateManualModal';
+import { PendingApprovalsPanel } from '@/features/meetings/PendingApprovalsPanel';
 
 const stages = [
   'All',
@@ -146,6 +150,9 @@ const jobStatusTone = (status: JobStatusType | string) => {
     case 'Pending Approval':
     case 'PendingApproval':
       return 'bg-[#FFF4D8] text-[#8A641B] border-[#E1C58C]';
+    case 'Pending Budget Approval':
+    case 'PendingBudgetApproval':
+      return 'bg-[#F3E8FF] text-[#6B21A8] border-[#D8B4FE]';
     case 'Approved':
       return 'bg-[#DCEAF4] text-[#315B76] border-[#9FC2DC]';
     case 'Draft':
@@ -158,6 +165,27 @@ const jobStatusTone = (status: JobStatusType | string) => {
     default:
       return 'bg-[#E8F2FA] text-[#315B76] border-[#B0D0EA]';
   }
+};
+
+/** Blank Add-Requisition form — used to init and to reset the form each time. */
+const EMPTY_JD_FORM = {
+  title: '',
+  department: '',
+  location: '',
+  employmentType: 'Full-time' as RecruitmentJob['employmentType'],
+  openings: '1',
+  priority: 'Medium',
+  experienceMin: '0',
+  experienceMax: '5',
+  salaryMin: '',
+  salaryMax: '',
+  currency: 'INR',
+  description: '',
+  requirements: '',
+  responsibilities: '',
+  targetCloseDate: '',
+  hiringManagerId: '',
+  recruiterId: '',
 };
 
 const interviewStatusTone = (status: string) => {
@@ -185,10 +213,11 @@ const interviewStatusTone = (status: string) => {
 ----------------------------- */
 
 export default function RecruitmentPage() {
-  const { currentUser } = useHRMS();
+  const { currentUser, hasCeoPermission } = useHRMS();
 
   const [jobs, setJobs] = useState<RecruitmentJob[]>([]);
   const [allCandidates, setAllCandidates] = useState<RecruitmentCandidate[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [selectedJobId, setSelectedJobId] = useState('');
   const [selectedCandidateId, setSelectedCandidateId] = useState('');
   const [query, setQuery] = useState('');
@@ -228,6 +257,22 @@ export default function RecruitmentPage() {
   const [transitionNote, setTransitionNote] = useState('');
   const [isTransitioning, setIsTransitioning] = useState(false);
 
+  // CEO executive recruitment view — budget-approval decision state.
+  const [ceoReqEdits, setCeoReqEdits] = useState<Record<string, { openings: string; salaryMin: string; salaryMax: string; note: string }>>({});
+  const [ceoReqBusy, setCeoReqBusy] = useState<string | null>(null);
+  const [ceoSelectedJobId, setCeoSelectedJobId] = useState('');
+  const [ceoEditing, setCeoEditing] = useState(false);
+  const [ceoEditForm, setCeoEditForm] = useState<Record<string, string>>({});
+  const [ceoEditBusy, setCeoEditBusy] = useState(false);
+  // Offer approval steps awaiting the current approver (L2/CEO offer sign-off).
+  // The executive view previously had NO surface to act on these, so a
+  // CEO-level offer approval stayed stuck at "PendingApproval" forever.
+  const [offerApprovalQueue, setOfferApprovalQueue] = useState<
+    Array<{ id: string; level: number; title: string; candidate: string; context: string | null }>
+  >([]);
+  const [offerApprovalBusy, setOfferApprovalBusy] = useState<string | null>(null);
+  const [offerApprovalNote, setOfferApprovalNote] = useState<Record<string, string>>({});
+
   // Phase 4B: Candidate Intelligence & Rediscovery
   const [sortBy, setSortBy] = useState<'matchScore' | 'experience' | 'newest'>('matchScore');
   const [isRediscoveryOpen, setIsRediscoveryOpen] = useState(false);
@@ -242,25 +287,7 @@ export default function RecruitmentPage() {
   const [newTagInput, setNewTagInput] = useState('');
   const [isAddingTag, setIsAddingTag] = useState(false);
 
-  const [jdForm, setJdForm] = useState({
-    title: '',
-    department: '',
-    location: '',
-    employmentType: 'Full-time' as RecruitmentJob['employmentType'],
-    openings: '1',
-    priority: 'Medium',
-    experienceMin: '0',
-    experienceMax: '5',
-    salaryMin: '',
-    salaryMax: '',
-    currency: 'INR',
-    description: '',
-    requirements: '',
-    responsibilities: '',
-    targetCloseDate: '',
-    hiringManagerId: '',
-    recruiterId: '',
-  });
+  const [jdForm, setJdForm] = useState({ ...EMPTY_JD_FORM });
 
   // Phase 4C-B: Scorecards, Feedback & Candidate Selection
   const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
@@ -392,7 +419,21 @@ export default function RecruitmentPage() {
           employmentType: j.employmentType === 'Contract' ? 'Contract' : 'Full-time',
           openings: Number(j.openings) || 1,
           applicants: Number(j.applicants) || 0,
-          status: j.status === 'PendingApproval' ? 'Pending Approval' : j.status === 'OnHold' ? 'On hold' : j.status,
+          status:
+            j.status === 'PendingBudgetApproval'
+              ? 'Pending Budget Approval'
+              : j.status === 'PendingApproval'
+                ? 'Pending Approval'
+                : j.status === 'OnHold'
+                  ? 'On hold'
+                  : j.status,
+          requisitionApproval: j.requisitionApproval
+            ? {
+                status: j.requisitionApproval.status,
+                note: j.requisitionApproval.note ?? null,
+                approvedOpenings: j.requisitionApproval.approvedOpenings ?? null,
+              }
+            : null,
           createdAt: j.createdAt,
           postedOn: j.postedOn || (j.createdAt ? new Date(j.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : ''),
           description: j.description || '',
@@ -464,6 +505,10 @@ export default function RecruitmentPage() {
       }
     } catch (err: any) {
       if (err.name !== 'AbortError') console.error('Failed to load recruitment data:', err);
+    } finally {
+      // Initial fetch has settled — drop the full-page skeleton. Subsequent
+      // refetches (focus/visibility) leave this false, so there's no re-flash.
+      setIsLoading(false);
     }
   };
 
@@ -473,12 +518,47 @@ export default function RecruitmentPage() {
     return () => controller.abort();
   }, []);
 
+  // Offer approval steps the current user (typically the CEO at L2) can act on.
+  const loadOfferApprovalQueue = useCallback(async () => {
+    try {
+      const res = await authFetch<Response>('/api/recruitment/my-approvals', { raw: true, cache: 'no-store' });
+      const json = await res.json();
+      const offers = json?.success ? json.data?.offers : json?.offers;
+      setOfferApprovalQueue(Array.isArray(offers) ? offers : []);
+    } catch {
+      setOfferApprovalQueue([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadOfferApprovalQueue();
+  }, [loadOfferApprovalQueue]);
+
+  // The page loads once on mount and has no polling, so an approval made
+  // elsewhere (e.g. the CEO signing off a requisition budget in another tab or
+  // session) wouldn't show here until a manual reload. Re-fetch whenever the
+  // tab regains focus / becomes visible so HR sees the latest job statuses.
+  useEffect(() => {
+    const refetch = () => {
+      if (document.visibilityState === 'visible') {
+        void loadData();
+        void loadOfferApprovalQueue();
+      }
+    };
+    window.addEventListener('focus', refetch);
+    document.addEventListener('visibilitychange', refetch);
+    return () => {
+      window.removeEventListener('focus', refetch);
+      document.removeEventListener('visibilitychange', refetch);
+    };
+  }, [loadOfferApprovalQueue]);
+
   // Fetch Notes & Timeline & Interviews whenever selected candidate changes
   const loadInterviews = async (candidateId: string) => {
     if (!candidateId) return;
     setIsLoadingInterviews(true);
     try {
-      const res = await authFetch<Response>(`/api/recruitment/interviews?candidateId=${candidateId}`, { raw: true });
+      const res = await authFetch<Response>(`/api/recruitment/interviews?candidateId=${candidateId}`, { raw: true, cache: 'no-store' });
       const data = await res.json();
       if (data.success) {
         setInterviews(data.data || []);
@@ -503,19 +583,32 @@ export default function RecruitmentPage() {
   }, []);
 
   useEffect(() => {
-    if (!selectedCandidateId) return;
+    if (!selectedCandidateId) {
+      setCandidateOffers([]);
+      setInterviews([]);
+      setNotes([]);
+      setTimeline([]);
+      return;
+    }
+
+    // Clear the previous candidate's data first so their offer/interviews don't
+    // flash on (or stick to) the newly selected candidate while fetches resolve.
+    setCandidateOffers([]);
+    setInterviews([]);
+    setNotes([]);
+    setTimeline([]);
 
     void loadInterviews(selectedCandidateId);
     void loadOffers(selectedCandidateId);
 
-    authFetch<Response>(`/api/recruitment/candidates/${selectedCandidateId}/notes`, { raw: true })
+    authFetch<Response>(`/api/recruitment/candidates/${selectedCandidateId}/notes`, { raw: true, cache: 'no-store' })
       .then((res) => res.json())
       .then((data) => {
         if (data.success) setNotes(data.data || []);
       })
       .catch(() => {});
 
-    authFetch<Response>(`/api/recruitment/candidates/${selectedCandidateId}/timeline`, { raw: true })
+    authFetch<Response>(`/api/recruitment/candidates/${selectedCandidateId}/timeline`, { raw: true, cache: 'no-store' })
       .then((res) => res.json())
       .then((data) => {
         if (data.success) setTimeline(data.data || []);
@@ -574,6 +667,18 @@ export default function RecruitmentPage() {
 
   const selectedCandidate =
     jobCandidates.find((c) => c.id === selectedCandidateId) ?? filteredCandidates[0] ?? jobCandidates[0];
+
+  // Keep selectedCandidateId in sync with the candidate actually shown in the
+  // detail pane. Without this, a stale id (e.g. after a candidate is deleted or
+  // recreated, or when switching jobs) makes the pane fall back to a different
+  // candidate while offers/interviews are still fetched for the stale id — so
+  // the offer card and interviews vanish. Converging the id re-runs the loaders
+  // for the right candidate.
+  useEffect(() => {
+    if (selectedCandidate && selectedCandidate.id !== selectedCandidateId) {
+      setSelectedCandidateId(selectedCandidate.id);
+    }
+  }, [selectedCandidate, selectedCandidateId]);
 
   const showNotice = (message: string) => {
     setNotice(message);
@@ -807,6 +912,12 @@ export default function RecruitmentPage() {
         await loadInterviews(selectedCandidate.id);
         await loadData();
 
+        // Scheduling the first round from Shortlisted advances the candidate into
+        // the Interview stage — the schedule IS the "move to interview".
+        if (!editingInterviewId && selectedCandidate.stage === 'Shortlisted') {
+          await handleStageTransition('Interview');
+        }
+
         // Refresh timeline
         const tlRes = await authFetch<Response>(`/api/recruitment/candidates/${selectedCandidate.id}/timeline`, { raw: true });
         const tlJson = await tlRes.json();
@@ -942,18 +1053,25 @@ export default function RecruitmentPage() {
       if (json.success) {
         let msg = `${selectedCandidate.name}: Decision "${selectionDecision}" processed successfully!`;
         if (selectionDecision === 'SELECT') msg = `${selectedCandidate.name} transitioned to Selected!`;
-        if (selectionDecision === 'REJECT') msg = `${selectedCandidate.name} transitioned to Rejected.`;
+        if (selectionDecision === 'REJECT') msg = `${selectedCandidate.name} rejected — applicant data removed.`;
         if (selectionDecision === 'HOLD') msg = `${selectedCandidate.name} placed on hold.`;
         if (selectionDecision === 'NEXT_ROUND') msg = `${selectedCandidate.name} advanced to next interview round!`;
 
         showNotice(msg);
         setIsSelectionModalOpen(false);
-        await loadData();
-        if (selectedCandidate) {
-          await loadInterviews(selectedCandidate.id);
-          const tlRes = await authFetch<Response>(`/api/recruitment/candidates/${selectedCandidate.id}/timeline`, { raw: true });
-          const tlJson = await tlRes.json();
-          if (tlJson.success) setTimeline(tlJson.data || []);
+        // A rejected applicant is deleted on the backend — drop the selection so
+        // we don't try to fetch a candidate that no longer exists.
+        if (selectionDecision === 'REJECT') {
+          setSelectedCandidateId('');
+          await loadData();
+        } else {
+          await loadData();
+          if (selectedCandidate) {
+            await loadInterviews(selectedCandidate.id);
+            const tlRes = await authFetch<Response>(`/api/recruitment/candidates/${selectedCandidate.id}/timeline`, { raw: true });
+            const tlJson = await tlRes.json();
+            if (tlJson.success) setTimeline(tlJson.data || []);
+          }
         }
       } else {
         setSelectionError(json.error || 'Failed to process selection decision');
@@ -970,12 +1088,12 @@ export default function RecruitmentPage() {
   ----------------------------- */
   const loadOffers = async (candidateId: string) => {
     try {
-      const res = await authFetch<Response>(`/api/recruitment/offers?candidateId=${candidateId}`, { raw: true });
+      const res = await authFetch<Response>(`/api/recruitment/offers?candidateId=${candidateId}`, { raw: true, cache: 'no-store' });
       const json = await res.json();
-      if (json.success) {
-        setCandidateOffers(json.data || []);
-      }
-    } catch (e) {}
+      setCandidateOffers(json.success ? json.data || [] : []);
+    } catch (e) {
+      setCandidateOffers([]);
+    }
   };
 
   const openCreateOfferModal = (cand: any) => {
@@ -1102,7 +1220,6 @@ export default function RecruitmentPage() {
         setIsSubmitApprovalModalOpen(false);
         setApprovalActionComment('');
         setActiveOfferForApproval(null);
-        alert('Offer submitted for HR approval successfully!');
         await loadData();
         if (selectedCandidate) {
           await loadOffers(selectedCandidate.id);
@@ -1143,13 +1260,6 @@ export default function RecruitmentPage() {
         setIsRejectOfferModalOpen(false);
         setApprovalActionComment('');
         setActiveOfferForApproval(null);
-        alert(
-          action === 'APPROVE'
-            ? 'Offer approved successfully!'
-            : action === 'REQUEST_CHANGES'
-            ? 'Changes requested. Offer returned to Draft for recruiter revisions.'
-            : 'Offer has been rejected.'
-        );
         await loadData();
         if (selectedCandidate) {
           await loadOffers(selectedCandidate.id);
@@ -1320,22 +1430,30 @@ export default function RecruitmentPage() {
 
       const json = await res.json();
       if (json.success) {
-        if (nextStage === 'Joined') {
+        if (nextStage === 'Rejected') {
+          // Rejected applicants are deleted — remove them and clear selection.
+          setAllCandidates((prev) => prev.filter((c) => c.id !== selectedCandidate.id));
+          setSelectedCandidateId('');
+          showNotice(`${selectedCandidate.name} rejected — applicant data removed.`);
+          setTransitionNote('');
+        } else if (nextStage === 'Joined') {
           // Joined = converted to employee; drop them from the active pipeline.
           setAllCandidates((prev) => prev.filter((c) => c.id !== selectedCandidate.id));
           setSelectedCandidateId('');
+          showNotice(`${selectedCandidate.name} moved to ${nextStage}`);
+          setTransitionNote('');
         } else {
           setAllCandidates((prev) =>
             prev.map((c) => (c.id === selectedCandidate.id ? { ...c, stage: nextStage } : c))
           );
-        }
-        showNotice(`${selectedCandidate.name} moved to ${nextStage}`);
-        setTransitionNote('');
+          showNotice(`${selectedCandidate.name} moved to ${nextStage}`);
+          setTransitionNote('');
 
-        // Refresh timeline
-        const tlRes = await authFetch<Response>(`/api/recruitment/candidates/${selectedCandidate.id}/timeline`, { raw: true });
-        const tlJson = await tlRes.json();
-        if (tlJson.success) setTimeline(tlJson.data || []);
+          // Refresh timeline
+          const tlRes = await authFetch<Response>(`/api/recruitment/candidates/${selectedCandidate.id}/timeline`, { raw: true });
+          const tlJson = await tlRes.json();
+          if (tlJson.success) setTimeline(tlJson.data || []);
+        }
       } else {
         showNotice(json.error || 'Failed to update candidate stage');
       }
@@ -1429,7 +1547,7 @@ export default function RecruitmentPage() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'publish' }),
         });
-      } else if (action === 'hold' || action === 'close') {
+      } else if (action === 'hold' || action === 'close' || action === 'resubmit_budget') {
         res = await authFetch<Response>(`/api/recruitment/jobs/${jobId}`, { raw: true,
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
@@ -1452,9 +1570,31 @@ export default function RecruitmentPage() {
   };
 
   /* -----------------------------
+     DELETE JOB REQUISITION
+  ----------------------------- */
+  const handleDeleteJob = async (jobId: string, jobTitle: string) => {
+    try {
+      const res = await authFetch<Response>(`/api/recruitment/jobs/${jobId}`, {
+        raw: true,
+        method: 'DELETE',
+      });
+      const json = await res.json().catch(() => ({}));
+      if (res.ok && json.success) {
+        showNotice(`Requisition "${jobTitle}" deleted`);
+        if (selectedJobId === jobId) setSelectedJobId('');
+        await loadData();
+      } else {
+        showNotice(json.message || json.error || 'Failed to delete requisition');
+      }
+    } catch (err: any) {
+      showNotice(err.message || 'Error deleting requisition');
+    }
+  };
+
+  /* -----------------------------
      CREATE JOB ACTION
   ----------------------------- */
-  const addJobDescription = async (event: React.FormEvent<HTMLFormElement>, submitForApproval = false) => {
+  const addJobDescription = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     const requirementsArr = jdForm.requirements
@@ -1489,32 +1629,20 @@ export default function RecruitmentPage() {
           targetCloseDate: jdForm.targetCloseDate || null,
           hiringManagerId: jdForm.hiringManagerId || null,
           recruiterId: jdForm.recruiterId || null,
-          status: currentUser.userRole === 'admin' && !submitForApproval ? 'Open' : 'Draft',
         }),
       });
 
       const json = await res.json();
       if (json.success && json.data) {
         const createdJobId = json.data.id;
-        if (submitForApproval) {
-          // Create as Draft first, then run the submit_approval action so the
-          // backend builds the L1 (hiring manager) → L2 (admin) approval chain.
-          const submitRes = await authFetch<Response>(`/api/recruitment/jobs/${createdJobId}`, { raw: true,
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'submit_approval' }),
-          });
-          const submitJson = await submitRes.json();
-          if (!submitJson.success) {
-            showNotice(submitJson.error || 'Job created, but failed to submit for approval');
-            await loadData();
-            setSelectedJobId(createdJobId);
-            return;
-          }
-        }
-        showNotice(`${jdForm.title} requisition created`);
+        // New requisitions route to the CEO for budget approval first (backend
+        // sets status = PendingBudgetApproval); the manager/admin approval chain
+        // runs later once the CEO approves. Just confirm, reset and close.
+        const createdTitle = jdForm.title;
+        showNotice(`"${createdTitle}" submitted for CEO budget approval`);
         await loadData();
         setSelectedJobId(createdJobId);
+        setJdForm({ ...EMPTY_JD_FORM });
         setIsAddJdOpen(false);
       } else {
         showNotice(json.error || 'Failed to create job');
@@ -1523,6 +1651,570 @@ export default function RecruitmentPage() {
       showNotice(err.message || 'Error creating job');
     }
   };
+
+  /* -----------------------------
+     CEO EXECUTIVE VIEW HELPERS
+  ----------------------------- */
+  const isCeo = currentUser.rawRole === 'ceo';
+
+  const patchCeoReqEdit = (
+    jobId: string,
+    patch: Partial<{ openings: string; salaryMin: string; salaryMax: string; note: string }>,
+  ) =>
+    setCeoReqEdits((prev) => {
+      const cur = prev[jobId] ?? { openings: '', salaryMin: '', salaryMax: '', note: '' };
+      return { ...prev, [jobId]: { ...cur, ...patch } };
+    });
+
+  const startCeoEdit = (job: RecruitmentJob) => {
+    setCeoEditForm({
+      title: job.title || '',
+      department: job.department || '',
+      location: job.location || '',
+      employmentType: job.employmentType || 'Full-time',
+      openings: String(job.openings ?? 1),
+      priority: job.priority || 'Medium',
+      experienceMin: job.experienceMin != null ? String(job.experienceMin) : '',
+      experienceMax: job.experienceMax != null ? String(job.experienceMax) : '',
+      salaryMin: job.salaryMin != null ? String(job.salaryMin) : '',
+      salaryMax: job.salaryMax != null ? String(job.salaryMax) : '',
+      currency: job.currency || 'INR',
+      requirements: (job.requirements || []).join(', '),
+      description: job.description || '',
+    });
+    setCeoEditing(true);
+  };
+
+  const saveCeoEdit = async (jobId: string) => {
+    const f = ceoEditForm;
+    if (!f.title?.trim()) {
+      showNotice('Title is required.');
+      return;
+    }
+    setCeoEditBusy(true);
+    try {
+      const res = await authFetch<Response>(`/api/recruitment/jobs/${jobId}`, {
+        raw: true,
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: f.title.trim(),
+          department: f.department.trim(),
+          location: f.location.trim(),
+          employmentType: f.employmentType,
+          openings: Math.max(1, Number(f.openings) || 1),
+          priority: f.priority,
+          experienceMin: f.experienceMin === '' ? 0 : Number(f.experienceMin),
+          experienceMax: f.experienceMax === '' ? null : Number(f.experienceMax),
+          salaryMin: f.salaryMin === '' ? null : Number(f.salaryMin),
+          salaryMax: f.salaryMax === '' ? null : Number(f.salaryMax),
+          currency: f.currency,
+          requirements: f.requirements.split(',').map((r) => r.trim()).filter(Boolean),
+          description: f.description.trim(),
+        }),
+      });
+      const json = await res.json();
+      if (json.success !== false) {
+        showNotice('Requisition updated.');
+        await loadData();
+        setCeoEditing(false);
+      } else {
+        showNotice(json.error || 'Failed to update requisition.');
+      }
+    } catch (err: any) {
+      showNotice(err.message || 'Error updating requisition.');
+    } finally {
+      setCeoEditBusy(false);
+    }
+  };
+
+  const decideCeoRequisition = async (jobId: string, decision: 'Approved' | 'Rejected') => {
+    const job = jobs.find((j) => j.id === jobId);
+    const edit =
+      ceoReqEdits[jobId] ?? {
+        openings: String(job?.openings ?? ''),
+        salaryMin: job?.salaryMin != null ? String(job.salaryMin) : '',
+        salaryMax: job?.salaryMax != null ? String(job.salaryMax) : '',
+        note: '',
+      };
+    if (decision === 'Rejected' && !edit.note.trim()) {
+      showNotice('A reason is required to reject a requisition.');
+      return;
+    }
+    setCeoReqBusy(jobId);
+    try {
+      const res = await authFetch<Response>(`/api/recruitment/requisition-approvals/${jobId}`, {
+        raw: true,
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          decision,
+          note: edit.note.trim() || undefined,
+          approvedOpenings: decision === 'Approved' && edit.openings ? Number(edit.openings) : undefined,
+          approvedSalaryMin: decision === 'Approved' && edit.salaryMin ? Number(edit.salaryMin) : undefined,
+          approvedSalaryMax: decision === 'Approved' && edit.salaryMax ? Number(edit.salaryMax) : undefined,
+        }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        showNotice(
+          decision === 'Approved' ? 'Requisition budget approved.' : 'Requisition rejected.',
+        );
+        await loadData();
+      } else {
+        showNotice(json.error || 'Could not record the decision.');
+      }
+    } catch (err: any) {
+      showNotice(err.message || 'Error recording decision.');
+    } finally {
+      setCeoReqBusy(null);
+    }
+  };
+
+  // Approve / reject an offer approval step (L2 = CEO sign-off). Works from the
+  // executive view too, so a CEO-level offer approval no longer gets stuck.
+  const decideOfferApproval = async (offerId: string, action: 'APPROVE' | 'REJECT') => {
+    const note = offerApprovalNote[offerId]?.trim();
+    if (action === 'REJECT' && !note) {
+      showNotice('A reason is required to reject an offer.');
+      return;
+    }
+    setOfferApprovalBusy(offerId);
+    try {
+      const res = await authFetch<Response>(`/api/recruitment/offers/${offerId}/approvals`, {
+        raw: true,
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, comment: note || undefined }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        showNotice(action === 'APPROVE' ? 'Offer approved.' : 'Offer sent back to draft.');
+        setOfferApprovalQueue((prev) => prev.filter((o) => o.id !== offerId));
+        await loadData();
+        await loadOfferApprovalQueue();
+      } else {
+        showNotice(json.error || 'Could not record the decision.');
+      }
+    } catch (err: any) {
+      showNotice(err.message || 'Error recording decision.');
+    } finally {
+      setOfferApprovalBusy(null);
+    }
+  };
+
+  /* -----------------------------
+     CEO EXECUTIVE RECRUITMENT VIEW
+     CEO sees job requisitions + their candidates read-only, and approves
+     (or adjusts) the budget/headcount on new roles. No recruiter actions.
+  ----------------------------- */
+  if (isLoading && jobs.length === 0 && allCandidates.length === 0) {
+    return <PageLoader label="Loading recruitment pipeline…" />;
+  }
+
+  if (isCeo) {
+    const ceoJob = jobs.find((j) => j.id === ceoSelectedJobId) ?? jobs[0];
+    const ceoJobCandidates = ceoJob ? allCandidates.filter((c) => c.jobId === ceoJob.id) : [];
+    const pendingBudgetCount = jobs.filter((j) => j.status === 'Pending Budget Approval').length;
+    const needsDecision =
+      !!ceoJob &&
+      (ceoJob.status === 'Pending Budget Approval' || ceoJob.requisitionApproval?.status === 'Pending');
+    const edit =
+      (ceoJob && ceoReqEdits[ceoJob.id]) ?? {
+        openings: String(ceoJob?.openings ?? ''),
+        salaryMin: ceoJob?.salaryMin != null ? String(ceoJob.salaryMin) : '',
+        salaryMax: ceoJob?.salaryMax != null ? String(ceoJob.salaryMax) : '',
+        note: '',
+      };
+
+    return (
+      <div className="min-w-0 max-w-full space-y-6 overflow-x-hidden text-[#17324A]">
+        <div className="flex flex-col gap-1">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-[#315B76]">
+            Recruitment · Executive View
+          </p>
+          <h1 className="text-2xl font-bold tracking-tight text-[#17324A]">Job Requisitions & Budget Approval</h1>
+          <p className="text-xs text-[#5D7D94]">
+            Review requisitions and their candidates. Approve budget + headcount on new roles.
+          </p>
+        </div>
+
+        {notice && (
+          <div className="flex items-center gap-2 rounded-lg border border-[#9FC2DC] bg-[#E8F2FA] px-4 py-2.5 text-xs font-medium text-[#17324A] shadow-sm">
+            <CheckCircle2 className="h-4 w-4 text-[#287047]" />
+            <span>{notice}</span>
+          </div>
+        )}
+
+        {/* Offers awaiting the CEO's sign-off (L2 approval step). Without this the
+            offer chain gets stuck on the CEO with nowhere to action it. */}
+        {offerApprovalQueue.length > 0 && (
+          <section className="space-y-3 rounded-xl border border-[#E4C06B] bg-[#FCF7EC] p-4 shadow-sm">
+            <div className="flex items-center gap-2">
+              <Clock className="h-4 w-4 text-[#8A6D1F]" />
+              <h2 className="text-xs font-bold uppercase tracking-wider text-[#8A6D1F]">
+                Offers Awaiting Your Approval ({offerApprovalQueue.length})
+              </h2>
+            </div>
+            <div className="space-y-3">
+              {offerApprovalQueue.map((offer) => (
+                <div
+                  key={offer.id}
+                  className="rounded-lg border border-[#E4C06B]/70 bg-white p-3.5 shadow-sm"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-[#17324A]">{offer.candidate}</p>
+                      <p className="text-xs text-[#5D7D94]">
+                        {offer.title}
+                        {offer.context ? ` · ${offer.context}` : ''}
+                      </p>
+                    </div>
+                    <span className="shrink-0 rounded-full bg-[#F5E7C0] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-[#8A6D1F]">
+                      Level {offer.level}
+                    </span>
+                  </div>
+                  <textarea
+                    value={offerApprovalNote[offer.id] ?? ''}
+                    onChange={(e) =>
+                      setOfferApprovalNote((prev) => ({ ...prev, [offer.id]: e.target.value }))
+                    }
+                    placeholder="Optional note (required to reject)…"
+                    rows={2}
+                    className="mt-3 w-full resize-none rounded-lg border border-[#C3D9E8] bg-white px-3 py-2 text-xs text-[#17324A] outline-none transition focus:border-[#6FA6C9] focus:ring-2 focus:ring-[#B0D0EA]/40"
+                  />
+                  <div className="mt-2.5 flex items-center justify-end gap-2">
+                    <button
+                      type="button"
+                      disabled={offerApprovalBusy === offer.id}
+                      onClick={() => decideOfferApproval(offer.id, 'REJECT')}
+                      className="rounded-lg border border-[#F2B8B5] bg-white px-3.5 py-2 text-xs font-semibold text-[#A12622] transition-colors hover:bg-[#FDF4F4] disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Reject
+                    </button>
+                    <button
+                      type="button"
+                      disabled={offerApprovalBusy === offer.id}
+                      onClick={() => decideOfferApproval(offer.id, 'APPROVE')}
+                      className="rounded-lg bg-[#287047] px-4 py-2 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-[#1F5A38] disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {offerApprovalBusy === offer.id ? 'Saving…' : 'Approve'}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          {/* Requisitions list */}
+          <section className="space-y-3 rounded-xl border border-[#9FC2DC] bg-white p-4 shadow-sm lg:col-span-1 lg:max-h-[760px] lg:overflow-y-auto">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xs font-bold uppercase tracking-wider text-[#315B76]">
+                Requisitions ({jobs.length})
+              </h2>
+              {pendingBudgetCount > 0 && (
+                <span className="rounded-full border border-[#D8B4FE] bg-[#F3E8FF] px-2 py-0.5 text-[10px] font-bold text-[#6B21A8]">
+                  {pendingBudgetCount} to approve
+                </span>
+              )}
+            </div>
+            <div className="space-y-2.5">
+              {jobs.map((job) => {
+                const selected = ceoJob?.id === job.id;
+                return (
+                  <button
+                    key={job.id}
+                    type="button"
+                    onClick={() => {
+                      setCeoSelectedJobId(job.id);
+                      setCeoEditing(false);
+                    }}
+                    className={`w-full rounded-lg border p-3 text-left transition-all ${
+                      selected
+                        ? 'border-[#17324A] bg-[#F4F9FC] ring-1 ring-[#17324A]'
+                        : 'border-[#C3D9E8] bg-white hover:border-[#8DB5CF]'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="text-xs font-bold text-[#17324A] line-clamp-1">{job.title}</span>
+                      <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[9px] font-semibold ${jobStatusTone(job.status)}`}>
+                        {job.status}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-[11px] text-[#5D7D94]">{job.department} · {job.location}</p>
+                    <p className="mt-1 text-[10px] text-[#315B76]">
+                      {job.openings} opening(s) · {allCandidates.filter((c) => c.jobId === job.id).length} candidate(s)
+                    </p>
+                  </button>
+                );
+              })}
+              {jobs.length === 0 && (
+                <p className="py-8 text-center text-xs text-[#5D7D94]">No requisitions yet.</p>
+              )}
+            </div>
+          </section>
+
+          {/* Selected job detail + approval + candidates */}
+          <section className="space-y-4 rounded-xl border border-[#9FC2DC] bg-white p-4 shadow-sm lg:col-span-2 lg:max-h-[760px] lg:overflow-y-auto">
+            {!ceoJob ? (
+              <p className="py-12 text-center text-xs text-[#5D7D94]">Select a requisition to review.</p>
+            ) : (
+              <>
+                {ceoEditing ? (
+                  <div className="border-b border-[#E2E8F0] pb-4">
+                    <div className="flex items-center justify-between">
+                      <h2 className="text-sm font-bold text-[#17324A]">Edit Requisition</h2>
+                    </div>
+                    <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <label className="text-[10px] font-semibold text-[#667085] sm:col-span-2">
+                        Title
+                        <input value={ceoEditForm.title || ''} onChange={(e) => setCeoEditForm({ ...ceoEditForm, title: e.target.value })} className="mt-1 w-full rounded border border-[#C3D9E8] px-2 py-1.5 text-xs outline-none" />
+                      </label>
+                      <label className="text-[10px] font-semibold text-[#667085]">
+                        Department
+                        <input value={ceoEditForm.department || ''} onChange={(e) => setCeoEditForm({ ...ceoEditForm, department: e.target.value })} className="mt-1 w-full rounded border border-[#C3D9E8] px-2 py-1.5 text-xs outline-none" />
+                      </label>
+                      <label className="text-[10px] font-semibold text-[#667085]">
+                        Location
+                        <input value={ceoEditForm.location || ''} onChange={(e) => setCeoEditForm({ ...ceoEditForm, location: e.target.value })} className="mt-1 w-full rounded border border-[#C3D9E8] px-2 py-1.5 text-xs outline-none" />
+                      </label>
+                      <label className="text-[10px] font-semibold text-[#667085]">
+                        Employment type
+                        <select value={ceoEditForm.employmentType || 'Full-time'} onChange={(e) => setCeoEditForm({ ...ceoEditForm, employmentType: e.target.value })} className="mt-1 w-full rounded border border-[#C3D9E8] px-2 py-1.5 text-xs outline-none">
+                          <option value="Full-time">Full-time</option>
+                          <option value="Contract">Contract</option>
+                        </select>
+                      </label>
+                      <label className="text-[10px] font-semibold text-[#667085]">
+                        Priority
+                        <select value={ceoEditForm.priority || 'Medium'} onChange={(e) => setCeoEditForm({ ...ceoEditForm, priority: e.target.value })} className="mt-1 w-full rounded border border-[#C3D9E8] px-2 py-1.5 text-xs outline-none">
+                          <option>Low</option>
+                          <option>Medium</option>
+                          <option>High</option>
+                        </select>
+                      </label>
+                      <label className="text-[10px] font-semibold text-[#667085]">
+                        Openings
+                        <input type="number" min={1} value={ceoEditForm.openings || ''} onChange={(e) => setCeoEditForm({ ...ceoEditForm, openings: e.target.value })} className="mt-1 w-full rounded border border-[#C3D9E8] px-2 py-1.5 text-xs outline-none" />
+                      </label>
+                      <label className="text-[10px] font-semibold text-[#667085]">
+                        Currency
+                        <input value={ceoEditForm.currency || 'INR'} onChange={(e) => setCeoEditForm({ ...ceoEditForm, currency: e.target.value })} className="mt-1 w-full rounded border border-[#C3D9E8] px-2 py-1.5 text-xs outline-none" />
+                      </label>
+                      <label className="text-[10px] font-semibold text-[#667085]">
+                        Experience min (yrs)
+                        <input type="number" value={ceoEditForm.experienceMin || ''} onChange={(e) => setCeoEditForm({ ...ceoEditForm, experienceMin: e.target.value })} className="mt-1 w-full rounded border border-[#C3D9E8] px-2 py-1.5 text-xs outline-none" />
+                      </label>
+                      <label className="text-[10px] font-semibold text-[#667085]">
+                        Experience max (yrs)
+                        <input type="number" value={ceoEditForm.experienceMax || ''} onChange={(e) => setCeoEditForm({ ...ceoEditForm, experienceMax: e.target.value })} className="mt-1 w-full rounded border border-[#C3D9E8] px-2 py-1.5 text-xs outline-none" />
+                      </label>
+                      <label className="text-[10px] font-semibold text-[#667085]">
+                        Salary min
+                        <input type="number" value={ceoEditForm.salaryMin || ''} onChange={(e) => setCeoEditForm({ ...ceoEditForm, salaryMin: e.target.value })} className="mt-1 w-full rounded border border-[#C3D9E8] px-2 py-1.5 text-xs outline-none" />
+                      </label>
+                      <label className="text-[10px] font-semibold text-[#667085]">
+                        Salary max
+                        <input type="number" value={ceoEditForm.salaryMax || ''} onChange={(e) => setCeoEditForm({ ...ceoEditForm, salaryMax: e.target.value })} className="mt-1 w-full rounded border border-[#C3D9E8] px-2 py-1.5 text-xs outline-none" />
+                      </label>
+                      <label className="text-[10px] font-semibold text-[#667085] sm:col-span-2">
+                        Required skills (comma-separated)
+                        <input value={ceoEditForm.requirements || ''} onChange={(e) => setCeoEditForm({ ...ceoEditForm, requirements: e.target.value })} className="mt-1 w-full rounded border border-[#C3D9E8] px-2 py-1.5 text-xs outline-none" />
+                      </label>
+                      <label className="text-[10px] font-semibold text-[#667085] sm:col-span-2">
+                        Description
+                        <textarea rows={4} value={ceoEditForm.description || ''} onChange={(e) => setCeoEditForm({ ...ceoEditForm, description: e.target.value })} className="mt-1 w-full rounded border border-[#C3D9E8] px-2 py-1.5 text-xs outline-none" />
+                      </label>
+                    </div>
+                    <div className="mt-3 flex justify-end gap-2">
+                      <button type="button" onClick={() => setCeoEditing(false)} className="rounded-lg border border-[#9FC2DC] bg-[#F4F9FC] px-3 py-1.5 text-[11px] font-semibold text-[#17324A] hover:bg-[#E8F2FA]">
+                        Cancel
+                      </button>
+                      <button type="button" disabled={ceoEditBusy} onClick={() => saveCeoEdit(ceoJob.id)} className="rounded-lg bg-[#17324A] px-4 py-1.5 text-[11px] font-semibold text-white hover:bg-[#315B76] disabled:opacity-50">
+                        {ceoEditBusy ? 'Saving…' : 'Save changes'}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                <div className="border-b border-[#E2E8F0] pb-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h2 className="text-base font-bold text-[#17324A]">{ceoJob.title}</h2>
+                    <div className="flex items-center gap-2">
+                      <span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-semibold ${jobStatusTone(ceoJob.status)}`}>
+                        {ceoJob.status}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => startCeoEdit(ceoJob)}
+                        className="flex items-center gap-1 rounded-lg border border-[#9FC2DC] bg-white px-2.5 py-1 text-[10px] font-semibold text-[#17324A] hover:bg-[#E8F2FA]"
+                      >
+                        <Pencil className="h-3 w-3" /> Edit
+                      </button>
+                    </div>
+                  </div>
+                  <p className="mt-1 text-xs text-[#5D7D94]">
+                    {ceoJob.department} · {ceoJob.location} · {ceoJob.employmentType}
+                    {ceoJob.priority ? ` · ${ceoJob.priority} priority` : ''}
+                  </p>
+                  <div className="mt-2 grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
+                    <div className="rounded bg-[#F8FAFC] p-2 border border-[#E2E8F0]">
+                      <span className="block text-[10px] text-[#64748B]">Openings</span>
+                      <span className="font-bold text-[#0F172A]">{ceoJob.openings}</span>
+                    </div>
+                    <div className="rounded bg-[#F8FAFC] p-2 border border-[#E2E8F0]">
+                      <span className="block text-[10px] text-[#64748B]">Salary band</span>
+                      <span className="font-bold text-[#0F172A]">
+                        {ceoJob.salaryMin != null || ceoJob.salaryMax != null
+                          ? `${ceoJob.currency === 'INR' ? '₹' : (ceoJob.currency || '') + ' '}${(ceoJob.salaryMin ?? 0).toLocaleString('en-IN')}–${(ceoJob.salaryMax ?? 0).toLocaleString('en-IN')}`
+                          : '—'}
+                      </span>
+                    </div>
+                    <div className="rounded bg-[#F8FAFC] p-2 border border-[#E2E8F0]">
+                      <span className="block text-[10px] text-[#64748B]">Experience</span>
+                      <span className="font-bold text-[#0F172A]">
+                        {ceoJob.experienceMin ?? 0}{ceoJob.experienceMax ? `–${ceoJob.experienceMax}` : '+'} yrs
+                      </span>
+                    </div>
+                    <div className="rounded bg-[#F8FAFC] p-2 border border-[#E2E8F0]">
+                      <span className="block text-[10px] text-[#64748B]">Hiring manager</span>
+                      <span className="font-bold text-[#0F172A] line-clamp-1">{ceoJob.hiringManagerName || '—'}</span>
+                    </div>
+                  </div>
+                  {ceoJob.requirements.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {ceoJob.requirements.map((r, i) => (
+                        <span key={i} className="rounded bg-[#EEF4F9] px-2 py-0.5 text-[10px] text-[#315B76] border border-[#D9E5EE]">{r}</span>
+                      ))}
+                    </div>
+                  )}
+                  {ceoJob.description && (
+                    <p className="mt-2 text-[11px] leading-relaxed text-[#475569] whitespace-pre-line">{ceoJob.description}</p>
+                  )}
+                </div>
+                )}
+
+                {/* Budget approval */}
+                {needsDecision ? (
+                  <div className="rounded-xl border border-[#D8B4FE] bg-[#FAF5FF] p-4">
+                    <h3 className="flex items-center gap-2 text-xs font-bold text-[#6B21A8]">
+                      <Wallet className="h-4 w-4" /> Budget & Headcount Approval
+                    </h3>
+                    <p className="mt-1 text-[11px] text-[#6B21A8]/80">
+                      Requested: {ceoJob.openings} opening(s). Adjust before approving if needed.
+                    </p>
+                    <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
+                      <label className="text-[10px] font-semibold text-[#667085]">
+                        Approved openings
+                        <input
+                          type="number"
+                          min={1}
+                          value={edit.openings}
+                          onChange={(e) => patchCeoReqEdit(ceoJob.id, { openings: e.target.value })}
+                          className="mt-1 w-full rounded border border-[#C3D9E8] px-2 py-1 text-xs outline-none"
+                        />
+                      </label>
+                      <label className="text-[10px] font-semibold text-[#667085]">
+                        Salary min ({ceoJob.currency || 'INR'})
+                        <input
+                          type="number"
+                          value={edit.salaryMin}
+                          onChange={(e) => patchCeoReqEdit(ceoJob.id, { salaryMin: e.target.value })}
+                          className="mt-1 w-full rounded border border-[#C3D9E8] px-2 py-1 text-xs outline-none"
+                        />
+                      </label>
+                      <label className="text-[10px] font-semibold text-[#667085]">
+                        Salary max ({ceoJob.currency || 'INR'})
+                        <input
+                          type="number"
+                          value={edit.salaryMax}
+                          onChange={(e) => patchCeoReqEdit(ceoJob.id, { salaryMax: e.target.value })}
+                          className="mt-1 w-full rounded border border-[#C3D9E8] px-2 py-1 text-xs outline-none"
+                        />
+                      </label>
+                    </div>
+                    <textarea
+                      value={edit.note}
+                      onChange={(e) => patchCeoReqEdit(ceoJob.id, { note: e.target.value })}
+                      placeholder="Note (required to reject)"
+                      rows={2}
+                      className="mt-2 w-full rounded border border-[#C3D9E8] px-2 py-1.5 text-xs outline-none"
+                    />
+                    <div className="mt-3 flex justify-end gap-2">
+                      <button
+                        type="button"
+                        disabled={ceoReqBusy === ceoJob.id}
+                        onClick={() => decideCeoRequisition(ceoJob.id, 'Rejected')}
+                        className="flex items-center gap-1 rounded-lg border border-rose-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-rose-600 hover:bg-rose-50 disabled:opacity-50"
+                      >
+                        Reject
+                      </button>
+                      <button
+                        type="button"
+                        disabled={ceoReqBusy === ceoJob.id}
+                        onClick={() => decideCeoRequisition(ceoJob.id, 'Approved')}
+                        className="flex items-center gap-1 rounded-lg bg-[#17324A] px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-[#315B76] disabled:opacity-50"
+                      >
+                        Approve budget
+                      </button>
+                    </div>
+                  </div>
+                ) : ceoJob.requisitionApproval ? (
+                  <div className="rounded-lg border border-[#C3D9E8] bg-[#F8FAFC] p-3 text-[11px] text-[#315B76]">
+                    Budget approval:{' '}
+                    <span className="font-bold">{ceoJob.requisitionApproval.status}</span>
+                    {ceoJob.requisitionApproval.approvedOpenings != null &&
+                      ` · ${ceoJob.requisitionApproval.approvedOpenings} opening(s)`}
+                    {ceoJob.requisitionApproval.note ? ` · ${ceoJob.requisitionApproval.note}` : ''}
+                  </div>
+                ) : null}
+
+                {/* Candidates (read-only) */}
+                <div>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-[#315B76]">
+                    Candidates ({ceoJobCandidates.length})
+                  </h3>
+                  <div className="mt-2 space-y-2">
+                    {ceoJobCandidates.map((c) => (
+                      <div key={c.id} className="rounded-lg border border-[#E2E8F0] bg-white p-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="truncate text-xs font-bold text-[#17324A]">{c.name}</p>
+                            <p className="truncate text-[11px] text-[#5D7D94]">
+                              {c.currentRole || '—'} · {c.experience || '—'}
+                            </p>
+                          </div>
+                          <div className="flex shrink-0 items-center gap-1.5">
+                            <span className="rounded-full border border-[#C3D9E8] bg-[#F4F9FC] px-2 py-0.5 text-[9px] font-semibold text-[#315B76]">
+                              {c.stage}
+                            </span>
+                            <span className="rounded-full border border-[#9CC9AC] bg-[#DDEFE4] px-2 py-0.5 text-[9px] font-bold text-[#287047]">
+                              {c.score || 0}%
+                            </span>
+                          </div>
+                        </div>
+                        {Array.isArray(c.matchedSkills) && c.matchedSkills.length > 0 && (
+                          <div className="mt-1.5 flex flex-wrap gap-1">
+                            {c.matchedSkills.slice(0, 8).map((s, i) => (
+                              <span key={i} className="rounded bg-[#EEF4F9] px-1.5 py-0.5 text-[9px] text-[#315B76]">{s}</span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                    {ceoJobCandidates.length === 0 && (
+                      <p className="py-6 text-center text-[11px] text-[#5D7D94]">No candidates in this requisition yet.</p>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
+          </section>
+        </div>
+      </div>
+    );
+  }
 
   /* -----------------------------
      ACCESS CONTROL
@@ -1577,7 +2269,10 @@ export default function RecruitmentPage() {
 
           <button
             type="button"
-            onClick={() => setIsAddJdOpen(true)}
+            onClick={() => {
+              setJdForm({ ...EMPTY_JD_FORM });
+              setIsAddJdOpen(true);
+            }}
             className="inline-flex items-center gap-2 rounded-lg bg-[#17324A] px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-[#315B76]"
           >
             <Plus className="h-4 w-4" />
@@ -1594,12 +2289,22 @@ export default function RecruitmentPage() {
         </div>
       )}
 
+      {/* Approvals waiting for the current user (offers + job requisitions).
+          Surfaced here so a hiring manager or CEO sees their pending step
+          without having to hunt for the exact candidate in the pipeline. */}
+      <PendingApprovalsPanel
+        onActionComplete={() => {
+          void loadData();
+          if (selectedCandidate) void loadOffers(selectedCandidate.id);
+        }}
+      />
+
       {/* =========================
           MAIN 3-COLUMN WORKSPACE
       ========================= */}
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3 2xl:grid-cols-4">
+      <div className="space-y-6">
         {/* =========================
-            COLUMN 1: REQUISITIONS
+            ROW 1: REQUISITIONS (full width)
         ========================= */}
         <section className="space-y-4 rounded-xl border border-[#9FC2DC] bg-white p-4 shadow-sm">
           <div className="flex items-center justify-between">
@@ -1611,7 +2316,7 @@ export default function RecruitmentPage() {
             </span>
           </div>
 
-          <div className="space-y-2.5 max-h-[750px] overflow-y-auto pr-1">
+          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {jobs.map((job) => {
               const isSelected = job.id === selectedJob.id;
               return (
@@ -1629,13 +2334,27 @@ export default function RecruitmentPage() {
                 >
                   <div className="flex items-start justify-between gap-2">
                     <h3 className="text-xs font-bold text-[#17324A] line-clamp-1">{job.title}</h3>
-                    <span
-                      className={`shrink-0 rounded-full border px-2 py-0.5 text-[9px] font-semibold ${jobStatusTone(
-                        job.status
-                      )}`}
-                    >
-                      {job.status}
-                    </span>
+                    <div className="flex shrink-0 items-center gap-1.5">
+                      <span
+                        className={`rounded-full border px-2 py-0.5 text-[9px] font-semibold ${jobStatusTone(
+                          job.status
+                        )}`}
+                      >
+                        {job.status}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void handleDeleteJob(job.id, job.title);
+                        }}
+                        className="rounded-md p-1 text-[#98A9B8] hover:bg-rose-50 hover:text-rose-600 transition-colors"
+                        title="Delete requisition"
+                        aria-label={`Delete requisition ${job.title}`}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
                   </div>
 
                   <p className="mt-1 text-[11px] text-[#5D7D94]">
@@ -1655,15 +2374,17 @@ export default function RecruitmentPage() {
             })}
 
             {jobs.length === 0 && (
-              <p className="py-8 text-center text-xs text-[#5D7D94]">No active requisitions found.</p>
+              <p className="col-span-full py-8 text-center text-xs text-[#5D7D94]">No active requisitions found.</p>
             )}
           </div>
         </section>
 
         {/* =========================
-            COLUMN 2: CANDIDATE PIPELINE
+            ROW 2: PIPELINE + CANDIDATE PROFILE (side by side)
         ========================= */}
-        <section className="space-y-4 rounded-xl border border-[#9FC2DC] bg-white p-4 shadow-sm xl:col-span-1">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        {/* COLUMN A: CANDIDATE PIPELINE */}
+        <section className="space-y-4 rounded-xl border border-[#9FC2DC] bg-white p-4 shadow-sm lg:col-span-1 lg:flex lg:flex-col lg:max-h-[820px]">
           {/* Header & Selected Job Summary */}
           <div>
             <div className="flex items-center justify-between">
@@ -1675,8 +2396,118 @@ export default function RecruitmentPage() {
               </span>
             </div>
 
-            {/* Job Actions Banner if Draft or Pending */}
-            {selectedJob.status === 'Draft' && (
+            {/* Awaiting CEO budget + headcount approval */}
+            {selectedJob.status === 'Pending Budget Approval' &&
+              (hasCeoPermission('REQUISITION_APPROVAL')
+                ? (() => {
+                    const edit =
+                      ceoReqEdits[selectedJob.id] ?? {
+                        openings: String(selectedJob.openings ?? ''),
+                        salaryMin: selectedJob.salaryMin != null ? String(selectedJob.salaryMin) : '',
+                        salaryMax: selectedJob.salaryMax != null ? String(selectedJob.salaryMax) : '',
+                        note: '',
+                      };
+                    const busy = ceoReqBusy === selectedJob.id;
+                    return (
+                      <div className="mt-3 rounded-lg border border-[#D8B4FE] bg-[#F3E8FF] p-2.5 text-xs text-[#6B21A8]">
+                        <div className="flex items-center gap-1.5 font-semibold">
+                          <ShieldCheck className="h-3.5 w-3.5" />
+                          <span>Requisition Budget Approval</span>
+                        </div>
+                        <p className="mt-0.5 text-[11px]">
+                          Acting on the CEO’s behalf via delegated access. Confirm or adjust the budget +
+                          headcount, then approve to open this role for hiring.
+                        </p>
+                        <div className="mt-2 grid grid-cols-3 gap-1.5">
+                          <label className="flex flex-col gap-0.5 text-[10px] font-semibold uppercase tracking-wide">
+                            Openings
+                            <input
+                              type="number"
+                              min={1}
+                              value={edit.openings}
+                              onChange={(e) => patchCeoReqEdit(selectedJob.id, { openings: e.target.value })}
+                              className="rounded border border-[#D8B4FE] bg-white px-1.5 py-1 text-[11px] font-normal text-[#17324A]"
+                            />
+                          </label>
+                          <label className="flex flex-col gap-0.5 text-[10px] font-semibold uppercase tracking-wide">
+                            Salary Min
+                            <input
+                              type="number"
+                              min={0}
+                              value={edit.salaryMin}
+                              onChange={(e) => patchCeoReqEdit(selectedJob.id, { salaryMin: e.target.value })}
+                              className="rounded border border-[#D8B4FE] bg-white px-1.5 py-1 text-[11px] font-normal text-[#17324A]"
+                            />
+                          </label>
+                          <label className="flex flex-col gap-0.5 text-[10px] font-semibold uppercase tracking-wide">
+                            Salary Max
+                            <input
+                              type="number"
+                              min={0}
+                              value={edit.salaryMax}
+                              onChange={(e) => patchCeoReqEdit(selectedJob.id, { salaryMax: e.target.value })}
+                              className="rounded border border-[#D8B4FE] bg-white px-1.5 py-1 text-[11px] font-normal text-[#17324A]"
+                            />
+                          </label>
+                        </div>
+                        <input
+                          type="text"
+                          value={edit.note}
+                          onChange={(e) => patchCeoReqEdit(selectedJob.id, { note: e.target.value })}
+                          placeholder="Note (required to reject)"
+                          className="mt-1.5 w-full rounded border border-[#D8B4FE] bg-white px-1.5 py-1 text-[11px] font-normal text-[#17324A]"
+                        />
+                        <div className="mt-2 flex gap-1.5">
+                          <button
+                            type="button"
+                            disabled={busy}
+                            onClick={() => decideCeoRequisition(selectedJob.id, 'Approved')}
+                            className="rounded bg-[#287047] px-2 py-1 text-[10px] font-semibold text-white hover:bg-[#1E5736] disabled:opacity-50"
+                          >
+                            {busy ? 'Saving…' : 'Approve Budget'}
+                          </button>
+                          <button
+                            type="button"
+                            disabled={busy}
+                            onClick={() => decideCeoRequisition(selectedJob.id, 'Rejected')}
+                            className="rounded border border-[#D9A3A3] bg-white px-2 py-1 text-[10px] font-semibold text-[#A45A5A] disabled:opacity-50"
+                          >
+                            Reject
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })()
+                : (
+                  <div className="mt-3 rounded-lg border border-[#D8B4FE] bg-[#F3E8FF] p-2.5 text-xs text-[#6B21A8]">
+                    <span className="font-semibold">Awaiting CEO budget approval</span>
+                    <p className="mt-0.5 text-[11px]">
+                      This new role needs the CEO’s budget + headcount sign-off before it can be opened for hiring.
+                    </p>
+                  </div>
+                ))}
+
+            {/* Budget rejected — HR revises and resubmits */}
+            {selectedJob.status === 'Draft' && selectedJob.requisitionApproval?.status === 'Rejected' && (
+              <div className="mt-3 rounded-lg border border-[#D9A3A3] bg-[#FBEAEA] p-2.5 text-xs text-[#A45A5A]">
+                <div className="flex items-center justify-between font-semibold">
+                  <span>Budget approval rejected</span>
+                  <button
+                    type="button"
+                    onClick={() => handleJobAction(selectedJob.id, 'resubmit_budget')}
+                    className="rounded bg-[#17324A] px-2 py-0.5 text-[10px] font-semibold text-white hover:bg-[#315B76]"
+                  >
+                    Revise & resubmit
+                  </button>
+                </div>
+                {selectedJob.requisitionApproval?.note && (
+                  <p className="mt-1 text-[11px]">Reason: {selectedJob.requisitionApproval.note}</p>
+                )}
+              </div>
+            )}
+
+            {/* Job Actions Banner if Draft (and budget already cleared) */}
+            {selectedJob.status === 'Draft' && selectedJob.requisitionApproval?.status !== 'Rejected' && (
               <div className="mt-3 flex items-center justify-between rounded-lg border border-[#C3D9E8] bg-[#F0F4F8] p-2 text-xs">
                 <span className="text-[#5D7D94]">Requisition is in Draft</span>
                 <button
@@ -1812,7 +2643,7 @@ export default function RecruitmentPage() {
           </div>
 
           {/* Candidate List */}
-          <div className="space-y-2 max-h-[600px] overflow-y-auto pr-1">
+          <div className="space-y-2 max-h-[600px] overflow-y-auto pr-1 lg:max-h-none lg:flex-1 lg:min-h-0">
             {filteredCandidates.map((candidate) => {
               const isSelected = candidate.id === selectedCandidate?.id;
               return (
@@ -1878,11 +2709,9 @@ export default function RecruitmentPage() {
           </div>
         </section>
 
-        {/* =========================
-            COLUMN 3: CANDIDATE PROFILE & CRM
-        ========================= */}
+        {/* COLUMN B: CANDIDATE PROFILE & CRM */}
         {selectedCandidate ? (
-          <section className="min-w-0 overflow-hidden rounded-xl border border-[#9FC2DC] bg-white p-4 shadow-sm xl:col-span-1 2xl:col-span-2">
+          <section className="min-w-0 rounded-xl border border-[#9FC2DC] bg-white p-4 shadow-sm lg:col-span-2 lg:max-h-[820px] lg:overflow-y-auto">
             {/* Top Profile Header */}
             <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 border-b border-[#C3D9E8] pb-4">
               <div className="flex items-center gap-3">
@@ -1966,18 +2795,9 @@ export default function RecruitmentPage() {
               </div>
 
               <div className="flex flex-wrap items-center gap-1.5">
-                {selectedCandidate.stage !== 'Screening' && selectedCandidate.stage === 'Applied' && (
-                  <button
-                    type="button"
-                    disabled={isTransitioning}
-                    onClick={() => handleStageTransition('Screening')}
-                    className="rounded bg-[#17324A] px-2.5 py-1 text-[10px] font-semibold text-white hover:bg-[#315B76]"
-                  >
-                    Screening
-                  </button>
-                )}
-
-                {selectedCandidate.stage === 'Screening' && (
+                {/* New profiles (Applied) shortlist directly — the Screening step is skipped.
+                    'Screening' is still accepted for any legacy candidates already in that stage. */}
+                {(selectedCandidate.stage === 'Applied' || selectedCandidate.stage === 'Screening') && (
                   <button
                     type="button"
                     disabled={isTransitioning}
@@ -1992,10 +2812,11 @@ export default function RecruitmentPage() {
                   <button
                     type="button"
                     disabled={isTransitioning}
-                    onClick={() => handleStageTransition('Interview')}
-                    className="rounded bg-[#17324A] px-2.5 py-1 text-[10px] font-semibold text-white hover:bg-[#315B76]"
+                    onClick={() => openScheduleModal()}
+                    className="flex items-center gap-1 rounded bg-[#17324A] px-2.5 py-1 text-[10px] font-semibold text-white hover:bg-[#315B76]"
                   >
-                    Move to Interview
+                    <Plus className="h-3 w-3" />
+                    Schedule Interview
                   </button>
                 )}
 
@@ -2186,7 +3007,7 @@ export default function RecruitmentPage() {
                             : 'bg-[#FEF3C7] border-[#FDE68A] text-[#92400E]'
                         }`}
                       >
-                        <span className="font-bold block">HR / Admin Review</span>
+                        <span className="font-bold block">Approval Chain</span>
                         {latestOffer.approvalSummary?.totalLevels ? (
                           <span>
                             {(latestOffer.approvalSummary?.completedLevels || 0) >=
@@ -2198,36 +3019,93 @@ export default function RecruitmentPage() {
                           <span>⏳ Pending Action</span>
                         )}
                       </div>
-                      {(latestOffer.recruitment_offer_approvals?.length || 0) > 0 && (
-                        <div className="space-y-1">
-                          {latestOffer.recruitment_offer_approvals
-                            .slice()
-                            .sort((a: any, b: any) => (a.sequence || 0) - (b.sequence || 0))
-                            .map((step: any) => (
+                      {(latestOffer.recruitment_offer_approvals?.length || 0) > 0 && (() => {
+                        const sortedSteps = latestOffer.recruitment_offer_approvals
+                          .slice()
+                          .sort((a: any, b: any) => (a.sequence || 0) - (b.sequence || 0));
+                        // The submitter's "note for approvers" is seeded onto the
+                        // first step at submit time. Show it as its own line (not as
+                        // an approver's remark) while that step is still Pending —
+                        // once L1 acts, their own remark takes over the row.
+                        const submitterNote =
+                          sortedSteps[0]?.status === 'Pending' ? sortedSteps[0]?.note : null;
+                        return (
+                          <div className="space-y-1">
+                            {submitterNote && (
+                              <div className="rounded border border-[#E2E8F0] bg-white px-2 py-1 text-[10px]">
+                                <span className="font-semibold text-[#64748B]">Note to approvers: </span>
+                                <span className="italic text-[#475569]">“{submitterNote}”</span>
+                              </div>
+                            )}
+                            {sortedSteps.map((step: any) => (
                               <div
                                 key={step.id}
-                                className="flex items-center justify-between rounded border border-[#E2E8F0] bg-[#F8FAFC] px-2 py-1 text-[10px]"
+                                className="rounded border border-[#E2E8F0] bg-[#F8FAFC] px-2 py-1 text-[10px]"
                               >
-                                <span className="text-[#17324A] font-semibold">
-                                  L{step.sequence || '-'} · {step.employees?.name || 'Approver'}
-                                </span>
-                                <span
-                                  className={
-                                    step.status === 'Approved'
-                                      ? 'text-[#166534] font-semibold'
+                                <div className="flex items-center justify-between">
+                                  <span className="text-[#17324A] font-semibold">
+                                    L{step.sequence || '-'} · {step.employees?.name || 'Approver'}
+                                  </span>
+                                  <span
+                                    className={
+                                      step.status === 'Approved'
+                                        ? 'text-[#166534] font-semibold'
+                                        : step.status === 'Pending'
+                                          ? 'text-[#92400E] font-semibold'
+                                          : 'text-[#9F1239] font-semibold'
+                                    }
+                                  >
+                                    {step.status === 'Approved'
+                                      ? '✓ Approved'
                                       : step.status === 'Pending'
-                                        ? 'text-[#92400E] font-semibold'
-                                        : 'text-[#9F1239] font-semibold'
-                                  }
-                                >
-                                  {step.status === 'Approved'
-                                    ? '✓ Approved'
-                                    : step.status === 'Pending'
-                                      ? '⏳ Pending'
-                                      : `✕ ${step.status}`}
-                                </span>
+                                        ? '⏳ Pending'
+                                        : `✕ ${step.status}`}
+                                  </span>
+                                </div>
+                                {/* An approver's remark only exists once they act — never
+                                    show a note on a still-pending step. */}
+                                {step.status !== 'Pending' && step.note && (
+                                  <p className="mt-0.5 text-[10px] italic text-[#475569]">
+                                    “{step.note}”
+                                  </p>
+                                )}
                               </div>
                             ))}
+                          </div>
+                        );
+                      })()}
+
+                      {/* Interviewers' verdicts — surfaced to every approver (esp. the
+                          final CEO step) so remarks from the interview panel, HR and the
+                          hiring manager are all visible before the offer is authorized. */}
+                      {(latestOffer.reviewPacket?.interviewFeedback?.length || 0) > 0 && (
+                        <div className="rounded border border-[#C3D9E8] bg-white p-2 space-y-1">
+                          <span className="text-[10px] font-bold text-[#17324A]">
+                            Interviewer Remarks ({latestOffer.reviewPacket.interviewFeedback.length})
+                          </span>
+                          {latestOffer.reviewPacket.interviewFeedback.map((fb: any, i: number) => {
+                            const selected = ['Hire', 'StrongHire'].includes(fb.recommendation);
+                            return (
+                              <div key={i} className="border-t border-[#EEF2F6] pt-1 first:border-t-0 first:pt-0">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-[10px] font-semibold text-[#334155]">
+                                    {fb.reviewer}
+                                    {fb.round ? ` · Round ${fb.round}` : ''}
+                                  </span>
+                                  <span
+                                    className={`rounded px-1.5 py-0.5 text-[9px] font-bold ${
+                                      selected ? 'bg-[#DCFCE7] text-[#166534]' : 'bg-[#FFE4E6] text-[#9F1239]'
+                                    }`}
+                                  >
+                                    {selected ? 'Selected' : 'Rejected'}
+                                  </span>
+                                </div>
+                                {fb.comments && (
+                                  <p className="mt-0.5 text-[10px] italic text-[#475569]">“{fb.comments}”</p>
+                                )}
+                              </div>
+                            );
+                          })}
                         </div>
                       )}
 
@@ -3093,6 +3971,38 @@ export default function RecruitmentPage() {
                           </div>
                         </div>
 
+                        {/* PANEL DECISIONS — interviewer Select/Reject verdicts recorded from
+                            their meeting view, surfaced to HR before the round is marked complete. */}
+                        {!isCompleted && feedbackList.length > 0 && (
+                          <div className="rounded-lg border border-[#9CC9AC] bg-[#F4FAF6] p-2.5 text-xs space-y-1.5">
+                            <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-[#1E5736]">
+                              <Award className="h-3 w-3 text-[#287047]" />
+                              Panel Decisions ({feedbackList.length}/{panelMembersList.length})
+                            </div>
+                            {feedbackList.map((fb: any) => {
+                              const isSelect = fb.recommendation === 'Hire' || fb.recommendation === 'StrongHire';
+                              return (
+                                <div key={fb.id} className="flex items-start gap-2 rounded border border-[#C3D9E8] bg-white p-2">
+                                  <span className="font-bold text-[#17324A]">{fb.employees?.name || 'Panel Member'}</span>
+                                  <span
+                                    className={`rounded px-1.5 py-0.2 text-[9px] font-bold ${
+                                      isSelect ? 'bg-[#DDEFE4] text-[#287047]' : 'bg-[#F3DCDC] text-[#A45A5A]'
+                                    }`}
+                                  >
+                                    {isSelect ? 'Selected' : 'Rejected'}
+                                  </span>
+                                  {fb.comments && (
+                                    <span className="flex-1 text-[11px] italic text-[#475569]">&ldquo;{fb.comments}&rdquo;</span>
+                                  )}
+                                </div>
+                              );
+                            })}
+                            <p className="text-[10px] text-[#42614E]">
+                              Use <span className="font-semibold">Select Candidate</span> or <span className="font-semibold">Move to Next Round</span> above to proceed.
+                            </p>
+                          </div>
+                        )}
+
                         {/* COMPLETED INTERVIEW: SCORECARD & FEEDBACK (PHASE 4C-B) */}
                         {isCompleted && (
                           <div className="rounded-lg border border-[#B0D0EA] bg-[#F4F9FC] p-3 text-xs space-y-3">
@@ -3287,10 +4197,11 @@ export default function RecruitmentPage() {
             )}
           </section>
         ) : (
-          <section className="rounded-xl border border-[#9FC2DC] bg-white p-8 text-center text-xs text-[#5D7D94] xl:col-span-1 2xl:col-span-2">
+          <section className="rounded-xl border border-[#9FC2DC] bg-white p-8 text-center text-xs text-[#5D7D94] lg:col-span-2">
             Select a candidate from the pipeline to inspect profile and CRM notes.
           </section>
         )}
+        </div>
       </div>
 
       {/* =========================
@@ -3299,7 +4210,7 @@ export default function RecruitmentPage() {
       {isAddJdOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#17324A]/30 p-4 backdrop-blur-sm">
           <form
-            onSubmit={(e) => addJobDescription(e, false)}
+            onSubmit={(e) => addJobDescription(e)}
             className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl border border-[#9FC2DC] bg-white p-6 shadow-2xl space-y-4"
           >
             <div className="flex items-start justify-between">
@@ -3505,17 +4416,10 @@ export default function RecruitmentPage() {
                 Cancel
               </button>
               <button
-                type="button"
-                onClick={(e) => addJobDescription(e as any, true)}
-                className="rounded-lg border border-[#17324A] bg-white px-3.5 py-2 text-xs font-semibold text-[#17324A] hover:bg-[#F4F9FC]"
-              >
-                Submit for Approval
-              </button>
-              <button
                 type="submit"
                 className="rounded-lg bg-[#17324A] px-4 py-2 text-xs font-semibold text-white hover:bg-[#315B76]"
               >
-                Save Requisition
+                Submit for Approval
               </button>
             </div>
           </form>
@@ -4474,8 +5378,20 @@ export default function RecruitmentPage() {
               <span className="font-semibold text-[#17324A] block">Approval Route:</span>
               <div className="flex items-center gap-2 text-[11px] text-[#334155]">
                 <span className="rounded bg-[#17324A] text-white px-1.5 py-0.5 text-[9px] font-bold">1</span>
-                <span>HR / Admin (Single-Level Final Authorization)</span>
+                <span>HR / Admin Review</span>
               </div>
+              <div className="flex items-center gap-2 text-[11px] text-[#334155]">
+                <span className="rounded bg-[#315B76] text-white px-1.5 py-0.5 text-[9px] font-bold">2</span>
+                <span>Hiring Manager</span>
+              </div>
+              <div className="flex items-center gap-2 text-[11px] text-[#334155]">
+                <span className="rounded bg-[#B7791F] text-white px-1.5 py-0.5 text-[9px] font-bold">3</span>
+                <span>CEO — Final Authorization</span>
+              </div>
+              <p className="text-[10px] text-[#64748B] pt-0.5">
+                If no hiring manager is set for the role, the route is HR / Admin → CEO. The final
+                approver sees the interview panel&apos;s remarks along with each approver&apos;s note.
+              </p>
             </div>
 
             <div className="space-y-1">

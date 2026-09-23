@@ -13,8 +13,11 @@ exports.RecruitmentService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma/prisma.service");
 const notify_service_1 = require("../common/notifications/notify.service");
+const permissions_service_1 = require("../permissions/permissions.service");
+const audit_service_1 = require("../common/audit/audit.service");
 const offer_documents_1 = require("./offer-documents");
 const resume_parser_1 = require("./resume-parser");
+const python_resume_parser_1 = require("./python-resume-parser");
 const node_crypto_1 = require("node:crypto");
 const promises_1 = require("node:fs/promises");
 const STAGES = [
@@ -45,9 +48,13 @@ const EMPLOYEE_SUMMARY_SELECT = {
 let RecruitmentService = class RecruitmentService {
     prisma;
     notify;
-    constructor(prisma, notify) {
+    permissions;
+    audit;
+    constructor(prisma, notify, permissions, audit) {
         this.prisma = prisma;
         this.notify = notify;
+        this.permissions = permissions;
+        this.audit = audit;
     }
     async findAll() {
         const [jobs, candidates] = await Promise.all([
@@ -55,6 +62,7 @@ let RecruitmentService = class RecruitmentService {
                 orderBy: { createdAt: 'desc' },
                 include: {
                     recruitment_job_approvals: { include: { employees: { select: EMPLOYEE_SUMMARY_SELECT } } },
+                    requisitionApproval: true,
                     hiringManager: { select: EMPLOYEE_SUMMARY_SELECT },
                     recruiter: { select: EMPLOYEE_SUMMARY_SELECT },
                     candidates: { select: { id: true, stage: true } },
@@ -73,10 +81,14 @@ let RecruitmentService = class RecruitmentService {
         ]);
         return { jobs, candidates };
     }
-    async createJob(data) {
+    async createJob(data, actor) {
         if (!data.title || !data.department || !data.location || !data.description) {
             throw new common_1.BadRequestException('title, department, location and description are required.');
         }
+        const openings = Number(data.openings) > 0 ? Math.round(Number(data.openings)) : 1;
+        const salaryMin = data.salaryMin != null && data.salaryMin !== '' ? Number(data.salaryMin) : null;
+        const salaryMax = data.salaryMax != null && data.salaryMax !== '' ? Number(data.salaryMax) : null;
+        const needsBudgetApproval = actor?.rawRole !== 'ceo';
         const job = await this.prisma.recruitmentJob.create({
             data: {
                 id: crypto.randomUUID(),
@@ -84,16 +96,16 @@ let RecruitmentService = class RecruitmentService {
                 department: String(data.department),
                 location: String(data.location),
                 employmentType: data.employmentType === 'Contract' ? 'Contract' : 'FullTime',
-                openings: Number(data.openings) > 0 ? Math.round(Number(data.openings)) : 1,
-                status: data.status === 'Draft' ? 'Draft' : 'Open',
+                openings,
+                status: needsBudgetApproval ? 'PendingBudgetApproval' : data.status === 'Draft' ? 'Draft' : 'Open',
                 postedOn: new Date().toISOString().slice(0, 10),
                 description: String(data.description),
                 requirements: Array.isArray(data.requirements) ? data.requirements.map(String) : [],
                 responsibilities: Array.isArray(data.responsibilities) ? data.responsibilities.map(String) : [],
                 experience_min: data.experienceMin != null && data.experienceMin !== '' ? Number(data.experienceMin) : 0,
                 experience_max: data.experienceMax != null && data.experienceMax !== '' ? Number(data.experienceMax) : null,
-                salary_min: data.salaryMin != null && data.salaryMin !== '' ? Number(data.salaryMin) : null,
-                salary_max: data.salaryMax != null && data.salaryMax !== '' ? Number(data.salaryMax) : null,
+                salary_min: salaryMin,
+                salary_max: salaryMax,
                 currency: data.currency || 'INR',
                 hiring_manager_id: data.hiringManagerId || null,
                 recruiter_id: data.recruiterId || null,
@@ -101,7 +113,210 @@ let RecruitmentService = class RecruitmentService {
                 target_close_date: data.targetCloseDate ? new Date(data.targetCloseDate) : null,
             },
         });
+        if (needsBudgetApproval) {
+            await this.prisma.requisitionApproval.create({
+                data: {
+                    jobId: job.id,
+                    status: 'Pending',
+                    requestedById: actor?.id ?? 'system',
+                    requestedOpenings: openings,
+                    requestedSalaryMin: salaryMin,
+                    requestedSalaryMax: salaryMax,
+                    currency: data.currency || 'INR',
+                },
+            });
+            await this.notifyRequisitionApprovers({
+                title: 'New requisition needs budget approval',
+                message: `"${job.title}" (${job.department}) — ${openings} opening(s) — is awaiting your budget approval.`,
+                type: 'Recruitment',
+                linkUrl: '/',
+            });
+        }
         return job;
+    }
+    async notifyRequisitionApprovers(payload) {
+        const ceos = await this.prisma.employee.findMany({
+            where: { userRole: 'ceo', status: 'Active' },
+            select: { id: true },
+        });
+        const delegates = await this.prisma.delegatedPermission.findMany({
+            where: {
+                permission: 'REQUISITION_APPROVAL',
+                revokedAt: null,
+                OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
+            },
+            select: { delegateeId: true },
+        });
+        const ids = [...new Set([...ceos.map((c) => c.id), ...delegates.map((d) => d.delegateeId)])];
+        if (ids.length)
+            await this.notify.notifyUsers(ids, payload);
+    }
+    async getRequisitionApprovalQueue() {
+        const rows = await this.prisma.requisitionApproval.findMany({
+            where: { status: 'Pending' },
+            orderBy: { createdAt: 'desc' },
+            include: {
+                job: {
+                    select: {
+                        id: true,
+                        title: true,
+                        department: true,
+                        location: true,
+                        employmentType: true,
+                        currency: true,
+                        experience_min: true,
+                        experience_max: true,
+                        requirements: true,
+                        priority: true,
+                        hiringManager: { select: EMPLOYEE_SUMMARY_SELECT },
+                    },
+                },
+            },
+        });
+        const requesterIds = [...new Set(rows.map((r) => r.requestedById).filter((x) => x && x !== 'system'))];
+        const requesters = requesterIds.length
+            ? await this.prisma.employee.findMany({
+                where: { id: { in: requesterIds } },
+                select: { id: true, name: true, roleTitle: true },
+            })
+            : [];
+        const byId = new Map(requesters.map((r) => [r.id, r]));
+        return rows.map((r) => ({
+            id: r.id,
+            jobId: r.jobId,
+            title: r.job?.title,
+            department: r.job?.department,
+            location: r.job?.location,
+            employmentType: r.job?.employmentType,
+            priority: r.job?.priority,
+            requirements: r.job?.requirements ?? [],
+            experienceMin: r.job?.experience_min ?? null,
+            experienceMax: r.job?.experience_max ?? null,
+            hiringManager: r.job?.hiringManager ?? null,
+            requestedBy: byId.get(r.requestedById)?.name ?? 'HR',
+            requestedOpenings: r.requestedOpenings,
+            requestedSalaryMin: r.requestedSalaryMin != null ? Number(r.requestedSalaryMin) : null,
+            requestedSalaryMax: r.requestedSalaryMax != null ? Number(r.requestedSalaryMax) : null,
+            currency: r.currency,
+            createdAt: r.createdAt,
+        }));
+    }
+    async decideRequisitionApproval(actorId, jobId, body) {
+        const check = await this.permissions.assertCeoPermission(actorId, 'REQUISITION_APPROVAL');
+        const decision = body?.decision;
+        if (decision !== 'Approved' && decision !== 'Rejected') {
+            throw new common_1.BadRequestException('decision must be Approved or Rejected.');
+        }
+        const approval = await this.prisma.requisitionApproval.findUnique({
+            where: { jobId },
+            include: { job: true },
+        });
+        if (!approval)
+            throw new common_1.NotFoundException('No budget-approval request found for this requisition.');
+        if (approval.status !== 'Pending') {
+            throw new common_1.BadRequestException('This requisition has already been decided.');
+        }
+        const onBehalfOfId = check.viaDelegation ? check.delegatorId ?? null : null;
+        if (decision === 'Approved') {
+            const approvedOpenings = body.approvedOpenings != null && Number(body.approvedOpenings) > 0
+                ? Math.round(Number(body.approvedOpenings))
+                : approval.requestedOpenings;
+            const approvedSalaryMin = body.approvedSalaryMin != null && body.approvedSalaryMin !== ''
+                ? Number(body.approvedSalaryMin)
+                : approval.requestedSalaryMin != null
+                    ? Number(approval.requestedSalaryMin)
+                    : null;
+            const approvedSalaryMax = body.approvedSalaryMax != null && body.approvedSalaryMax !== ''
+                ? Number(body.approvedSalaryMax)
+                : approval.requestedSalaryMax != null
+                    ? Number(approval.requestedSalaryMax)
+                    : null;
+            await this.prisma.$transaction([
+                this.prisma.recruitmentJob.update({
+                    where: { id: jobId },
+                    data: {
+                        openings: approvedOpenings,
+                        salary_min: approvedSalaryMin,
+                        salary_max: approvedSalaryMax,
+                        status: 'Published',
+                    },
+                }),
+                this.prisma.requisitionApproval.update({
+                    where: { jobId },
+                    data: {
+                        status: 'Approved',
+                        approvedOpenings,
+                        approvedSalaryMin,
+                        approvedSalaryMax,
+                        decidedById: actorId,
+                        onBehalfOfId,
+                        note: body?.note ?? null,
+                        decidedAt: new Date(),
+                    },
+                }),
+            ]);
+            await this.audit.record({
+                action: 'CEO_REQUISITION_APPROVED',
+                module: 'Recruitment',
+                actorId,
+                onBehalfOfId,
+                severity: 'info',
+                details: {
+                    jobTitle: approval.job?.title,
+                    requestedOpenings: approval.requestedOpenings,
+                    approvedOpenings,
+                    approvedSalaryMin,
+                    approvedSalaryMax,
+                    viaDelegation: check.viaDelegation,
+                    note: body?.note ?? null,
+                },
+            });
+            if (approval.requestedById && approval.requestedById !== 'system') {
+                await this.notify
+                    .notifyUser({
+                    userId: approval.requestedById,
+                    title: 'Requisition approved & live',
+                    message: `"${approval.job?.title}" approved for ${approvedOpenings} opening(s) and is now live for hiring.`,
+                    type: 'Recruitment',
+                    linkUrl: '/recruitment',
+                })
+                    .catch(() => undefined);
+            }
+            return { jobId, status: 'Approved', approvedOpenings, approvedSalaryMin, approvedSalaryMax };
+        }
+        await this.prisma.$transaction([
+            this.prisma.recruitmentJob.update({ where: { id: jobId }, data: { status: 'Draft' } }),
+            this.prisma.requisitionApproval.update({
+                where: { jobId },
+                data: {
+                    status: 'Rejected',
+                    decidedById: actorId,
+                    onBehalfOfId,
+                    note: body?.note ?? null,
+                    decidedAt: new Date(),
+                },
+            }),
+        ]);
+        await this.audit.record({
+            action: 'CEO_REQUISITION_REJECTED',
+            module: 'Recruitment',
+            actorId,
+            onBehalfOfId,
+            severity: 'info',
+            details: { jobTitle: approval.job?.title, viaDelegation: check.viaDelegation, note: body?.note ?? null },
+        });
+        if (approval.requestedById && approval.requestedById !== 'system') {
+            await this.notify
+                .notifyUser({
+                userId: approval.requestedById,
+                title: 'Requisition budget rejected',
+                message: `"${approval.job?.title}" was not approved.${body?.note ? ` Reason: ${body.note}` : ''} Revise and resubmit for budget approval.`,
+                type: 'Recruitment',
+                linkUrl: '/recruitment',
+            })
+                .catch(() => undefined);
+        }
+        return { jobId, status: 'Rejected' };
     }
     async updateJob(jobId, body) {
         const job = await this.prisma.recruitmentJob.findUnique({ where: { id: jobId } });
@@ -113,6 +328,12 @@ let RecruitmentService = class RecruitmentService {
         const data = {};
         if (body.title != null)
             data.title = String(body.title);
+        if (body.department != null)
+            data.department = String(body.department);
+        if (body.location != null)
+            data.location = String(body.location);
+        if (body.employmentType != null)
+            data.employmentType = body.employmentType === 'Contract' ? 'Contract' : 'FullTime';
         if (body.description != null)
             data.description = String(body.description);
         if (body.requirements != null)
@@ -123,6 +344,18 @@ let RecruitmentService = class RecruitmentService {
             data.priority = String(body.priority);
         if (body.openings != null)
             data.openings = Math.max(1, Math.round(Number(body.openings) || 1));
+        if (body.experienceMin != null && body.experienceMin !== '')
+            data.experience_min = Number(body.experienceMin);
+        if (body.experienceMax !== undefined)
+            data.experience_max = body.experienceMax === '' || body.experienceMax == null ? null : Number(body.experienceMax);
+        if (body.salaryMin !== undefined)
+            data.salary_min = body.salaryMin === '' || body.salaryMin == null ? null : Number(body.salaryMin);
+        if (body.salaryMax !== undefined)
+            data.salary_max = body.salaryMax === '' || body.salaryMax == null ? null : Number(body.salaryMax);
+        if (body.currency != null)
+            data.currency = String(body.currency);
+        if (body.targetCloseDate !== undefined)
+            data.target_close_date = body.targetCloseDate ? new Date(body.targetCloseDate) : null;
         if (body.hiringManagerId !== undefined)
             data.hiring_manager_id = body.hiringManagerId || null;
         if (body.recruiterId !== undefined)
@@ -130,6 +363,28 @@ let RecruitmentService = class RecruitmentService {
         if (Object.keys(data).length === 0)
             return job;
         return this.prisma.recruitmentJob.update({ where: { id: jobId }, data });
+    }
+    async deleteJob(jobId) {
+        const job = await this.prisma.recruitmentJob.findUnique({ where: { id: jobId } });
+        if (!job)
+            throw new common_1.NotFoundException('Job not found.');
+        const candidates = await this.prisma.recruitmentCandidate.findMany({
+            where: { jobId },
+            select: { id: true, stage: true },
+        });
+        const activePipeline = candidates.filter((c) => c.stage !== 'Joined');
+        if (activePipeline.length > 0) {
+            throw new common_1.BadRequestException(`Cannot delete this requisition — it has ${activePipeline.length} candidate(s) in the pipeline. Move or remove them first.`);
+        }
+        const joinedIds = candidates.filter((c) => c.stage === 'Joined').map((c) => c.id);
+        await this.prisma.$transaction(async (tx) => {
+            if (joinedIds.length > 0) {
+                await tx.employeeOnboarding.deleteMany({ where: { candidateId: { in: joinedIds } } });
+                await tx.recruitment_offers.deleteMany({ where: { candidate_id: { in: joinedIds } } });
+            }
+            await tx.recruitmentJob.delete({ where: { id: jobId } });
+        });
+        return { id: jobId };
     }
     async resolveFallbackApproverId() {
         const manager = await this.prisma.employee.findFirst({
@@ -202,6 +457,41 @@ let RecruitmentService = class RecruitmentService {
                 where: { id: job.id },
                 data: { status: nextStatus },
             });
+        }
+        if (action === 'resubmit_budget') {
+            const approval = await this.prisma.requisitionApproval.findUnique({ where: { jobId: job.id } });
+            if (!approval) {
+                throw new common_1.BadRequestException('This requisition has no budget-approval request to resubmit.');
+            }
+            const updated = await this.prisma.$transaction(async (tx) => {
+                await tx.requisitionApproval.update({
+                    where: { jobId: job.id },
+                    data: {
+                        status: 'Pending',
+                        requestedOpenings: job.openings,
+                        requestedSalaryMin: job.salary_min,
+                        requestedSalaryMax: job.salary_max,
+                        approvedOpenings: null,
+                        approvedSalaryMin: null,
+                        approvedSalaryMax: null,
+                        decidedById: null,
+                        onBehalfOfId: null,
+                        note: null,
+                        decidedAt: null,
+                    },
+                });
+                return tx.recruitmentJob.update({
+                    where: { id: job.id },
+                    data: { status: 'PendingBudgetApproval' },
+                });
+            });
+            await this.notifyRequisitionApprovers({
+                title: 'Requisition resubmitted for budget approval',
+                message: `"${job.title}" (${job.department}) — ${job.openings} opening(s) — is awaiting your budget approval.`,
+                type: 'Recruitment',
+                linkUrl: '/',
+            });
+            return updated;
         }
         throw new common_1.BadRequestException(`Unknown job action "${action}".`);
     }
@@ -356,6 +646,23 @@ let RecruitmentService = class RecruitmentService {
             throw new common_1.BadRequestException('A candidate with this email already exists for this job.');
         }
         const experience = data.experience != null && data.experience !== '' ? String(data.experience) : '0';
+        const declaredSkills = Array.isArray(data.skills)
+            ? data.skills.map((s) => String(s).trim()).filter(Boolean)
+            : typeof data.skills === 'string'
+                ? data.skills.split(/[,\n]/).map((s) => s.trim()).filter(Boolean)
+                : [];
+        const experienceYears = data.experienceYears != null && data.experienceYears !== ''
+            ? Number(data.experienceYears)
+            : Number.parseFloat(experience) || 0;
+        const match = (0, resume_parser_1.computeMatchScore)({
+            candidateSkills: declaredSkills,
+            candidateExperienceYears: experienceYears,
+            candidateLocation: data.location ? String(data.location) : '',
+            jobRequirements: job.requirements,
+            jobExperienceMin: job.experience_min ?? 0,
+            jobExperienceMax: job.experience_max ?? undefined,
+            jobLocation: job.location,
+        });
         const candidate = await this.prisma.recruitmentCandidate.create({
             data: {
                 id: crypto.randomUUID(),
@@ -365,7 +672,10 @@ let RecruitmentService = class RecruitmentService {
                 phone: data.phone ? String(data.phone) : '',
                 appliedOn: new Date().toISOString().slice(0, 10),
                 stage: 'Applied',
-                score: 75,
+                score: match.overallScore,
+                ai_match_score: match.overallScore,
+                matchedSkills: match.matchedSkills,
+                missingSkills: match.missingSkills,
                 experience,
                 currentRole: data.currentRole ? String(data.currentRole) : '',
                 location: data.location ? String(data.location) : '',
@@ -376,6 +686,36 @@ let RecruitmentService = class RecruitmentService {
                 duplicate_key: `${String(data.email).toLowerCase()}::${data.jobId}`,
             },
             include: { job: true },
+        });
+        await this.prisma.recruitmentCandidateMatch.upsert({
+            where: { candidateId_jobId: { candidateId: candidate.id, jobId: job.id } },
+            create: {
+                id: crypto.randomUUID(),
+                candidateId: candidate.id,
+                jobId: job.id,
+                overallScore: match.overallScore,
+                skillScore: match.skillScore,
+                experienceScore: match.experienceScore,
+                educationScore: match.educationScore,
+                locationScore: match.locationScore,
+                matchedSkills: match.matchedSkills,
+                missingSkills: match.missingSkills,
+                experienceGap: match.experienceGap != null ? String(match.experienceGap) : null,
+                explanation: match.explanation,
+                engineVersion: match.engineVersion,
+            },
+            update: {
+                overallScore: match.overallScore,
+                skillScore: match.skillScore,
+                experienceScore: match.experienceScore,
+                educationScore: match.educationScore,
+                locationScore: match.locationScore,
+                matchedSkills: match.matchedSkills,
+                missingSkills: match.missingSkills,
+                experienceGap: match.experienceGap != null ? String(match.experienceGap) : null,
+                explanation: match.explanation,
+                calculatedAt: new Date(),
+            },
         });
         await this.prisma.recruitmentJob.update({
             where: { id: data.jobId },
@@ -404,12 +744,37 @@ let RecruitmentService = class RecruitmentService {
             return candidate;
         return this.prisma.recruitmentCandidate.update({ where: { id }, data });
     }
+    async purgeCandidateData(candidateId) {
+        const candidate = await this.prisma.recruitmentCandidate.findUnique({
+            where: { id: candidateId },
+            include: { resumeDocument: true },
+        });
+        if (!candidate)
+            return;
+        const resumePath = candidate.resumeDocument?.storagePath;
+        await this.prisma.$transaction(async (tx) => {
+            await tx.employeeOnboarding.deleteMany({ where: { candidateId } });
+            await tx.recruitment_offers.deleteMany({ where: { candidate_id: candidateId } });
+            await tx.recruitmentCandidate.delete({ where: { id: candidateId } });
+            await tx.recruitmentJob.update({
+                where: { id: candidate.jobId },
+                data: { applicants: { decrement: 1 } },
+            });
+        });
+        if (resumePath) {
+            await (0, promises_1.unlink)(resumePath).catch(() => undefined);
+        }
+    }
     async updateCandidateStage(id, stage, changedById, note) {
         const candidate = await this.prisma.recruitmentCandidate.findUnique({ where: { id } });
         if (!candidate)
             throw new common_1.NotFoundException('Candidate not found.');
         if (!STAGES.includes(stage)) {
             throw new common_1.BadRequestException(`Invalid stage "${stage}".`);
+        }
+        if (stage === 'Rejected') {
+            await this.purgeCandidateData(id);
+            return { deleted: true, id, name: candidate.name };
         }
         const updated = await this.prisma.$transaction(async (tx) => {
             await tx.candidate_stage_history.create({
@@ -430,9 +795,7 @@ let RecruitmentService = class RecruitmentService {
         return updated;
     }
     async parseDraft(file) {
-        const buffer = await (0, promises_1.readFile)(file.path);
-        const rawText = (0, resume_parser_1.extractResumeText)(buffer, file.mimetype);
-        const parsed = (0, resume_parser_1.parseResumeDraft)(rawText);
+        const { parsed } = await (0, python_resume_parser_1.parseResumeFile)(file.path, file.mimetype);
         return { parsedData: parsed };
     }
     async createFromResume(file, fieldsJson, uploadedById) {
@@ -450,8 +813,7 @@ let RecruitmentService = class RecruitmentService {
         if (!job)
             throw new common_1.NotFoundException('Job not found.');
         const buffer = await (0, promises_1.readFile)(file.path);
-        const rawText = (0, resume_parser_1.extractResumeText)(buffer, file.mimetype);
-        const parsed = (0, resume_parser_1.parseResumeDraft)(rawText);
+        const { parsed, rawText } = await (0, python_resume_parser_1.parseResumeFile)(file.path, file.mimetype);
         const existing = await this.prisma.recruitmentCandidate.findFirst({
             where: { email: String(fields.email).toLowerCase(), jobId: fields.jobId },
         });
@@ -515,7 +877,7 @@ let RecruitmentService = class RecruitmentService {
             data: { applicants: { increment: 1 } },
         });
         const match = (0, resume_parser_1.computeMatchScore)({
-            candidateSkills: parsed.topSkills,
+            candidateSkills: parsed.skills.map((s) => s.name),
             candidateExperienceYears: parsed.totalExperienceYears,
             candidateLocation: location,
             jobRequirements: job.requirements,
@@ -572,8 +934,7 @@ let RecruitmentService = class RecruitmentService {
         if (!candidate)
             throw new common_1.NotFoundException('Candidate not found.');
         const buffer = await (0, promises_1.readFile)(file.path);
-        const rawText = (0, resume_parser_1.extractResumeText)(buffer, file.mimetype);
-        const parsed = (0, resume_parser_1.parseResumeDraft)(rawText);
+        const { parsed, rawText } = await (0, python_resume_parser_1.parseResumeFile)(file.path, file.mimetype);
         const fileHash = (0, node_crypto_1.createHash)('sha256').update(buffer).digest('hex');
         await this.prisma.candidateResumeDocument.upsert({
             where: { candidateId },
@@ -603,7 +964,7 @@ let RecruitmentService = class RecruitmentService {
                 uploadedAt: new Date(),
             },
         });
-        const match = await this.recomputeMatch(candidate, parsed.topSkills, parsed.totalExperienceYears, parsed.location ?? "", []);
+        const match = await this.recomputeMatch(candidate, parsed.skills.map((s) => s.name), parsed.totalExperienceYears, parsed.location ?? "", []);
         await this.prisma.recruitmentCandidate.update({
             where: { id: candidateId },
             data: {
@@ -627,15 +988,13 @@ let RecruitmentService = class RecruitmentService {
         if (!candidate.resumeDocument) {
             throw new common_1.BadRequestException('No resume uploaded for this candidate yet.');
         }
-        let buffer;
         try {
-            buffer = await (0, promises_1.readFile)(candidate.resumeDocument.storagePath);
+            await (0, promises_1.readFile)(candidate.resumeDocument.storagePath);
         }
         catch {
             throw new common_1.BadRequestException('Stored resume file is no longer available on disk.');
         }
-        const rawText = (0, resume_parser_1.extractResumeText)(buffer, candidate.resumeDocument.fileType);
-        const parsed = (0, resume_parser_1.parseResumeDraft)(rawText);
+        const { parsed, rawText } = await (0, python_resume_parser_1.parseResumeFile)(candidate.resumeDocument.storagePath, candidate.resumeDocument.fileType);
         await this.prisma.candidateResumeDocument.update({
             where: { candidateId },
             data: {
@@ -645,7 +1004,7 @@ let RecruitmentService = class RecruitmentService {
                 parsingError: null,
             },
         });
-        const match = await this.recomputeMatch(candidate, parsed.topSkills, parsed.totalExperienceYears, parsed.location ?? "", []);
+        const match = await this.recomputeMatch(candidate, parsed.skills.map((s) => s.name), parsed.totalExperienceYears, parsed.location ?? "", []);
         await this.prisma.recruitmentCandidate.update({
             where: { id: candidateId },
             data: { parsed_resume: parsed },
@@ -843,6 +1202,8 @@ let RecruitmentService = class RecruitmentService {
         });
     }
     async getMyApprovals(actorId) {
+        const offerDelegatorIds = await this.permissions.getActiveDelegatorIds(actorId, 'ONBOARDING_APPROVAL');
+        const offerApproverIds = [actorId, ...offerDelegatorIds];
         const [jobSteps, offerSteps] = await Promise.all([
             this.prisma.recruitment_job_approvals.findMany({
                 where: { approver_id: actorId, status: 'Pending', recruitment_jobs: { status: 'PendingApproval' } },
@@ -859,7 +1220,11 @@ let RecruitmentService = class RecruitmentService {
                 orderBy: { sequence: 'asc' },
             }),
             this.prisma.recruitment_offer_approvals.findMany({
-                where: { approver_id: actorId, status: 'Pending', recruitment_offers: { status: 'PendingApproval' } },
+                where: {
+                    approver_id: { in: offerApproverIds },
+                    status: 'Pending',
+                    recruitment_offers: { status: 'PendingApproval' },
+                },
                 include: {
                     recruitment_offers: {
                         select: {
@@ -1180,6 +1545,99 @@ let RecruitmentService = class RecruitmentService {
         });
         return feedback;
     }
+    async resolveInterviewByMeeting(meetingId, viewerId) {
+        if (!meetingId || !viewerId)
+            return null;
+        const interviews = await this.prisma.recruitment_interviews.findMany({
+            where: { interview_panel_members: { some: { employee_id: viewerId } } },
+            select: { id: true },
+        });
+        const match = interviews.find((i) => this.interviewMeetingId(i.id) === meetingId);
+        return match?.id ?? null;
+    }
+    async getInterviewForMeeting(meetingId, viewerId) {
+        const interviewId = await this.resolveInterviewByMeeting(meetingId, viewerId);
+        if (!interviewId)
+            return null;
+        const interview = await this.prisma.recruitment_interviews.findUnique({
+            where: { id: interviewId },
+            include: {
+                recruitment_candidates: { select: { id: true, name: true, stage: true } },
+                interview_feedback: {
+                    where: { reviewer_id: viewerId },
+                    select: { recommendation: true, comments: true, submitted_at: true },
+                },
+            },
+        });
+        if (!interview)
+            return null;
+        const mine = interview.interview_feedback[0] ?? null;
+        return {
+            interviewId,
+            round: interview.round,
+            status: interview.status,
+            candidateName: interview.recruitment_candidates.name,
+            myDecision: mine
+                ? {
+                    decision: mine.recommendation === 'NoHire' || mine.recommendation === 'StrongNoHire' ? 'REJECT' : 'SELECT',
+                    remark: mine.comments ?? '',
+                    submittedAt: mine.submitted_at,
+                }
+                : null,
+        };
+    }
+    async submitInterviewerDecision(meetingId, body, reviewerId) {
+        const interviewId = await this.resolveInterviewByMeeting(meetingId, reviewerId);
+        if (!interviewId)
+            throw new common_1.NotFoundException('No interview found for this meeting.');
+        const decision = String(body.decision || '').toUpperCase();
+        if (decision !== 'SELECT' && decision !== 'REJECT') {
+            throw new common_1.BadRequestException('decision must be SELECT or REJECT.');
+        }
+        const remark = String(body.remark || '').trim();
+        if (!remark)
+            throw new common_1.BadRequestException('A remark is required.');
+        if (remark.length > 1000)
+            throw new common_1.BadRequestException('Remark must be 1000 characters or fewer.');
+        const interview = await this.prisma.recruitment_interviews.findUnique({
+            where: { id: interviewId },
+            include: { recruitment_candidates: { select: { id: true, name: true } } },
+        });
+        if (!interview)
+            throw new common_1.NotFoundException('Interview not found.');
+        const recommendation = decision === 'SELECT' ? 'Hire' : 'NoHire';
+        const overallScore = decision === 'SELECT' ? 4 : 2;
+        const feedback = await this.prisma.interview_feedback.upsert({
+            where: { interview_id_reviewer_id: { interview_id: interviewId, reviewer_id: reviewerId } },
+            create: {
+                id: crypto.randomUUID(),
+                interview_id: interviewId,
+                reviewer_id: reviewerId,
+                overall_score: overallScore,
+                recommendation,
+                comments: remark,
+            },
+            update: {
+                overall_score: overallScore,
+                recommendation,
+                comments: remark,
+                submitted_at: new Date(),
+            },
+            include: { employees: { select: EMPLOYEE_SUMMARY_SELECT } },
+        });
+        const reviewerName = feedback.employees?.name || 'An interviewer';
+        const candidateName = interview.recruitment_candidates.name;
+        const verdictLabel = decision === 'SELECT' ? 'selected' : 'rejected';
+        this.notify
+            .notifyAdmins({
+            title: `Interview decision: ${candidateName} ${verdictLabel}`,
+            message: `${reviewerName} ${verdictLabel} ${candidateName} (Round ${interview.round}). Remark: ${remark}`,
+            type: 'recruitment',
+            linkUrl: '/recruitment',
+        })
+            .catch(() => undefined);
+        return { decision, recommendation, feedback };
+    }
     async selectionDecision(candidateId, body, actorId) {
         const candidate = await this.prisma.recruitmentCandidate.findUnique({ where: { id: candidateId } });
         if (!candidate)
@@ -1208,23 +1666,8 @@ let RecruitmentService = class RecruitmentService {
             return updated;
         }
         if (decision === 'REJECT') {
-            const updated = await this.prisma.$transaction(async (tx) => {
-                await tx.candidate_stage_history.create({
-                    data: {
-                        id: crypto.randomUUID(),
-                        candidate_id: candidateId,
-                        from_stage: candidate.stage,
-                        to_stage: 'Rejected',
-                        changed_by_id: actorId,
-                        note: reason,
-                    },
-                });
-                return tx.recruitmentCandidate.update({
-                    where: { id: candidateId },
-                    data: { stage: 'Rejected', recommendation: 'LowMatch' },
-                });
-            });
-            return updated;
+            await this.purgeCandidateData(candidateId);
+            return { deleted: true, id: candidateId, name: candidate.name };
         }
         if (decision === 'HOLD') {
             const updated = await this.prisma.$transaction(async (tx) => {
@@ -1364,19 +1807,42 @@ let RecruitmentService = class RecruitmentService {
                 document_templates: true,
             },
         });
-        return offers.map((offer) => ({
-            ...offer,
-            approvalSummary: this.buildOfferApprovalSummary(offer, actorId),
-        }));
+        const delegatorIds = actorId
+            ? await this.permissions.getActiveDelegatorIds(actorId, 'ONBOARDING_APPROVAL')
+            : [];
+        const packetCache = new Map();
+        const result = [];
+        for (const offer of offers) {
+            let reviewPacket = null;
+            if (offer.status === 'PendingApproval' || offer.status === 'Approved') {
+                if (!packetCache.has(offer.candidate_id)) {
+                    packetCache.set(offer.candidate_id, await this.buildCandidateReviewPacket(offer.candidate_id));
+                }
+                reviewPacket = packetCache.get(offer.candidate_id);
+            }
+            result.push({
+                ...offer,
+                approvalSummary: this.buildOfferApprovalSummary(offer, actorId, delegatorIds),
+                reviewPacket,
+            });
+        }
+        return result;
     }
-    buildOfferApprovalSummary(offer, actorId) {
+    buildOfferApprovalSummary(offer, actorId, delegatorIds = []) {
         const steps = offer.recruitment_offer_approvals || [];
         const completedLevels = steps.filter((s) => s.status === 'Approved').length;
-        const myStep = actorId ? steps.find((s) => s.approver_id === actorId) : undefined;
+        const canOwn = (approverId) => approverId === actorId || delegatorIds.includes(approverId);
+        const ownedSteps = actorId ? steps.filter((s) => canOwn(s.approver_id)) : [];
+        const myStep = ownedSteps.find((s) => s.status === 'Pending') ?? ownedSteps[0];
+        const myTurn = !!myStep &&
+            myStep.status === 'Pending' &&
+            steps
+                .filter((s) => s.sequence < myStep.sequence)
+                .every((s) => s.status === 'Approved');
         return {
             completedLevels,
             totalLevels: steps.length,
-            canCurrentUserApprove: offer.status === 'PendingApproval' && !!myStep && myStep.status === 'Pending',
+            canCurrentUserApprove: offer.status === 'PendingApproval' && myTurn,
         };
     }
     buildSnapshot(offer) {
@@ -1498,7 +1964,7 @@ let RecruitmentService = class RecruitmentService {
     async submitOfferForApproval(offerId, body) {
         const offer = await this.prisma.recruitment_offers.findUnique({
             where: { id: offerId },
-            include: { recruitment_candidates: true },
+            include: { recruitment_candidates: { include: { job: true } } },
         });
         if (!offer)
             throw new common_1.NotFoundException('Offer not found.');
@@ -1506,38 +1972,41 @@ let RecruitmentService = class RecruitmentService {
             throw new common_1.BadRequestException(`Offer is already ${offer.status}.`);
         }
         const candidate = offer.recruitment_candidates;
-        const job = await this.prisma.recruitmentJob.findUnique({ where: { id: candidate.jobId } });
-        const hiringManagerId = job?.hiring_manager_id || (await this.resolveFallbackApproverId());
-        if (!hiringManagerId) {
-            throw new common_1.BadRequestException('Job has no hiring manager to act as L1 approver.');
-        }
-        const admin = await this.prisma.employee.findFirst({
-            where: { userRole: 'admin', id: { not: hiringManagerId } },
+        const ACTIVE = ['Active', 'OnLeave', 'Remote'];
+        const hrAdmin = await this.prisma.employee.findFirst({
+            where: { userRole: 'admin', status: { in: [...ACTIVE] } },
         });
-        if (!admin) {
-            throw new common_1.BadRequestException('No distinct admin approver available.');
+        if (!hrAdmin) {
+            throw new common_1.BadRequestException('No HR/Admin approver available.');
+        }
+        const hiringManagerId = candidate?.job?.hiring_manager_id || null;
+        const hiringManager = hiringManagerId
+            ? await this.prisma.employee.findFirst({
+                where: { id: hiringManagerId, status: { in: [...ACTIVE] } },
+            })
+            : null;
+        const ceo = await this.prisma.employee.findFirst({
+            where: { userRole: 'ceo', status: { in: [...ACTIVE] } },
+        });
+        const chain = [];
+        for (const approver of [hrAdmin, hiringManager, ceo]) {
+            if (approver && !chain.includes(approver.id))
+                chain.push(approver.id);
         }
         const updated = await this.prisma.$transaction(async (tx) => {
             await tx.recruitment_offer_approvals.deleteMany({ where: { offer_id: offerId } });
-            await tx.recruitment_offer_approvals.create({
-                data: {
-                    id: crypto.randomUUID(),
-                    offer_id: offerId,
-                    sequence: 1,
-                    approver_id: hiringManagerId,
-                    status: 'Pending',
-                    note: body.note || null,
-                },
-            });
-            await tx.recruitment_offer_approvals.create({
-                data: {
-                    id: crypto.randomUUID(),
-                    offer_id: offerId,
-                    sequence: 2,
-                    approver_id: admin.id,
-                    status: 'Pending',
-                },
-            });
+            for (let i = 0; i < chain.length; i++) {
+                await tx.recruitment_offer_approvals.create({
+                    data: {
+                        id: crypto.randomUUID(),
+                        offer_id: offerId,
+                        sequence: i + 1,
+                        approver_id: chain[i],
+                        status: 'Pending',
+                        note: i === 0 ? body.note || null : null,
+                    },
+                });
+            }
             return tx.recruitment_offers.update({
                 where: { id: offerId },
                 data: { status: 'PendingApproval', updated_at: new Date() },
@@ -1549,7 +2018,7 @@ let RecruitmentService = class RecruitmentService {
         });
         this.notify
             .notifyUser({
-            userId: hiringManagerId,
+            userId: chain[0],
             title: 'Offer approval requested',
             message: `Offer for ${candidate.name} is awaiting your L1 approval.`,
             type: 'recruitment',
@@ -1572,11 +2041,17 @@ let RecruitmentService = class RecruitmentService {
             throw new common_1.BadRequestException('Offer is not pending approval.');
         }
         const action = String(body.action);
-        const myStep = offer.recruitment_offer_approvals.find((a) => a.approver_id === actorId);
-        if (!myStep)
+        const delegatorIds = await this.permissions.getActiveDelegatorIds(actorId, 'ONBOARDING_APPROVAL');
+        const ownedSteps = offer.recruitment_offer_approvals.filter((a) => a.approver_id === actorId || delegatorIds.includes(a.approver_id));
+        if (ownedSteps.length === 0)
             throw new common_1.ForbiddenException('You are not an approver for this offer.');
+        const myStep = ownedSteps.find((a) => a.status === 'Pending') ?? ownedSteps[0];
         if (myStep.status !== 'Pending') {
             throw new common_1.BadRequestException('You have already acted on this approval.');
+        }
+        const earlierPending = offer.recruitment_offer_approvals.filter((a) => a.sequence < myStep.sequence && a.status !== 'Approved');
+        if (action === 'APPROVE' && earlierPending.length > 0) {
+            throw new common_1.BadRequestException('An earlier approver must act before you can approve.');
         }
         if (action === 'APPROVE') {
             const updated = await this.prisma.$transaction(async (tx) => {
@@ -1597,6 +2072,22 @@ let RecruitmentService = class RecruitmentService {
                     },
                 });
             });
+            if (updated.status === 'PendingApproval') {
+                const nextPending = (updated.recruitment_offer_approvals || [])
+                    .filter((s) => s.status === 'Pending')
+                    .sort((a, b) => (a.sequence || 0) - (b.sequence || 0))[0];
+                if (nextPending) {
+                    this.notify
+                        .notifyUser({
+                        userId: nextPending.approver_id,
+                        title: 'Offer approval requested',
+                        message: `Offer for ${offer.recruitment_candidates.name} is awaiting your L${nextPending.sequence} approval.`,
+                        type: 'recruitment',
+                        linkUrl: '/recruitment',
+                    })
+                        .catch(() => undefined);
+                }
+            }
             return updated;
         }
         if (action === 'REJECT' || action === 'REQUEST_CHANGES') {
@@ -1810,11 +2301,150 @@ let RecruitmentService = class RecruitmentService {
             portalUrlExpiresAt: expiresAt.toISOString(),
         };
     }
+    isPaidOffer(offer) {
+        return Number(offer?.offered_ctc ?? 0) > 0;
+    }
+    async buildCandidateReviewPacket(candidateId) {
+        const [interviews, notes] = await Promise.all([
+            this.prisma.recruitment_interviews.findMany({
+                where: { candidate_id: candidateId },
+                include: {
+                    interview_feedback: {
+                        include: { employees: { select: { id: true, name: true, roleTitle: true } } },
+                    },
+                },
+                orderBy: { starts_at: 'asc' },
+            }),
+            this.prisma.candidate_notes.findMany({
+                where: { candidate_id: candidateId },
+                include: { employees: { select: { id: true, name: true, roleTitle: true } } },
+                orderBy: { created_at: 'desc' },
+                take: 10,
+            }),
+        ]);
+        const feedback = interviews.flatMap((iv) => (iv.interview_feedback ?? []).map((f) => ({
+            interviewId: iv.id,
+            round: iv.round ?? null,
+            interviewTitle: iv.title ?? null,
+            reviewer: f.employees?.name ?? 'Interviewer',
+            reviewerRole: f.employees?.roleTitle ?? null,
+            overallScore: f.overall_score,
+            recommendation: f.recommendation,
+            comments: f.comments,
+            submittedAt: f.submitted_at,
+        })));
+        return {
+            interviewFeedback: feedback,
+            hrNotes: notes.map((n) => ({
+                author: n.employees?.name ?? 'HR',
+                note: n.note,
+                createdAt: n.created_at,
+            })),
+        };
+    }
+    async getCeoApprovalQueue() {
+        const candidates = await this.prisma.recruitmentCandidate.findMany({
+            where: {
+                onboarding: null,
+                stage: { in: ['Shortlisted', 'Selected', 'Offer'] },
+            },
+            include: {
+                job: { select: { id: true, title: true, department: true } },
+                recruitment_offers: { orderBy: { version: 'desc' }, take: 1 },
+                onboardingApproval: true,
+            },
+            orderBy: { updatedAt: 'desc' },
+        });
+        const queue = [];
+        for (const c of candidates) {
+            const offer = c.recruitment_offers[0];
+            if (!this.isPaidOffer(offer))
+                continue;
+            if (c.onboardingApproval && c.onboardingApproval.status !== 'Pending')
+                continue;
+            const packet = await this.buildCandidateReviewPacket(c.id);
+            queue.push({
+                candidateId: c.id,
+                name: c.name,
+                currentRole: c.currentRole,
+                jobTitle: offer?.offered_title || c.job?.title,
+                department: c.job?.department,
+                offeredCtc: offer ? Number(offer.offered_ctc) : null,
+                currency: offer?.currency ?? 'INR',
+                systemRecommendation: c.recommendation,
+                approvalStatus: c.onboardingApproval?.status ?? 'Pending',
+                ...packet,
+            });
+        }
+        return queue;
+    }
+    async decideCeoApproval(actorId, candidateId, body) {
+        const check = await this.permissions.assertCeoPermission(actorId, 'ONBOARDING_APPROVAL');
+        const decision = body?.decision;
+        if (decision !== 'Approved' && decision !== 'Rejected') {
+            throw new common_1.BadRequestException('decision must be Approved or Rejected.');
+        }
+        const candidate = await this.prisma.recruitmentCandidate.findUnique({
+            where: { id: candidateId },
+            include: { recruitment_offers: { orderBy: { version: 'desc' }, take: 1 } },
+        });
+        if (!candidate)
+            throw new common_1.NotFoundException('Candidate not found.');
+        const offer = candidate.recruitment_offers[0];
+        if (!this.isPaidOffer(offer)) {
+            throw new common_1.BadRequestException('This is an unpaid position — no CEO approval is required.');
+        }
+        const onBehalfOfId = check.viaDelegation ? check.delegatorId ?? null : null;
+        const approval = await this.prisma.onboardingApproval.upsert({
+            where: { candidateId },
+            create: {
+                candidateId,
+                offerId: offer?.id ?? null,
+                status: decision,
+                decidedById: actorId,
+                onBehalfOfId,
+                note: body?.note ?? null,
+                decidedAt: new Date(),
+            },
+            update: {
+                status: decision,
+                decidedById: actorId,
+                onBehalfOfId,
+                note: body?.note ?? null,
+                decidedAt: new Date(),
+            },
+        });
+        await this.audit.record({
+            action: decision === 'Approved' ? 'CEO_ONBOARDING_APPROVED' : 'CEO_ONBOARDING_REJECTED',
+            module: 'Recruitment',
+            employeeId: candidateId,
+            actorId,
+            onBehalfOfId,
+            severity: 'info',
+            details: {
+                candidateName: candidate.name,
+                offeredCtc: offer ? Number(offer.offered_ctc) : null,
+                viaDelegation: check.viaDelegation,
+                note: body?.note ?? null,
+            },
+        });
+        await this.notify.notifyAdmins({
+            title: `Onboarding ${decision.toLowerCase()} for ${candidate.name}`,
+            message: decision === 'Approved'
+                ? `CEO approval granted — ${candidate.name} can now be onboarded.`
+                : `CEO rejected onboarding for ${candidate.name}.`,
+            type: 'Recruitment',
+            linkUrl: '/employee-lifecycle',
+        });
+        return approval;
+    }
 };
 exports.RecruitmentService = RecruitmentService;
 exports.RecruitmentService = RecruitmentService = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
-        notify_service_1.NotifyService])
+        notify_service_1.NotifyService,
+        permissions_service_1.PermissionsService,
+        audit_service_1.AuditService])
 ], RecruitmentService);
 //# sourceMappingURL=recruitment.service.js.map

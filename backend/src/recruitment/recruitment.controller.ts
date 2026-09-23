@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Patch,
+  Delete,
   Body,
   Query,
   Param,
@@ -86,6 +87,22 @@ export class RecruitmentController {
     return this.recruitmentService.getMyApprovals(user.id);
   }
 
+  /** GET /api/recruitment/ceo-approvals — paid candidates awaiting CEO onboarding approval. */
+  @Get('ceo-approvals')
+  getCeoApprovalQueue() {
+    return this.recruitmentService.getCeoApprovalQueue();
+  }
+
+  /** POST /api/recruitment/ceo-approvals/:candidateId — CEO/delegate approves or rejects. */
+  @Post('ceo-approvals/:candidateId')
+  decideCeoApproval(
+    @CurrentUser() user: any,
+    @Param('candidateId') candidateId: string,
+    @Body() body: { decision: 'Approved' | 'Rejected'; note?: string },
+  ) {
+    return this.recruitmentService.decideCeoApproval(user.id, candidateId, body);
+  }
+
   /** GET /api/recruitment/jobs */
   @Get('jobs')
   getJobs() {
@@ -94,15 +111,45 @@ export class RecruitmentController {
 
   /** POST /api/recruitment/jobs — create a job requisition. Frontend reads json.data.id. */
   @Post('jobs')
-  async createJob(@Body() body: any) {
-    const job = await this.recruitmentService.createJob(body);
+  async createJob(@Body() body: any, @CurrentUser() user: any) {
+    const job = await this.recruitmentService.createJob(body, { id: user?.id, rawRole: user?.rawRole });
     return { success: true, data: job };
+  }
+
+  /** GET /api/recruitment/requisition-approvals — CEO queue: new roles awaiting budget approval. */
+  @Get('requisition-approvals')
+  getRequisitionApprovalQueue() {
+    return this.recruitmentService.getRequisitionApprovalQueue();
+  }
+
+  /** POST /api/recruitment/requisition-approvals/:jobId — CEO/delegate approves or rejects budget. */
+  @Post('requisition-approvals/:jobId')
+  decideRequisitionApproval(
+    @CurrentUser() user: any,
+    @Param('jobId') jobId: string,
+    @Body()
+    body: {
+      decision: 'Approved' | 'Rejected';
+      note?: string;
+      approvedOpenings?: number;
+      approvedSalaryMin?: number | null;
+      approvedSalaryMax?: number | null;
+    },
+  ) {
+    return this.recruitmentService.decideRequisitionApproval(user.id, jobId, body);
   }
 
   /** PATCH /api/recruitment/jobs/:id — update + action (submit_approval/publish/hold/close). */
   @Patch('jobs/:id')
   updateJob(@Param('id') id: string, @Body() body: any) {
     return this.recruitmentService.updateJob(id, body);
+  }
+
+  /** DELETE /api/recruitment/jobs/:id — remove a requisition (blocked if it has candidates). */
+  @Delete('jobs/:id')
+  async deleteJob(@Param('id') id: string) {
+    await this.recruitmentService.deleteJob(id);
+    return { success: true };
   }
 
   /** POST /api/recruitment/jobs/:id/approvals — APPROVE / REJECT / REQUEST_CHANGES. */
@@ -253,6 +300,27 @@ export class RecruitmentController {
   @Post('interviews/:id/feedback')
   submitFeedback(@Param('id') id: string, @Body() body: any, @CurrentUser() user: any) {
     return this.recruitmentService.submitFeedback(id, body, user.id);
+  }
+
+  /**
+   * GET /api/recruitment/interviews/by-meeting/:meetingId — resolve a mirrored
+   * interview meeting to its interview context + the viewer's own decision.
+   * Used by the Meetings & Calendar drawer to show a panel member their
+   * Select/Reject verdict UI.
+   */
+  @Get('interviews/by-meeting/:meetingId')
+  getInterviewForMeeting(@Param('meetingId') meetingId: string, @CurrentUser() user: any) {
+    return this.recruitmentService.getInterviewForMeeting(meetingId, user.id);
+  }
+
+  /** POST /api/recruitment/interviews/by-meeting/:meetingId/decision — panel member Select/Reject + remark. */
+  @Post('interviews/by-meeting/:meetingId/decision')
+  submitInterviewerDecision(
+    @Param('meetingId') meetingId: string,
+    @Body() body: { decision: 'SELECT' | 'REJECT'; remark: string },
+    @CurrentUser() user: any,
+  ) {
+    return this.recruitmentService.submitInterviewerDecision(meetingId, body, user.id);
   }
 
   /* ============================================================

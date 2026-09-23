@@ -7,25 +7,38 @@ import {
   Briefcase,
   Building2,
   ChevronRight,
+  Crown,
   LockKeyhole,
   ShieldCheck,
   UserCheck,
 } from 'lucide-react';
 import { useHRMS } from '@/shared/providers/HRMSContext';
-import { isNavigationItemActive, NAV_ITEMS } from '@/shared/lib/navigation';
+import { getVisibleNavItems, isNavigationItemActive } from '@/shared/lib/navigation';
 
 export const Sidebar: React.FC = () => {
   const pathname = usePathname();
-  const { currentUser } = useHRMS();
+  const { currentUser, activeDelegations } = useHRMS();
 
   const role = currentUser.userRole;
-  const allowedNav = NAV_ITEMS.filter((item) => item.roles.includes(role));
+  const isCeo = currentUser.rawRole === 'ceo';
+  const hasDelegatedPower = activeDelegations.length > 0;
+  // Governance & Controls is the CEO's authority surface. It carries the admin
+  // role for RBAC, but plain HR Admins shouldn't see it unless the CEO has
+  // delegated them a power — hide the link until they actually hold one.
+  const allowedNav = getVisibleNavItems(role, currentUser.rawRole).filter(
+    (item) => item.href !== '/governance' || isCeo || hasDelegatedPower,
+  );
   const navSections = Array.from(new Set(allowedNav.map((item) => item.section)));
 
   const getRoleBadge = () => {
+    // The CEO's role is normalized to `admin` for RBAC, so key the badge off the
+    // raw role to avoid mislabeling the executive workspace as an HR Admin one.
+    if (currentUser.rawRole === 'ceo') {
+      return { label: 'Executive Portal', icon: Crown, color: 'bg-[#17324A]/10 text-[#17324A] border-[#17324A]/30' };
+    }
     switch (role) {
       case 'admin':
-        return { label: 'HR Admin Portal', icon: ShieldCheck, color: 'bg-amber-500/15 text-amber-700 border-amber-500/30' };
+        return { label: 'HR Admin Portal', icon: ShieldCheck, color: 'bg-[#DCEAF4] text-[#234B68] border-[#9FC2DC]' };
       case 'manager':
         return { label: 'Manager Portal', icon: Briefcase, color: 'bg-[#B0D0EA]/30 text-[#17324A] border-[#B0D0EA]' };
       default:
@@ -46,13 +59,13 @@ export const Sidebar: React.FC = () => {
           <div className="flex h-11 w-12 shrink-0 items-center justify-center rounded-xl border border-white/20 p-1.5">
             <img
               src="/m360-logo.jpeg"
-              alt="MYLOTIC GROUP Logo"
+              alt="M360 Logo"
               className="h-full w-full object-contain"
             />
           </div>
           <div className="min-w-0 flex-1">
-            <h1 className="truncate text-xs font-bold tracking-tight" title="MYLOTIC GROUP PVT.LTD">
-              MYLOTIC GROUP
+            <h1 className="truncate text-xs font-bold tracking-tight" title="M360">
+              M360
             </h1>
             <span className="mt-1 flex items-center gap-1.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-[#DCEAF4]">
               <Building2 className="h-3 w-3" />

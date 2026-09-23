@@ -76,7 +76,7 @@ let EmployeeLifecycleService = class EmployeeLifecycleService {
         const [candidates, employees, onboardingHistory, offboardingHistory, employmentProfiles, changeRequests, salaryRevisions, bgvRecords, onboardingTasks] = await Promise.all([
             this.prisma.recruitmentCandidate.findMany({
                 where: { stage: { in: ['Shortlisted', 'Selected', 'Offer'] }, onboarding: null },
-                include: { job: { select: { id: true, title: true, department: true, location: true } }, recruitment_offers: { orderBy: { version: 'desc' }, take: 1, include: { document_signatures: true } } },
+                include: { job: { select: { id: true, title: true, department: true, location: true } }, recruitment_offers: { orderBy: { version: 'desc' }, take: 1, include: { document_signatures: true } }, onboardingApproval: true },
                 orderBy: { updatedAt: 'desc' },
             }),
             this.prisma.employee.findMany({
@@ -105,14 +105,21 @@ let EmployeeLifecycleService = class EmployeeLifecycleService {
     }
     async onboard(user, body) {
         const { candidateId, name, email, phone, avatarUrl, roleTitle, department, location, joinDate, salary = 0, managerId, userRole = 'employee', probationMonths = 6, dateOfBirth, gender, currentAddress, emergencyContactName, emergencyContactPhone, emergencyContactRelation, } = body;
+        const ALLOWED_ONBOARD_ROLES = ['employee', 'manager', 'admin'];
+        const resolvedUserRole = ALLOWED_ONBOARD_ROLES.includes(userRole) ? userRole : 'employee';
         const plainPassword = `Hr!${(0, node_crypto_1.randomBytes)(6).toString('base64url')}9a`;
         const passwordHash = await argon2.hash(plainPassword);
         return this.prisma.$transaction(async (tx) => {
-            const candidate = await tx.recruitmentCandidate.findUnique({ where: { id: candidateId }, include: { onboarding: true } });
+            const candidate = await tx.recruitmentCandidate.findUnique({ where: { id: candidateId }, include: { onboarding: true, onboardingApproval: true } });
             if (!candidate)
-                throw new Error('Candidate not found.');
+                throw new common_1.NotFoundException('Candidate not found.');
             if (candidate.onboarding)
-                throw new Error('Candidate already onboarded.');
+                throw new common_1.ConflictException('Candidate already onboarded.');
+            if (Number(salary) > 0 && candidate.onboardingApproval?.status !== 'Approved') {
+                throw new common_1.BadRequestException(candidate.onboardingApproval?.status === 'Rejected'
+                    ? 'CEO rejected onboarding for this paid role.'
+                    : 'Pending CEO approval — a paid role cannot start onboarding until the CEO approves.');
+            }
             const year = new Date().getUTCFullYear();
             const prefix = `EMP-${year}-`;
             const sameYearCount = await tx.employee.count({ where: { employeeCode: { startsWith: prefix } } });
@@ -123,7 +130,7 @@ let EmployeeLifecycleService = class EmployeeLifecycleService {
                 employeeCode = `${prefix}${String(seq).padStart(3, '0')}`;
             }
             const employee = await tx.employee.create({
-                data: { employeeCode, name, email, passwordHash, phone: phone || null, avatarUrl: avatarUrl || DEFAULT_AVATAR, roleTitle, userRole, department, joinDate, location, salary: Number(salary), managerId: managerId || null, status: 'Onboarding', mustChangePassword: true },
+                data: { employeeCode, name, email, passwordHash, phone: phone || null, avatarUrl: avatarUrl || DEFAULT_AVATAR, roleTitle, userRole: resolvedUserRole, department, joinDate, location, salary: Number(salary), managerId: managerId || null, status: 'Onboarding', mustChangePassword: true },
             });
             const onboarding = await tx.employeeOnboarding.create({
                 data: { candidateId: candidate.id, employeeId: employee.id, onboardedById: user.id, probation_start_date: joinDate ? new Date(joinDate) : new Date(), probation_review_date: (() => { const d = joinDate ? new Date(joinDate) : new Date(); d.setMonth(d.getMonth() + Number(probationMonths)); return d; })(), updated_at: new Date() },
@@ -213,9 +220,9 @@ let EmployeeLifecycleService = class EmployeeLifecycleService {
         }, { timeout: 30_000, maxWait: 10_000 });
     }
     async convertOffer(user, body) {
-        const { candidateId, customJoinDate, customManagerId, customProbationMonths, customDateOfBirth, customGender, customCurrentAddress, customEmergencyContactName, customEmergencyContactPhone, customEmergencyContactRelation } = body ?? {};
+        const { candidateId, customJoinDate, customManagerId, customProbationMonths, customUserRole, customDateOfBirth, customGender, customCurrentAddress, customEmergencyContactName, customEmergencyContactPhone, customEmergencyContactRelation } = body ?? {};
         if (!candidateId)
-            throw new Error('candidateId is required.');
+            throw new common_1.BadRequestException('candidateId is required.');
         const candidate = await this.prisma.recruitmentCandidate.findUnique({
             where: { id: candidateId },
             include: {
@@ -225,12 +232,12 @@ let EmployeeLifecycleService = class EmployeeLifecycleService {
             },
         });
         if (!candidate)
-            throw new Error('Candidate not found.');
+            throw new common_1.NotFoundException('Candidate not found.');
         if (candidate.onboarding)
-            throw new Error('Candidate already onboarded.');
+            throw new common_1.ConflictException('Candidate already onboarded.');
         const offer = candidate.recruitment_offers[0];
         if (!offer)
-            throw new Error('Candidate has no recruitment offer to convert.');
+            throw new common_1.BadRequestException('Candidate has no recruitment offer to convert.');
         const joinDate = customJoinDate || offer.proposed_join_date || new Date().toISOString().split('T')[0];
         const salary = Number(offer.offered_ctc ?? 0);
         return this.onboard(user, {
@@ -245,6 +252,7 @@ let EmployeeLifecycleService = class EmployeeLifecycleService {
             joinDate,
             salary,
             managerId: customManagerId || null,
+            userRole: customUserRole || 'employee',
             probationMonths: Number(customProbationMonths || 6),
             dateOfBirth: customDateOfBirth,
             gender: customGender,

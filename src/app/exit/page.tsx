@@ -219,6 +219,9 @@ export default function ExitPage() {
   const isAdmin = currentUser.userRole === 'admin';
   const isManager = currentUser.userRole === 'manager';
   const canManageWorkflow = isAdmin || isManager;
+  // The CEO only oversees who has resigned and why — no resignation submission,
+  // no clearance/KT/F&F workflow. They get a read-only resignation register.
+  const isCeo = currentUser.rawRole === 'ceo';
 
   const [activeTab, setActiveTab] = useState<
     'requests' | 'interview' | 'kt' | 'clearance' | 'ff' | 'alumni'
@@ -601,6 +604,74 @@ export default function ExitPage() {
       </div>
     </div>
   );
+
+  // CEO: read-only resignation register — who resigned and the stated reason.
+  // No submit button, no workflow tabs, no clearance/KT/F&F.
+  if (isCeo) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <div className="mb-1.5 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-[#5B91B5]">
+            <DoorOpen className="h-4 w-4" /> Separations Overview
+          </div>
+          <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-[#17324A]">
+            Resignations
+          </h1>
+          <p className="mt-1 text-xs md:text-sm text-[#667085]">
+            Who has resigned across the organization and the reason they cited.
+          </p>
+        </div>
+
+        <div className="rounded-2xl border border-[#E2ECEF] bg-white shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="border-b border-[#E2ECEF] text-[#667085] font-semibold bg-[#F6FAFC]">
+                  <th className="py-3 px-4 uppercase">Employee</th>
+                  <th className="py-3 px-4 uppercase">Resigned On</th>
+                  <th className="py-3 px-4 uppercase">Reason</th>
+                  <th className="py-3 px-4 uppercase">Details</th>
+                  <th className="py-3 px-4 uppercase">Stage</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#EEF4F7] text-[#17324A]">
+                {loading ? (
+                  <tr>
+                    <td colSpan={5} className="py-10 text-center text-[#667085]">
+                      Loading resignations…
+                    </td>
+                  </tr>
+                ) : exitRequests.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="py-10 text-center text-[#667085]">
+                      No resignations on record.
+                    </td>
+                  </tr>
+                ) : (
+                  exitRequests.map((req) => (
+                    <tr key={req.id} className="hover:bg-[#F9FBFC] transition-colors align-top">
+                      <td className="py-3.5 px-4 font-bold text-[#17324A]">
+                        <div>{empName(req.employeeId)}</div>
+                        <div className="text-[10px] text-[#667085]">
+                          {empCode(req.employeeId)} · {empDept(req.employeeId)}
+                        </div>
+                      </td>
+                      <td className="py-3.5 px-4 text-[#4B6882]">{fmtDate(req.resignationDate)}</td>
+                      <td className="py-3.5 px-4 font-semibold text-[#17324A]">{req.reasonCategory}</td>
+                      <td className="py-3.5 px-4 text-[#4B6882] max-w-md">
+                        {req.reasonDetails || <span className="text-[#9AAAB8]">—</span>}
+                      </td>
+                      <td className="py-3.5 px-4">{renderStageBadge(req)}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

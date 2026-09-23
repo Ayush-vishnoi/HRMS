@@ -10,9 +10,9 @@ import { ChatProvider } from '@/shared/providers/ChatContext';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'MYLOTIC GROUP PVT.LTD - HRMS Portal',
+  title: 'M360 - HRMS Portal',
   description:
-    'Streamlined HR management, employee self-service, leave tracking, payroll processing, and performance appraisals for MYLOTIC GROUP PVT.LTD.',
+    'Streamlined HR management, employee self-service, leave tracking, payroll processing, and performance appraisals for M360.',
   icons: {
     icon: [
       { url: '/icon.png', type: 'image/png' },

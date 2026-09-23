@@ -14,4 +14,5 @@ export declare class NotifyService {
     notifyUsers(userIds: string[], payload: Omit<NotifyInput, 'userId'>): Promise<void>;
     notifyAdmins(payload: Omit<NotifyInput, 'userId'>): Promise<void>;
     notifyManagerOf(employeeId: string, payload: Omit<NotifyInput, 'userId'>): Promise<void>;
+    notifyDepartment(department: string, payload: Omit<NotifyInput, 'userId'>): Promise<void>;
 }

@@ -1,5 +1,6 @@
 export type JobStatusType =
   | 'Draft'
+  | 'Pending Budget Approval'
   | 'Pending Approval'
   | 'Approved'
   | 'Published'
@@ -53,6 +54,11 @@ export interface RecruitmentJob {
     status: string;
     note?: string | null;
   }>;
+  requisitionApproval?: {
+    status: 'Pending' | 'Approved' | 'Rejected';
+    note?: string | null;
+    approvedOpenings?: number | null;
+  } | null;
 }
 
 export interface RecruitmentCandidate {
@@ -107,7 +113,7 @@ export const MOCK_RECRUITMENT_JOBS: RecruitmentJob[] = [
     applicants: 24,
     status: 'Open',
     postedOn: '01 Aug 2026',
-    description: 'Build accessible, high-performance experiences for the MYLOTIC GROUP HR platform.',
+    description: 'Build accessible, high-performance experiences for the M360 HR platform.',
     requirements: ['React', 'TypeScript', 'Next.js', 'Testing', 'System design'],
   },
   {

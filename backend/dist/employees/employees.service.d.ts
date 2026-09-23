@@ -1,9 +1,13 @@
 import { PrismaService } from '../prisma/prisma.service';
 import { NotifyService } from '../common/notifications/notify.service';
+import { AuditService } from '../common/audit/audit.service';
+import { PermissionsService } from '../permissions/permissions.service';
 export declare class EmployeesService {
     private prisma;
     private notify;
-    constructor(prisma: PrismaService, notify: NotifyService);
+    private audit;
+    private permissions;
+    constructor(prisma: PrismaService, notify: NotifyService, audit: AuditService, permissions: PermissionsService);
     findAll(query: {
         department?: string;
         status?: string;
@@ -62,8 +66,8 @@ export declare class EmployeesService {
             id: string;
             createdAt: Date;
             updatedAt: Date;
-            year: number;
             employeeId: string;
+            year: number;
             leaveType: import("@prisma/client").$Enums.LeaveType;
             total: number;
             used: number;
@@ -141,6 +145,14 @@ export declare class EmployeesService {
         designation_id: string | null;
         work_location_id: string | null;
     }>;
+    terminate(actorId: string, employeeId: string, body: {
+        reason?: string;
+        confirmationName?: string;
+    }): Promise<{
+        success: boolean;
+        status: string;
+        viaDelegation: boolean;
+    }>;
     get360(id: string, access?: {
         role?: string;
         currentUserId?: string;
@@ -201,8 +213,8 @@ export declare class EmployeesService {
             id: string;
             createdAt: Date;
             updatedAt: Date;
-            year: number;
             employeeId: string;
+            year: number;
             leaveType: import("@prisma/client").$Enums.LeaveType;
             total: number;
             used: number;
@@ -213,8 +225,8 @@ export declare class EmployeesService {
             createdAt: Date;
             status: import("@prisma/client").$Enums.LeaveRequestStatus;
             updatedAt: Date;
-            days: number;
             employeeId: string;
+            days: number;
             leaveType: import("@prisma/client").$Enums.LeaveType;
             startDate: string;
             endDate: string;
@@ -297,9 +309,9 @@ export declare class EmployeesService {
             status: import("@prisma/client").$Enums.DocumentStatus;
             updatedAt: Date;
             employeeId: string;
+            note: string | null;
             fileUrl: string | null;
             size: string;
-            note: string | null;
             uploadedOn: string;
             category_id: string | null;
             template_id: string | null;
@@ -453,9 +465,9 @@ export declare class EmployeesService {
             status: string;
             updatedAt: Date;
             employeeId: string;
+            severity: string;
             reason: string;
             acknowledgedAt: Date | null;
-            severity: string;
             incidentDate: string;
             issuedById: string;
             issuedByName: string;

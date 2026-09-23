@@ -1,0 +1,4 @@
+Test Candidate
+test.newcand@example.com | +91 90000 11111
+SKILLS
+Python, React, AWS

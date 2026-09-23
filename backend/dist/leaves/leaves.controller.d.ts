@@ -20,8 +20,8 @@ export declare class LeavesController {
             createdAt: Date;
             status: import("@prisma/client").$Enums.LeaveRequestStatus;
             updatedAt: Date;
-            days: number;
             employeeId: string;
+            days: number;
             leaveType: import("@prisma/client").$Enums.LeaveType;
             startDate: string;
             endDate: string;
@@ -33,8 +33,8 @@ export declare class LeavesController {
             id: string;
             createdAt: Date;
             updatedAt: Date;
-            year: number;
             employeeId: string;
+            year: number;
             leaveType: import("@prisma/client").$Enums.LeaveType;
             total: number;
             used: number;
@@ -45,8 +45,8 @@ export declare class LeavesController {
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        year: number;
         employeeId: string;
+        year: number;
         leaveType: import("@prisma/client").$Enums.LeaveType;
         total: number;
         used: number;
@@ -69,8 +69,8 @@ export declare class LeavesController {
         createdAt: Date;
         status: import("@prisma/client").$Enums.LeaveRequestStatus;
         updatedAt: Date;
-        days: number;
         employeeId: string;
+        days: number;
         leaveType: import("@prisma/client").$Enums.LeaveType;
         startDate: string;
         endDate: string;
@@ -83,8 +83,8 @@ export declare class LeavesController {
         createdAt: Date;
         status: import("@prisma/client").$Enums.LeaveRequestStatus;
         updatedAt: Date;
-        days: number;
         employeeId: string;
+        days: number;
         leaveType: import("@prisma/client").$Enums.LeaveType;
         startDate: string;
         endDate: string;
@@ -101,8 +101,8 @@ export declare class LeavesController {
         createdAt: Date;
         status: import("@prisma/client").$Enums.LeaveRequestStatus;
         updatedAt: Date;
-        days: number;
         employeeId: string;
+        days: number;
         leaveType: import("@prisma/client").$Enums.LeaveType;
         startDate: string;
         endDate: string;

@@ -106,15 +106,15 @@ exports.BUILTIN_TEMPLATES = [
         name: 'Standard Offer Letter (v1)',
         type: 'Offer_Letter',
         content: `<div class="offer-letter">
-  <p class="company-name">MYLOTIC GROUP</p>
+  <p class="company-name">M360</p>
   <h2>Offer of Employment</h2>
   <p>Dear {{candidate.fullName}},</p>
-  <p>We are pleased to offer you the position of <strong>{{offer.offeredTitle}}</strong> at MYLOTIC GROUP. We were impressed with your background and believe you will be a valuable addition to our team.</p>
+  <p>We are pleased to offer you the position of <strong>{{offer.offeredTitle}}</strong> at M360. We were impressed with your background and believe you will be a valuable addition to our team.</p>
   <h3>Compensation Details</h3>
   {{compensation.tableHtml}}
   <p>Your proposed joining date is {{offer.proposedJoinDate}}. This offer is valid until {{offer.expiresAt}}.</p>
   <p>We look forward to welcoming you aboard.</p>
-  <p>Sincerely,<br/>Human Resources<br/>MYLOTIC GROUP</p>
+  <p>Sincerely,<br/>Human Resources<br/>M360</p>
 </div>`,
     },
     {
@@ -122,14 +122,14 @@ exports.BUILTIN_TEMPLATES = [
         name: 'Standard Appointment Letter (v1)',
         type: 'Appointment_Letter',
         content: `<div class="appointment-letter">
-  <p class="company-name">MYLOTIC GROUP</p>
+  <p class="company-name">M360</p>
   <h2>Letter of Appointment</h2>
   <p>Dear {{candidate.fullName}},</p>
-  <p>This is to formally confirm your appointment as <strong>{{offer.offeredTitle}}</strong> with MYLOTIC GROUP, effective {{offer.proposedJoinDate}}.</p>
+  <p>This is to formally confirm your appointment as <strong>{{offer.offeredTitle}}</strong> with M360, effective {{offer.proposedJoinDate}}.</p>
   <h3>Remuneration</h3>
   {{compensation.tableHtml}}
   <p>You will be governed by the company's policies, code of conduct, and confidentiality terms as applicable from time to time.</p>
-  <p>With best wishes,<br/>Human Resources<br/>MYLOTIC GROUP</p>
+  <p>With best wishes,<br/>Human Resources<br/>M360</p>
 </div>`,
     },
     {
@@ -137,12 +137,12 @@ exports.BUILTIN_TEMPLATES = [
         name: 'Standard Non-Disclosure Agreement (v1)',
         type: 'NDA',
         content: `<div class="nda">
-  <p class="company-name">MYLOTIC GROUP</p>
+  <p class="company-name">M360</p>
   <h2>Non-Disclosure Agreement</h2>
-  <p>This Non-Disclosure Agreement is entered into between <strong>MYLOTIC GROUP</strong> ("the Company") and <strong>{{candidate.fullName}}</strong> ("the Recipient") effective {{offer.proposedJoinDate}}.</p>
+  <p>This Non-Disclosure Agreement is entered into between <strong>M360</strong> ("the Company") and <strong>{{candidate.fullName}}</strong> ("the Recipient") effective {{offer.proposedJoinDate}}.</p>
   <p>The Recipient agrees to hold in strict confidence all proprietary and confidential information disclosed by the Company, including but not limited to business plans, compensation terms, client data, and technical materials.</p>
   <p>This obligation survives the termination of any employment relationship for a period of five (5) years.</p>
-  <p>Signed,<br/>For MYLOTIC GROUP</p>
+  <p>Signed,<br/>For M360</p>
 </div>`,
     },
 ];
@@ -282,7 +282,7 @@ function generatePdf(lines) {
 function buildOfferLetterPdf(title, renderedHtml, comp) {
     const text = htmlToText(renderedHtml);
     const lines = [
-        { text: 'MYLOTIC GROUP', bold: true, size: 14 },
+        { text: 'M360', bold: true, size: 14 },
         { text: title, bold: true, size: 12 },
         { text: '' },
         ...text.split('\n').map((l) => ({ text: l })),

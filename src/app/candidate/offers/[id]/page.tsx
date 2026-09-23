@@ -224,7 +224,7 @@ export default function CandidateOfferPage({ params }: { params: Promise<{ id: s
             <div>
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-indigo-500/10 border border-indigo-400/20 text-indigo-300 mb-2">
                 <Sparkles className="w-3.5 h-3.5" />
-                <span>Mylotic Group · Employment Offer</span>
+                <span>M360 · Employment Offer</span>
               </div>
               <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight">{offer.offeredTitle}</h2>
               <p className="text-sm text-slate-400 mt-1">
@@ -561,7 +561,7 @@ export default function CandidateOfferPage({ params }: { params: Promise<{ id: s
               </div>
               <h3 className="text-xl font-extrabold text-white">Accept Employment Offer</h3>
               <p className="text-xs text-slate-400 mt-1">
-                You are about to accept the offer for <strong>{offer.offeredTitle}</strong> at Mylotic Group.
+                You are about to accept the offer for <strong>{offer.offeredTitle}</strong> at M360.
               </p>
             </div>
 

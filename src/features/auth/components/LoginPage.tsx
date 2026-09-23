@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   ArrowRight,
   BriefcaseBusiness,
+  Crown,
   LoaderCircle,
   Lock,
   Mail,
@@ -18,6 +19,7 @@ const demoAccountIcons = {
   Employee: UserRound,
   Manager: BriefcaseBusiness,
   'HR Admin': ShieldCheck,
+  CEO: Crown,
 } as const;
 
 export const LoginPage: React.FC = () => {
@@ -136,12 +138,12 @@ export const LoginPage: React.FC = () => {
           <div className="mb-2 inline-flex h-20 w-36 items-center justify-center">
             <img
               src="/m360-logo.jpeg"
-              alt="MYLOTIC GROUP Logo"
+              alt="M360 Logo"
               className="h-full w-full object-contain drop-shadow-sm"
             />
           </div>
           <h1 className="text-xl font-extrabold tracking-normal text-[#17324A]">
-            MYLOTIC GROUP PVT.LTD
+            M360
           </h1>
           <p className="mt-1 text-xs text-[#5F7180]">
             Sign in to your secure organization portal
@@ -263,7 +265,7 @@ export const LoginPage: React.FC = () => {
               </div>
               {isDemoMode && (
                 <p id="demo-login-hint" className="mt-1.5 text-[11px] text-[#667085]">
-                  Click the identifier field and select Employee, Manager, or HR Admin.
+                  Click the identifier field and select Employee, Manager, HR Admin, or CEO.
                 </p>
               )}
             </div>
@@ -315,7 +317,7 @@ export const LoginPage: React.FC = () => {
         </div>
 
         <p className="mt-5 text-center text-[11px] text-[#667085]">
-          MYLOTIC GROUP PVT.LTD HRMS | Version 4.2.0 | Secure access
+          M360 HRMS | Version 4.2.0 | Secure access
         </p>
       </div>
     </div>

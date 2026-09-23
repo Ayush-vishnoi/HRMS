@@ -96,7 +96,11 @@ const formatDbEmployee = (emp: any, managerName = 'Arjun Mehta'): Employee => ({
   email: emp.email,
   phone: emp.phone || '+91 98765 00000',
   avatar: emp.avatarUrl || emp.avatar || MALE_AVATAR(33),
-  status: (emp.status === 'OnLeave' || emp.status === 'On Leave') ? 'On Leave' : (emp.status === 'Remote' ? 'Remote' : 'Active'),
+  status: emp.status === 'OnLeave' || emp.status === 'On Leave'
+    ? 'On Leave'
+    : (['Remote', 'Onboarding', 'Offboarded', 'Exited', 'Terminated'].includes(emp.status)
+        ? emp.status
+        : 'Active'),
   joinDate: emp.joinDate || emp.join_date || '15 Mar 2026',
   location: emp.location || 'Bengaluru, Karnataka',
   salary: Number(emp.salary) || 0,
@@ -149,6 +153,22 @@ const formatDbTicket = (t: any): HelpDeskTicket => ({
   resolution: t.resolution || undefined,
   resolvedAt: t.resolvedAt || undefined,
 });
+
+/**
+ * A CEO permission the current (admin) user is currently allowed to exercise
+ * on the CEO's behalf via an active delegation grant. Drives the global
+ * "Acting on behalf of [CEO]" banner and unlocks delegated action UIs.
+ */
+export type CeoPermission = 'ONBOARDING_APPROVAL' | 'IMMEDIATE_TERMINATION' | 'REQUISITION_APPROVAL' | 'PAYROLL_MANAGEMENT';
+
+export interface ActiveDelegation {
+  id: string;
+  permission: CeoPermission;
+  label: string;
+  delegatorId: string;
+  delegatorName: string;
+  expiresAt: string | null;
+}
 
 /** Per-leave-type balance snapshot used by the Leave Management page. */
 export interface LeaveBalances {
@@ -212,6 +232,14 @@ interface HRMSContextType {
   updateHelpDeskTicket: (id: string, status: HelpDeskTicketStatus, resolution?: string) => Promise<void>;
   selectedEmployee: Employee | null;
   setSelectedEmployee: (emp: Employee | null) => void;
+  /** CEO permissions this user currently holds via active delegation (empty for most users). */
+  activeDelegations: ActiveDelegation[];
+  /** True while the current user holds the given CEO permission (raw CEO, or an active delegation). */
+  hasCeoPermission: (permission: CeoPermission) => boolean;
+  /** Re-fetch the current user's active delegations (after grant/revoke or on demand). */
+  refreshDelegations: () => Promise<void>;
+  /** Re-fetch the employee directory (after termination, add, or other status change). */
+  refreshEmployees: () => Promise<void>;
 }
 
 const HRMSContext = createContext<HRMSContextType | undefined>(undefined);
@@ -354,6 +382,7 @@ export const HRMSProvider: React.FC<HRMSProviderProps> = ({ children }) => {
   const [lateClockInRequests, setLateClockInRequests] = useState<LateClockInRequest[]>([]);
   const [helpDeskTickets, setHelpDeskTickets] = useState<HelpDeskTicket[]>([]);
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
+  const [activeDelegations, setActiveDelegations] = useState<ActiveDelegation[]>([]);
 
   const lateClockInRequest = lateClockInRequests.find((request) => request.requesterId === currentUser.id) ?? null;
 
@@ -376,6 +405,10 @@ export const HRMSProvider: React.FC<HRMSProviderProps> = ({ children }) => {
     // Fetch with a hard timeout and a single retry on network-level failures
     // so a cold-starting or reconnecting backend degrades gracefully
     // instead of hanging hydration (`TypeError: Failed to fetch`).
+    // A cold/sleeping Neon backend can 500 for several seconds while it wakes,
+    // so a single short retry isn't enough — back off across a few attempts
+    // (1.5s, 3s, 5s) before giving up, so hydration rides out the cold start.
+    const RETRY_DELAYS_MS = [1500, 3000, 5000];
     const fetchJson = async (path: string, timeoutMs = 20_000): Promise<any | null> => {
       for (let attempt = 0; ; attempt++) {
         const controller = new AbortController();
@@ -383,11 +416,11 @@ export const HRMSProvider: React.FC<HRMSProviderProps> = ({ children }) => {
         try {
           return await authFetch<any>(path, { signal: controller.signal });
         } catch (err) {
-          if (attempt > 0) {
+          if (attempt >= RETRY_DELAYS_MS.length) {
             console.error(`Error fetching ${path}:`, err);
             return null;
           }
-          await new Promise((resolve) => setTimeout(resolve, 1500));
+          await new Promise((resolve) => setTimeout(resolve, RETRY_DELAYS_MS[attempt]));
         } finally {
           clearTimeout(timer);
         }
@@ -426,6 +459,9 @@ export const HRMSProvider: React.FC<HRMSProviderProps> = ({ children }) => {
           const formatted = attRes.data.map((a: any) => formatDbAttendance(a));
           setAttendanceLogs(formatted);
         }
+
+        // Load any CEO permissions delegated to this user (drives the banner).
+        await refreshDelegations();
       } catch (err) {
         console.error('Error fetching initial database state:', err);
       } finally {
@@ -500,9 +536,58 @@ export const HRMSProvider: React.FC<HRMSProviderProps> = ({ children }) => {
 
   const logout = useCallback(() => {
     setIsAuthenticated(false);
+    setActiveDelegations([]);
     window.sessionStorage.removeItem('hrms_tab_user_id');
     apiLogout();
   }, []);
+
+  // Which CEO permissions this user currently holds via an active delegation.
+  // Fetched on load and re-polled with the session so a revoke/expiry removes
+  // the "Acting on behalf of" banner and the delegated buttons on next poll.
+  const refreshDelegations = useCallback(async () => {
+    try {
+      const res = await authFetch<any>('/api/permissions/my-delegated');
+      const rows = (res?.data ?? res) as any[];
+      if (Array.isArray(rows)) {
+        setActiveDelegations(
+          rows.map((g) => ({
+            id: g.id,
+            permission: g.permission,
+            label: g.label,
+            delegatorId: g.delegatorId,
+            delegatorName: g.delegatorName,
+            expiresAt: g.expiresAt ?? null,
+          })),
+        );
+      } else {
+        setActiveDelegations([]);
+      }
+    } catch {
+      // Non-fatal — a failed poll just leaves the last known set in place.
+    }
+  }, []);
+
+  // Re-fetch the employee directory on demand (e.g. after an immediate
+  // termination flips a status to Terminated) so the cached list reflects the
+  // new state without a full page reload.
+  const refreshEmployees = useCallback(async () => {
+    try {
+      const res = await authFetch<any>('/api/employees');
+      if (res?.success && Array.isArray(res.data)) {
+        setEmployees(res.data.map((e: any) => formatDbEmployee(e)));
+      }
+    } catch {
+      // Non-fatal — keep the last known directory on a failed refresh.
+    }
+  }, []);
+
+  // The raw CEO always holds every CEO permission; an admin holds one only via
+  // an active delegation grant. Mirrors the backend hasCeoPermission check.
+  const hasCeoPermission = useCallback(
+    (permission: CeoPermission) =>
+      currentUser.rawRole === 'ceo' || activeDelegations.some((d) => d.permission === permission),
+    [currentUser.rawRole, activeDelegations],
+  );
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -535,6 +620,9 @@ export const HRMSProvider: React.FC<HRMSProviderProps> = ({ children }) => {
               ? { ...prev, mustChangePassword: flag }
               : prev
           );
+          // Re-check delegated permissions so a revoke/expiry drops the banner
+          // and hides delegated action buttons within one poll interval.
+          void refreshDelegations();
         }
       } catch (sessionError) {
         if ((sessionError as Error).name !== 'AbortError' && (sessionError as Error).message !== 'Unauthorized') {
@@ -570,7 +658,7 @@ export const HRMSProvider: React.FC<HRMSProviderProps> = ({ children }) => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('storage', handleStorageEvent);
     };
-  }, [isAuthenticated, logout]);
+  }, [isAuthenticated, logout, refreshDelegations]);
 
   const elapsedWorkTime = formatElapsedWorkTime(elapsedSeconds);
 
@@ -842,6 +930,10 @@ export const HRMSProvider: React.FC<HRMSProviderProps> = ({ children }) => {
         updateHelpDeskTicket,
         selectedEmployee,
         setSelectedEmployee,
+        activeDelegations,
+        hasCeoPermission,
+        refreshDelegations,
+        refreshEmployees,
       }}
     >
       {children}

@@ -9,7 +9,8 @@ import type { RecruitmentJob } from '@/features/recruitment/data/recruitment';
    Add Candidate Manually (no resume required)
    JSON POST /api/recruitment/candidates → CreateCandidateInput
    Server applies defaults (stage 'Applied', source 'Manual',
-   tags ['New Applicant'], score 75, recommendation 'Review').
+   tags ['New Applicant']) and computes a real match score from
+   the skills / experience / location entered against the job.
    ============================================================ */
 
 interface AddCandidateManualModalProps {
@@ -37,10 +38,15 @@ export default function AddCandidateManualModal({
     currentRole: '',
     location: '',
     experience: '',
+    skills: '',
     summary: '',
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // The selected requisition drives the score: skills are matched against its
+  // requirements (50%), experience against its band (25%), location (15%).
+  const selectedJob = jobs.find((j) => j.id === form.jobId);
 
   const canSubmit =
     !!form.jobId && form.name.trim().length > 0 && form.email.trim().length > 0 && !isSubmitting;
@@ -63,6 +69,8 @@ export default function AddCandidateManualModal({
             currentRole: form.currentRole.trim() || undefined,
             location: form.location.trim() || undefined,
             experience: form.experience.trim() || undefined,
+            experienceYears: form.experience.trim() || undefined,
+            skills: form.skills.trim() || undefined,
             summary: form.summary.trim() || undefined,
           },
         },
@@ -173,13 +181,57 @@ export default function AddCandidateManualModal({
             </label>
 
             <label className={labelCls}>
-              <span>Experience</span>
+              <span>Experience (years)</span>
               <input
                 className={inputCls}
+                type="number"
+                min={0}
+                step={0.5}
                 value={form.experience}
                 onChange={(e) => setForm((f) => ({ ...f, experience: e.target.value }))}
-                placeholder="e.g. 6 years"
+                placeholder="e.g. 6"
               />
+              {selectedJob && (selectedJob.experienceMin != null || selectedJob.experienceMax != null) && (
+                <span className="text-[10px] font-normal text-[#5D7D94]">
+                  Role expects{' '}
+                  {selectedJob.experienceMin ?? 0}
+                  {selectedJob.experienceMax != null ? `–${selectedJob.experienceMax}` : '+'} yrs
+                </span>
+              )}
+            </label>
+
+            <label className={`${labelCls} sm:col-span-2`}>
+              <span>Skills</span>
+              <textarea
+                className={`${inputCls} min-h-[54px] resize-y`}
+                value={form.skills}
+                onChange={(e) => setForm((f) => ({ ...f, skills: e.target.value }))}
+                placeholder="Comma-separated, e.g. React, TypeScript, Node.js"
+              />
+              {selectedJob && selectedJob.requirements?.length > 0 && (
+                <span className="flex flex-wrap items-center gap-1 text-[10px] font-normal text-[#5D7D94]">
+                  Required for this role:
+                  {selectedJob.requirements.map((req) => (
+                    <button
+                      key={req}
+                      type="button"
+                      onClick={() =>
+                        setForm((f) => {
+                          const list = f.skills
+                            .split(',')
+                            .map((s) => s.trim())
+                            .filter(Boolean);
+                          if (list.some((s) => s.toLowerCase() === req.toLowerCase())) return f;
+                          return { ...f, skills: [...list, req].join(', ') };
+                        })
+                      }
+                      className="rounded-full border border-[#B0D0EA] bg-[#EAF2F8] px-2 py-0.5 text-[10px] font-semibold text-[#315B76] transition hover:bg-[#DCEAF4]"
+                    >
+                      + {req}
+                    </button>
+                  ))}
+                </span>
+              )}
             </label>
 
             <label className={`${labelCls} sm:col-span-2`}>
@@ -191,6 +243,14 @@ export default function AddCandidateManualModal({
                 placeholder="Short professional summary"
               />
             </label>
+          </div>
+
+          <div className="flex items-start gap-2 rounded-lg border border-[#B0D0EA] bg-[#F4F9FC] px-3 py-2 text-[10px] text-[#315B76]">
+            <span>
+              <span className="font-semibold">How the fit score is computed:</span> Skills matched
+              against the role requirements (50%), experience vs the role band (25%), location (15%),
+              education baseline (10%). Fill these for an accurate score instead of a default.
+            </span>
           </div>
 
           {error && (

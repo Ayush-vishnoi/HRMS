@@ -132,6 +132,8 @@ model Employee {
   conversationsAsP2                                                                            Conversation[]                       @relation("ConversationParticipant2")
   sentMessages                                                                                 Message[]                            @relation("SentMessages")
   receivedMessages                                                                             Message[]                            @relation("ReceivedMessages")
+  delegationsGranted                                                                           DelegatedPermission[]                @relation("DelegationGrantor")
+  delegationsReceived                                                                          DelegatedPermission[]                @relation("DelegationGrantee")
 
   @@index([department_id, designation_id])
   @@index([organization_id, business_unit_id])
@@ -451,6 +453,7 @@ model RecruitmentJob {
   candidates                RecruitmentCandidate[]
   recruitment_job_approvals recruitment_job_approvals[]
   matches                   RecruitmentCandidateMatch[]
+  requisitionApproval       RequisitionApproval?
   hiringManager             Employee?                   @relation("JobHiringManager", fields: [hiring_manager_id], references: [id])
   recruiter                 Employee?                   @relation("JobRecruiter", fields: [recruiter_id], references: [id])
 
@@ -499,6 +502,7 @@ model RecruitmentCandidate {
   matches                   RecruitmentCandidateMatch[]
   resumeDocument            CandidateResumeDocument?
   talent_pool_memberships   RecruitmentTalentPoolMember[]
+  onboardingApproval        OnboardingApproval?
 
   @@index([jobId, stage], map: "idx_candidates_job_stage")
   @@index([assigned_recruiter_id])
@@ -1865,6 +1869,7 @@ enum EmploymentStatus {
   Remote
   Offboarded
   Exited
+  Terminated
 }
 
 enum AttendanceStatus {
@@ -2063,12 +2068,19 @@ enum JobEmploymentType {
 
 enum JobStatus {
   Draft
+  PendingBudgetApproval @map("Pending Budget Approval")
   PendingApproval @map("Pending Approval")
   Approved
   Published
   Open
   OnHold          @map("On hold")
   Closed
+}
+
+enum RequisitionApprovalStatus {
+  Pending
+  Approved
+  Rejected
 }
 
 enum CandidateStage {
@@ -2825,16 +2837,93 @@ model UserNotification {
 }
 
 model AuditLog {
-  id         String   @id @default(cuid())
-  employeeId String?  @map("employee_id")
-  action     String
-  module     String
-  details    String
-  ipAddress  String?  @map("ip_address")
-  createdAt  DateTime @default(now()) @map("created_at")
+  id           String   @id @default(cuid())
+  employeeId   String?  @map("employee_id")
+  action       String
+  module       String
+  details      String
+  ipAddress    String?  @map("ip_address")
+  severity     String?  @default("info")
+  actorId      String?  @map("actor_id")
+  onBehalfOfId String?  @map("on_behalf_of_id")
+  createdAt    DateTime @default(now()) @map("created_at")
 
   @@index([module, createdAt])
   @@map("audit_logs")
+}
+
+enum CeoPermission {
+  ONBOARDING_APPROVAL
+  IMMEDIATE_TERMINATION
+  REQUISITION_APPROVAL
+  PAYROLL_MANAGEMENT
+}
+
+model DelegatedPermission {
+  id          String        @id @default(cuid())
+  permission  CeoPermission
+  delegatorId String        @map("delegator_id")
+  delegateeId String        @map("delegatee_id")
+  grantedAt   DateTime      @default(now()) @map("granted_at")
+  expiresAt   DateTime?     @map("expires_at")
+  revokedAt   DateTime?     @map("revoked_at")
+  revokedById String?       @map("revoked_by_id")
+  note        String?
+
+  delegator   Employee      @relation("DelegationGrantor", fields: [delegatorId], references: [id], onUpdate: NoAction)
+  delegatee   Employee      @relation("DelegationGrantee", fields: [delegateeId], references: [id], onUpdate: NoAction)
+
+  @@index([delegateeId, permission])
+  @@index([delegatorId])
+  @@map("delegated_permissions")
+}
+
+enum OnboardingApprovalStatus {
+  Pending
+  Approved
+  Rejected
+}
+
+model OnboardingApproval {
+  id           String                   @id @default(cuid())
+  candidateId  String                   @unique @map("candidate_id")
+  offerId      String?                  @map("offer_id")
+  status       OnboardingApprovalStatus @default(Pending)
+  decidedById  String?                  @map("decided_by_id")
+  onBehalfOfId String?                  @map("on_behalf_of_id")
+  note         String?
+  createdAt    DateTime                 @default(now()) @map("created_at")
+  decidedAt    DateTime?                @map("decided_at")
+
+  candidate    RecruitmentCandidate     @relation(fields: [candidateId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@map("onboarding_approvals")
+}
+
+/// CEO budget + headcount sign-off on a NEW job requisition. HR creating a
+/// requisition opens a Pending row; the CEO (or a REQUISITION_APPROVAL delegate)
+/// approves — optionally adjusting openings/salary band — or rejects with a note.
+model RequisitionApproval {
+  id                 String                    @id @default(cuid())
+  jobId              String                    @unique @map("job_id")
+  status             RequisitionApprovalStatus @default(Pending)
+  requestedById      String                    @map("requested_by_id")
+  requestedOpenings  Int                       @map("requested_openings")
+  requestedSalaryMin Decimal?                  @db.Decimal(12, 2) @map("requested_salary_min")
+  requestedSalaryMax Decimal?                  @db.Decimal(12, 2) @map("requested_salary_max")
+  approvedOpenings   Int?                      @map("approved_openings")
+  approvedSalaryMin  Decimal?                  @db.Decimal(12, 2) @map("approved_salary_min")
+  approvedSalaryMax  Decimal?                  @db.Decimal(12, 2) @map("approved_salary_max")
+  currency           String                    @default("INR")
+  decidedById        String?                   @map("decided_by_id")
+  onBehalfOfId       String?                   @map("on_behalf_of_id")
+  note               String?
+  createdAt          DateTime                  @default(now()) @map("created_at")
+  decidedAt          DateTime?                 @map("decided_at")
+
+  job                RecruitmentJob            @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@map("requisition_approvals")
 }
 
 model AiInteractionLog {

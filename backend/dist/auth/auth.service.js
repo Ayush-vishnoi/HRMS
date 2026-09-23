@@ -46,6 +46,7 @@ exports.AuthService = void 0;
 const common_1 = require("@nestjs/common");
 const jwt_1 = require("@nestjs/jwt");
 const prisma_service_1 = require("../prisma/prisma.service");
+const access_control_constants_1 = require("./access-control.constants");
 const argon2 = __importStar(require("argon2"));
 let AuthService = class AuthService {
     prisma;
@@ -68,9 +69,9 @@ let AuthService = class AuthService {
             throw new common_1.UnauthorizedException('Invalid credentials');
         }
         const now = new Date();
-        if (employee.status === 'Exited') {
+        if (access_control_constants_1.LOCKOUT_STATUSES.includes(employee.status)) {
             if (!employee.lockedUntil || employee.lockedUntil <= now) {
-                throw new common_1.UnauthorizedException('Your employment has ended. Login access has been revoked after the exit grace window.');
+                throw new common_1.UnauthorizedException('Your employment has ended. Login access has been revoked.');
             }
         }
         else if (employee.lockedUntil && employee.lockedUntil > now) {

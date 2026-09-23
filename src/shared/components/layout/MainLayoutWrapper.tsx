@@ -15,11 +15,11 @@ import { isRouteAllowedForRole } from '@/shared/lib/navigation';
 export const MainLayoutWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const pathname = usePathname();
   const router = useRouter();
-  const { isAuthenticated, isAuthReady, currentUser, isClockedIn, lateClockInRequest, toggleClockIn } = useHRMS();
+  const { isAuthenticated, isAuthReady, currentUser, isClockedIn, lateClockInRequest, toggleClockIn, activeDelegations } = useHRMS();
   const [isPermissionModalOpen, setIsPermissionModalOpen] = React.useState(false);
   const [notice, setNotice] = React.useState('');
   const isCurrentRouteAllowed = !isAuthenticated
-    || isRouteAllowedForRole(pathname, currentUser.userRole);
+    || isRouteAllowedForRole(pathname, currentUser.userRole, currentUser.rawRole);
 
   const handleClockAction = () => {
     const result = toggleClockIn();
@@ -65,11 +65,24 @@ export const MainLayoutWrapper: React.FC<{ children: React.ReactNode }> = ({ chi
   // Onboarding STEP 2b: temporary password must be replaced before any access.
   if (currentUser.mustChangePassword) return <ForcedPasswordResetScreen />;
 
+  // When an HR Admin holds CEO permissions via delegation, surface a persistent
+  // banner naming the CEO and the powers held, so every delegated action the
+  // admin takes is visibly "on behalf of" the executive.
+  const delegator = activeDelegations[0]?.delegatorName;
+  const delegatedLabels = Array.from(new Set(activeDelegations.map((d) => d.label)));
+
   return (
     <div className="flex min-h-screen">
       <Sidebar />
       <div className="flex flex-1 min-w-0 flex-col">
         <Header onClockAction={handleClockAction} />
+        {activeDelegations.length > 0 && delegator && (
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-amber-200 bg-amber-50 px-6 py-2 text-xs font-semibold text-amber-800 md:px-8">
+            <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-amber-200 text-[10px] text-amber-900">⚑</span>
+            <span>Acting on behalf of {delegator}</span>
+            <span className="font-medium text-amber-700">· {delegatedLabels.join(' · ')}</span>
+          </div>
+        )}
         <main className="flex-1 overflow-y-auto bg-app p-6 md:p-8">{children}</main>
       </div>
       {(currentUser.userRole === 'employee' || currentUser.userRole === 'manager') && !isClockedIn && lateClockInRequest?.status === 'pending' && (

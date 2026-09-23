@@ -133,11 +133,11 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({ payslip, showAmounts
             <div className="flex items-center gap-3">
               <img
                 src="/m360-logo.jpeg"
-                alt="MYLOTIC GROUP Logo"
+                alt="M360 Logo"
                 className="h-10 w-auto object-contain shrink-0"
               />
               <div>
-                <h2 className="text-lg font-extrabold text-[#17324A] tracking-tight">MYLOTIC GROUP PVT. LTD.</h2>
+                <h2 className="text-lg font-extrabold text-[#17324A] tracking-tight">M360</h2>
                 <p className="text-xs text-[#667085]">100 Innovation Park, Whitefield, Bengaluru, Karnataka 560066</p>
                 <p className="text-[11px] text-[#667085]">PAN: AABCM9876E | TAN: BLRA12345E | PF Code: KN/BNG/0019283</p>
               </div>

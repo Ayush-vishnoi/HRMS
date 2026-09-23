@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.PARSER_VERSION = void 0;
+exports.SKILL_CATALOG = exports.PARSER_VERSION = void 0;
 exports.extractResumeText = extractResumeText;
 exports.parseResumeDraft = parseResumeDraft;
 exports.computeMatchScore = computeMatchScore;
@@ -68,22 +68,27 @@ function extractDocxText(buffer) {
         .replace(/\n{3,}/g, '\n\n')
         .trim();
 }
-const SKILL_CATALOG = {
+exports.SKILL_CATALOG = {
     javascript: 'Programming',
     typescript: 'Programming',
     python: 'Programming',
     java: 'Programming',
     'c++': 'Programming',
-    c: 'Programming',
+    'c#': 'Programming',
     golang: 'Programming',
+    go: 'Programming',
     rust: 'Programming',
     php: 'Programming',
     ruby: 'Programming',
     kotlin: 'Programming',
     swift: 'Programming',
+    scala: 'Programming',
+    bash: 'Programming',
+    shell: 'Programming',
     sql: 'Data',
     nosql: 'Data',
     postgresql: 'Data',
+    postgres: 'Data',
     mysql: 'Data',
     mongodb: 'Data',
     redis: 'Data',
@@ -91,57 +96,174 @@ const SKILL_CATALOG = {
     kafka: 'Data',
     spark: 'Data',
     hadoop: 'Data',
+    snowflake: 'Data',
+    airflow: 'Data',
+    pandas: 'Data',
+    numpy: 'Data',
+    'power bi': 'Data',
+    tableau: 'Data',
+    'data pipeline': 'Data',
+    etl: 'Data',
     react: 'Frontend',
     'react.js': 'Frontend',
+    reactjs: 'Frontend',
     nextjs: 'Frontend',
     'next.js': 'Frontend',
     vue: 'Frontend',
     angular: 'Frontend',
+    svelte: 'Frontend',
     tailwind: 'Frontend',
     css: 'Frontend',
     html: 'Frontend',
     redux: 'Frontend',
+    'react native': 'Frontend',
     'node.js': 'Backend',
     nodejs: 'Backend',
     express: 'Backend',
     nestjs: 'Backend',
     django: 'Backend',
     flask: 'Backend',
+    fastapi: 'Backend',
     'spring boot': 'Backend',
     spring: 'Backend',
     graphql: 'Backend',
     rest: 'Backend',
+    grpc: 'Backend',
+    mern: 'Backend',
+    mean: 'Backend',
     microservices: 'Architecture',
+    'system design': 'Architecture',
+    'distributed systems': 'Architecture',
+    'event-driven': 'Architecture',
+    scalability: 'Architecture',
     docker: 'DevOps',
     kubernetes: 'DevOps',
     k8s: 'DevOps',
     jenkins: 'DevOps',
     'ci/cd': 'DevOps',
     terraform: 'DevOps',
+    ansible: 'DevOps',
+    helm: 'DevOps',
+    prometheus: 'DevOps',
+    grafana: 'DevOps',
+    linux: 'DevOps',
+    sre: 'DevOps',
+    observability: 'DevOps',
+    'github actions': 'DevOps',
+    argocd: 'DevOps',
     aws: 'Cloud',
     azure: 'Cloud',
     gcp: 'Cloud',
     lambda: 'Cloud',
-    linux: 'DevOps',
-    git: 'Tools',
-    jira: 'Tools',
-    figma: 'Design',
+    ec2: 'Cloud',
+    s3: 'Cloud',
+    eks: 'Cloud',
+    ecs: 'Cloud',
+    cloudformation: 'Cloud',
+    iam: 'Security',
+    soc2: 'Security',
+    'kubernetes security': 'Security',
+    security: 'Security',
+    'penetration testing': 'Security',
+    siem: 'Security',
+    compliance: 'Security',
+    gdpr: 'Security',
+    encryption: 'Security',
+    oauth: 'Security',
+    'zero trust': 'Security',
+    'threat modeling': 'Security',
+    owasp: 'Security',
     'machine learning': 'AI/ML',
     'deep learning': 'AI/ML',
+    'ai/ml': 'AI/ML',
     nlp: 'AI/ML',
     tensorflow: 'AI/ML',
     pytorch: 'AI/ML',
-    pandas: 'Data',
-    numpy: 'Data',
-    'power bi': 'Data',
-    tableau: 'Data',
-    excel: 'Tools',
+    'scikit-learn': 'AI/ML',
+    keras: 'AI/ML',
+    mlops: 'AI/ML',
+    'model deployment': 'AI/ML',
+    experimentation: 'AI/ML',
+    'a/b testing': 'AI/ML',
+    llm: 'AI/ML',
+    'generative ai': 'AI/ML',
+    'computer vision': 'AI/ML',
+    'feature engineering': 'AI/ML',
+    n8n: 'Automation',
+    zapier: 'Automation',
+    'workflow automation': 'Automation',
+    'make.com': 'Automation',
+    rpa: 'Automation',
     testing: 'Quality',
     jest: 'Quality',
     cypress: 'Quality',
     selenium: 'Quality',
+    playwright: 'Quality',
+    pytest: 'Quality',
+    junit: 'Quality',
+    testng: 'Quality',
+    'e2e testing': 'Quality',
+    'load testing': 'Quality',
+    k6: 'Quality',
+    appium: 'Quality',
+    'test automation': 'Quality',
+    'b2b sales': 'Sales',
+    'b2c sales': 'Sales',
+    crm: 'Sales',
+    salesforce: 'Sales',
+    hubspot: 'Sales',
+    negotiation: 'Sales',
+    'lead generation': 'Sales',
+    'account management': 'Sales',
+    'team leadership': 'Sales',
+    'stakeholder management': 'Sales',
+    'cold calling': 'Sales',
+    'pipeline management': 'Sales',
+    git: 'Tools',
+    jira: 'Tools',
+    figma: 'Design',
+    excel: 'Tools',
     agile: 'Process',
     scrum: 'Process',
+    kanban: 'Process',
+};
+const SKILL_ALIASES = {
+    reactjs: 'react',
+    'react.js': 'react',
+    reatjs: 'react',
+    reactnative: 'react native',
+    nextjs: 'next.js',
+    next: 'next.js',
+    nodejs: 'node.js',
+    node: 'node.js',
+    js: 'javascript',
+    ts: 'typescript',
+    golang: 'go',
+    postgres: 'postgresql',
+    psql: 'postgresql',
+    mongo: 'mongodb',
+    k8s: 'kubernetes',
+    gke: 'kubernetes',
+    'ai ml': 'machine learning',
+    'ai/ml': 'machine learning',
+    ml: 'machine learning',
+    ai: 'machine learning',
+    dl: 'deep learning',
+    gpt: 'llm',
+    llms: 'llm',
+    genai: 'generative ai',
+    'gen ai': 'generative ai',
+    cv: 'computer vision',
+    gcp: 'gcp',
+    'google cloud': 'gcp',
+    cicd: 'ci/cd',
+    'system-design': 'system design',
+    b2b: 'b2b sales',
+    b2c: 'b2c sales',
+    sfdc: 'salesforce',
+    e2e: 'e2e testing',
+    'end to end testing': 'e2e testing',
+    qa: 'testing',
 };
 const DEGREE_RE = /\b(b\.?tech|b\.?e\.?|b\.?sc|b\.?com|b\.?a\.?|m\.?tech|m\.?e\.?|m\.?sc|m\.?com|m\.?a\.?|mba|ph\.?d|bca|mca|bba)\b[^,\n]{0,80}/gi;
 function parseResumeDraft(rawText) {
@@ -201,7 +323,7 @@ function parseResumeDraft(rawText) {
     }
     const experienceDisplay = totalYears > 0 ? `${totalYears} yr${totalYears === 1 ? '' : 's'}` : 'Fresher';
     const skills = [];
-    for (const [skill, category] of Object.entries(SKILL_CATALOG)) {
+    for (const [skill, category] of Object.entries(exports.SKILL_CATALOG)) {
         const escaped = skill.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         const re = new RegExp(`(^|[^a-z0-9])${escaped}([^a-z0-9]|$)`, 'gi');
         const occurrences = (lower.match(re) || []).length;
@@ -312,16 +434,60 @@ function titleCase(s) {
         .trim();
 }
 const norm = (s) => s.toLowerCase().replace(/[^a-z0-9+#]/g, '');
+const NORM_ALIASES = Object.fromEntries(Object.entries(SKILL_ALIASES).map(([k, v]) => [norm(k), norm(v)]));
+function canonical(skill) {
+    let n = norm(skill);
+    if (NORM_ALIASES[n])
+        n = NORM_ALIASES[n];
+    return n;
+}
+function editDistance(a, b) {
+    if (Math.abs(a.length - b.length) > 2)
+        return 3;
+    const dp = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)]);
+    for (let j = 0; j <= b.length; j++)
+        dp[0][j] = j;
+    for (let i = 1; i <= a.length; i++) {
+        for (let j = 1; j <= b.length; j++) {
+            dp[i][j] =
+                a[i - 1] === b[j - 1]
+                    ? dp[i - 1][j - 1]
+                    : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+        }
+    }
+    return dp[a.length][b.length];
+}
+function skillSatisfies(reqCanon, candCanon) {
+    if (!reqCanon || !candCanon)
+        return false;
+    if (reqCanon === candCanon)
+        return true;
+    if (reqCanon.length > 2 && candCanon.includes(reqCanon))
+        return true;
+    if (candCanon.length > 2 && reqCanon.includes(candCanon))
+        return true;
+    if (reqCanon.length >= 4 && candCanon.length >= 4 && editDistance(reqCanon, candCanon) <= 1)
+        return true;
+    return false;
+}
 function computeMatchScore(input) {
     const reqs = (input.jobRequirements || []).map((r) => r.trim()).filter(Boolean);
-    const candSkills = new Set((input.candidateSkills || []).map(norm));
+    const candCanon = new Set();
+    for (const raw of input.candidateSkills || []) {
+        for (const piece of raw.split(/[()/,]/)) {
+            const c = canonical(piece);
+            if (c)
+                candCanon.add(c);
+        }
+    }
     const matchedSkills = [];
     const missingSkills = [];
     for (const req of reqs) {
-        const reqNorm = norm(req);
-        const hit = candSkills.has(reqNorm) ||
-            [...candSkills].some((cs) => (reqNorm.length > 2 && cs.includes(reqNorm)) ||
-                (cs.length > 2 && reqNorm.includes(cs)));
+        const reqParts = req
+            .split(/[()/,]/)
+            .map(canonical)
+            .filter(Boolean);
+        const hit = reqParts.some((rp) => [...candCanon].some((cc) => skillSatisfies(rp, cc)));
         if (hit)
             matchedSkills.push(req);
         else

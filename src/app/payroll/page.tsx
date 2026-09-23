@@ -26,6 +26,7 @@ import {
   Play,
   Plus,
   Printer,
+  Receipt,
   RefreshCw,
   Search,
   Send,
@@ -58,10 +59,22 @@ type AdminViewSection =
   | 'global';
 
 export default function PayrollPage() {
-  const { currentUser, employees } = useHRMS();
+  const { currentUser, employees, hasCeoPermission, activeDelegations } = useHRMS();
   const isAdmin = currentUser.userRole === 'admin';
   const isManager = currentUser.userRole === 'manager';
+  // The CEO oversees only the organization-wide payroll — no personal payroll view.
+  const isCeo = currentUser.rawRole === 'ceo';
+  // Admins and managers can view the organization-wide payroll (read-only), but
+  // only the CEO — or an HR Admin holding an active PAYROLL_MANAGEMENT delegation —
+  // can act on it: run cycles, approve, lock, disburse, edit structures/loans/
+  // tax/statutory, recalculate, etc.
   const isPrivileged = isAdmin || isManager;
+  const canManagePayroll = isCeo || hasCeoPermission('PAYROLL_MANAGEMENT');
+  // When acting through a grant (not intrinsic CEO), name the CEO whose payroll
+  // authority is being exercised.
+  const payrollDelegator = !isCeo
+    ? activeDelegations.find((d) => d.permission === 'PAYROLL_MANAGEMENT')?.delegatorName
+    : undefined;
 
   // View Mode: 'my' for personal employee view, 'all' for organization-wide admin view
   const [viewScope, setViewScope] = useState<'my' | 'all'>(isPrivileged ? 'all' : 'my');
@@ -91,11 +104,17 @@ export default function PayrollPage() {
   // Cycles & Execution Engine Data
   const [cycles, setCycles] = useState<any[]>([]);
   const [selectedCycle, setSelectedCycle] = useState<any | null>(null);
+  const [snapshotItem, setSnapshotItem] = useState<any | null>(null);
   const [showRunCycleModal, setShowRunCycleModal] = useState(false);
   const [cycleMonthYear, setCycleMonthYear] = useState('September 2026');
   const [cycleStart, setCycleStart] = useState('2026-09-01');
   const [cycleEnd, setCycleEnd] = useState('2026-09-30');
   const [processingAction, setProcessingAction] = useState(false);
+
+  // Live reimbursements queue — approved expense claims awaiting payout that
+  // will be folded into the payroll cycle's earnings on (re)calculation.
+  const [pendingReimbursements, setPendingReimbursements] = useState<any[]>([]);
+  const [reimbursementsLoading, setReimbursementsLoading] = useState(false);
 
   // Salary Structures & Revisions
   const [structures, setStructures] = useState<any[]>([]);
@@ -192,6 +211,33 @@ export default function PayrollPage() {
       }
     } catch {
       handleLoadFailure();
+    }
+  };
+
+  // 2b. Fetch live reimbursements — expense claims cleared by both manager and
+  // finance but not yet paid. These are exactly the claims the payroll engine
+  // pulls into `reimbursements` when a cycle is (re)calculated, so surfacing them
+  // here lets the CEO see what will be added before approving/recalculating.
+  const fetchPendingReimbursements = async () => {
+    try {
+      setReimbursementsLoading(true);
+      const res = await authFetch<Response>('/api/expenses?view=all', { raw: true });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && Array.isArray(json.data)) {
+          const payable = json.data.filter(
+            (c: any) =>
+              c.managerStatus === 'Approved' &&
+              c.financeStatus === 'Approved' &&
+              c.paymentStatus === 'Pending',
+          );
+          setPendingReimbursements(payable);
+        }
+      }
+    } catch {
+      handleLoadFailure();
+    } finally {
+      setReimbursementsLoading(false);
     }
   };
 
@@ -347,6 +393,12 @@ export default function PayrollPage() {
     }
   }, [adminSection, reportType]);
 
+  useEffect(() => {
+    if (isPrivileged && adminSection === 'processing') {
+      void fetchPendingReimbursements();
+    }
+  }, [adminSection, isPrivileged]);
+
   // Actions
   const handleRunPayrollCycle = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -394,6 +446,40 @@ export default function PayrollPage() {
       }
     } catch (err) {
       console.error('Error updating cycle status:', err);
+    } finally {
+      setProcessingAction(false);
+    }
+  };
+
+  // Recalculate the selected cycle so newly-approved reimbursements (and any
+  // other pending inputs) are pulled into the earnings. Only meaningful before
+  // the cycle is locked/disbursed. Refreshes both the cycle and the live queue.
+  const handleRecalculateWithReimbursements = async () => {
+    if (!selectedCycle) return;
+    try {
+      setProcessingAction(true);
+      const res = await authFetch<Response>('/api/payroll/engine', {
+        raw: true,
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          monthYear: selectedCycle.monthYear,
+          cycleStartDate: selectedCycle.cycleStartDate,
+          cycleEndDate: selectedCycle.cycleEndDate,
+        }),
+      });
+      if (res.ok) {
+        await fetchCycles();
+        await fetchPayslips();
+        await fetchPendingReimbursements();
+        const updatedRes = await authFetch<Response>(`/api/payroll/engine?cycleId=${selectedCycle.id}`, { raw: true });
+        if (updatedRes.ok) {
+          const j = await updatedRes.json();
+          if (j.data) setSelectedCycle(j.data);
+        }
+      }
+    } catch (err) {
+      console.error('Error recalculating cycle:', err);
     } finally {
       setProcessingAction(false);
     }
@@ -527,13 +613,15 @@ export default function PayrollPage() {
                 <Download className="w-4 h-4 text-[#17324A]" />
                 Export Register
               </a>
-              <button
-                onClick={() => setShowRunCycleModal(true)}
-                className="px-4 py-2.5 rounded-xl bg-[#17324A] hover:bg-[#244A68] text-white text-xs font-bold shadow-xs flex items-center gap-2 transition-all cursor-pointer"
-              >
-                <Play className="w-4 h-4 text-white fill-white" />
-                Run Payroll Cycle
-              </button>
+              {canManagePayroll && (
+                <button
+                  onClick={() => setShowRunCycleModal(true)}
+                  className="px-4 py-2.5 rounded-xl bg-[#17324A] hover:bg-[#244A68] text-white text-xs font-bold shadow-xs flex items-center gap-2 transition-all cursor-pointer"
+                >
+                  <Play className="w-4 h-4 text-white fill-white" />
+                  Run Payroll Cycle
+                </button>
+              )}
             </>
           )}
         </div>
@@ -560,8 +648,19 @@ export default function PayrollPage() {
         </div>
       )}
 
+      {/* Acting-on-behalf reminder — shown when an HR Admin runs payroll through
+          an active CEO delegation rather than as the CEO. */}
+      {payrollDelegator && (
+        <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-xs font-semibold text-amber-900">
+          <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>
+            Acting on behalf of {payrollDelegator}. You hold Payroll Management through a delegated grant — it reverts the moment the CEO revokes it.
+          </span>
+        </div>
+      )}
+
       {/* 2. Primary Role/Scope Switcher */}
-      {isPrivileged && (
+      {isPrivileged && !isCeo && (
         <div className="flex items-center gap-2 p-1.5 bg-[#EAF2F8] border border-[#B0D0EA] rounded-xl w-fit">
           <button
             type="button"
@@ -759,6 +858,10 @@ export default function PayrollPage() {
             >
               Monthly Payslips
             </button>
+            {/* Everything beyond monthly payslips is CEO-only — HR Admins and
+                managers see just the payslip records in the org view. */}
+            {canManagePayroll && (
+            <>
             <button
               onClick={() => setAdminSection('processing')}
               className={`px-4 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${
@@ -859,6 +962,8 @@ export default function PayrollPage() {
             >
               Global Payroll
             </button>
+            </>
+            )}
           </>
         )}
       </div>
@@ -987,7 +1092,7 @@ export default function PayrollPage() {
                 </p>
               </div>
 
-              {selectedCycle && (
+              {selectedCycle && canManagePayroll && (
                 <div className="flex flex-wrap items-center gap-2">
                   {selectedCycle.status === 'Calculated' && (
                     <button
@@ -1062,6 +1167,103 @@ export default function PayrollPage() {
             )}
           </div>
 
+          {/* Live Reimbursements — approved expense claims pending payout that
+              will be folded into cycle earnings on (re)calculation. */}
+          <div className="p-6 rounded-2xl bg-white border border-[#D9E5EE] shadow-sm space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+              <div>
+                <h3 className="text-base font-bold text-[#17324A] flex items-center gap-2">
+                  <Receipt className="w-4 h-4 text-[#17324A]" />
+                  Reimbursements to Add
+                  {reimbursementsLoading && <RefreshCw className="w-3.5 h-3.5 text-[#5B91B5] animate-spin" />}
+                </h3>
+                <p className="text-xs text-[#667085]">
+                  Approved expense claims awaiting payout. These are pulled into each employee&apos;s earnings when the cycle is calculated.
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => void fetchPendingReimbursements()}
+                  disabled={reimbursementsLoading}
+                  className="px-3.5 py-1.5 rounded-lg bg-white hover:bg-[#F5F9FC] text-[#17324A] text-xs font-semibold border border-[#D9E5EE] shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  title="Refresh approved reimbursements in real time"
+                >
+                  <RefreshCw className="w-3.5 h-3.5 text-[#5B91B5]" />
+                  Refresh
+                </button>
+                {canManagePayroll && selectedCycle && !['Locked', 'Disbursed'].includes(selectedCycle.status) && (
+                  <button
+                    onClick={() => void handleRecalculateWithReimbursements()}
+                    disabled={processingAction}
+                    className="px-3.5 py-1.5 rounded-lg bg-[#17324A] hover:bg-[#244A68] text-white text-xs font-bold shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                    title="Recalculate the cycle to include these reimbursements"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    Add to Payroll & Recalculate
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {(() => {
+              const totalReimb = pendingReimbursements.reduce(
+                (sum, c) => sum + (c.approvedAmount ?? c.amount ?? 0),
+                0,
+              );
+              if (pendingReimbursements.length === 0) {
+                return (
+                  <div className="rounded-xl bg-[#F8FAFC] border border-dashed border-[#D9E5EE] px-4 py-6 text-center text-xs text-[#667085]">
+                    No approved reimbursements are pending payout right now.
+                  </div>
+                );
+              }
+              return (
+                <>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <div className="rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-2.5">
+                      <span className="block text-[10px] font-bold uppercase tracking-wider text-emerald-700">Total to Add</span>
+                      <span className="text-lg font-black text-emerald-700">{formatAmount(totalReimb)}</span>
+                    </div>
+                    <div className="rounded-xl bg-[#F8FAFC] border border-[#D9E5EE] px-4 py-2.5">
+                      <span className="block text-[10px] font-bold uppercase tracking-wider text-[#667085]">Claims</span>
+                      <span className="text-lg font-black text-[#17324A]">{pendingReimbursements.length}</span>
+                    </div>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead>
+                        <tr className="border-b border-[#D9E5EE] text-[#667085] font-semibold bg-[#F8FAFC]">
+                          <th className="py-2.5 px-4 uppercase">EMPLOYEE</th>
+                          <th className="py-2.5 px-3 uppercase">CLAIM</th>
+                          <th className="py-2.5 px-3 uppercase">CATEGORY</th>
+                          <th className="py-2.5 px-3 uppercase text-right">AMOUNT</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#EAF2F8] text-[#17324A]">
+                        {pendingReimbursements.map((c) => {
+                          const emp = employees.find((e) => e.id === c.employeeId);
+                          return (
+                            <tr key={c.id} className="hover:bg-[#F8FAFC]">
+                              <td className="py-2.5 px-4 font-bold text-[#17324A]">{emp?.name || c.employeeId}</td>
+                              <td className="py-2.5 px-3">
+                                <p className="font-semibold text-[#17324A]">{c.title}</p>
+                                <p className="text-[10px] text-[#667085]">{c.claimNumber}</p>
+                              </td>
+                              <td className="py-2.5 px-3 text-[#667085]">{c.category}</td>
+                              <td className="py-2.5 px-3 text-right font-semibold text-emerald-700">
+                                {formatAmount(c.approvedAmount ?? c.amount)}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              );
+            })()}
+          </div>
+
           {/* Line Items Table */}
           {selectedCycle && selectedCycle.items && (
             <div className="p-6 rounded-2xl bg-white border border-[#D9E5EE] shadow-sm space-y-4">
@@ -1072,13 +1274,15 @@ export default function PayrollPage() {
                     Total {selectedCycle.items.length} employees calculated with full statutory deductions.
                   </p>
                 </div>
-                <button
-                  onClick={() => handleRunReconciliation(selectedCycle.id)}
-                  className="px-3.5 py-1.5 rounded-lg bg-white hover:bg-[#F5F9FC] text-[#17324A] text-xs font-semibold border border-[#D9E5EE] shadow-xs flex items-center gap-1.5 cursor-pointer"
-                >
-                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                  Run Audit Reconciliation
-                </button>
+                {canManagePayroll && (
+                  <button
+                    onClick={() => handleRunReconciliation(selectedCycle.id)}
+                    className="px-3.5 py-1.5 rounded-lg bg-white hover:bg-[#F5F9FC] text-[#17324A] text-xs font-semibold border border-[#D9E5EE] shadow-xs flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                    Run Audit Reconciliation
+                  </button>
+                )}
               </div>
 
               <div className="overflow-x-auto">
@@ -1090,6 +1294,7 @@ export default function PayrollPage() {
                       <th className="py-3 px-3 uppercase text-right">BASIC</th>
                       <th className="py-3 px-3 uppercase text-right">HRA</th>
                       <th className="py-3 px-3 uppercase text-right">SPECIAL</th>
+                      <th className="py-3 px-3 uppercase text-right">REIMB.</th>
                       <th className="py-3 px-3 uppercase text-right">GROSS</th>
                       <th className="py-3 px-3 uppercase text-right">PF</th>
                       <th className="py-3 px-3 uppercase text-right">PT</th>
@@ -1112,6 +1317,7 @@ export default function PayrollPage() {
                         <td className="py-3 px-3 text-right">{formatAmount(item.basic)}</td>
                         <td className="py-3 px-3 text-right">{formatAmount(item.hra)}</td>
                         <td className="py-3 px-3 text-right">{formatAmount(item.specialAllowance)}</td>
+                        <td className={`py-3 px-3 text-right ${Number(item.reimbursements) > 0 ? 'font-semibold text-emerald-700' : 'text-[#667085]'}`}>{formatAmount(item.reimbursements)}</td>
                         <td className="py-3 px-3 text-right font-semibold text-emerald-700">{formatAmount(item.grossEarnings)}</td>
                         <td className="py-3 px-3 text-right text-rose-700">{formatAmount(item.pfEmployee)}</td>
                         <td className="py-3 px-3 text-right text-rose-700">{formatAmount(item.pt)}</td>
@@ -1119,9 +1325,9 @@ export default function PayrollPage() {
                         <td className="py-3 px-3 text-right font-bold text-[#17324A]">{formatAmount(item.netPayable)}</td>
                         <td className="py-3 px-3 text-center">
                           <button
-                            onClick={() => alert(item.calculationSnapshotJson || 'Snapshot verified in database.')}
+                            onClick={() => setSnapshotItem(item)}
                             className="p-1 rounded hover:bg-[#EAF2F8] text-[#667085] hover:text-[#17324A] cursor-pointer"
-                            title="Inspect JSON Snapshot"
+                            title="Inspect calculation snapshot"
                           >
                             <FileText className="w-3.5 h-3.5" />
                           </button>
@@ -1146,13 +1352,15 @@ export default function PayrollPage() {
                 Configure monthly earnings and statutory CTC breakdowns. Revisions are logged to SalaryRevisionHistory.
               </p>
             </div>
-            <button
-              onClick={() => setShowStructureModal(true)}
-              className="px-4 py-2 rounded-xl bg-[#17324A] hover:bg-[#244A68] text-white text-xs font-bold shadow-xs flex items-center gap-1.5 cursor-pointer"
-            >
-              <Plus className="w-4 h-4" />
-              Revise Structure
-            </button>
+            {canManagePayroll && (
+              <button
+                onClick={() => setShowStructureModal(true)}
+                className="px-4 py-2 rounded-xl bg-[#17324A] hover:bg-[#244A68] text-white text-xs font-bold shadow-xs flex items-center gap-1.5 cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                Revise Structure
+              </button>
+            )}
           </div>
 
           <div className="overflow-x-auto">
@@ -1193,17 +1401,21 @@ export default function PayrollPage() {
                     </td>
                     <td className="py-3.5 px-4 font-mono text-[11px] text-[#667085]">{s.effectiveFrom}</td>
                     <td className="py-3.5 px-4 text-right">
-                      <button
-                        onClick={() => {
-                          setSelectedEmpId(s.employeeId);
-                          setStructCtc(String(s.ctcAnnual));
-                          setStructEffectiveDate(s.effectiveFrom || '2026-04-01');
-                          setShowStructureModal(true);
-                        }}
-                        className="px-3 py-1 rounded-lg bg-white border border-[#D9E5EE] hover:bg-[#F5F9FC] text-[#17324A] text-xs font-semibold cursor-pointer"
-                      >
-                        Revise
-                      </button>
+                      {canManagePayroll ? (
+                        <button
+                          onClick={() => {
+                            setSelectedEmpId(s.employeeId);
+                            setStructCtc(String(s.ctcAnnual));
+                            setStructEffectiveDate(s.effectiveFrom || '2026-04-01');
+                            setShowStructureModal(true);
+                          }}
+                          className="px-3 py-1 rounded-lg bg-white border border-[#D9E5EE] hover:bg-[#F5F9FC] text-[#17324A] text-xs font-semibold cursor-pointer"
+                        >
+                          Revise
+                        </button>
+                      ) : (
+                        <span className="text-[11px] text-[#9AAAB8]">—</span>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -1363,13 +1575,15 @@ export default function PayrollPage() {
                         </span>
                       </td>
                       <td className="py-3 px-3 text-right">
-                        {isPrivileged && (
+                        {canManagePayroll ? (
                           <button
                             onClick={() => setSelectedDeclForReview(decl)}
                             className="px-2.5 py-1 rounded bg-white border border-[#D9E5EE] hover:bg-[#F5F9FC] text-[#17324A] text-xs font-semibold cursor-pointer"
                           >
                             Review
                           </button>
+                        ) : (
+                          <span className="text-[11px] text-[#9AAAB8]">—</span>
                         )}
                       </td>
                     </tr>
@@ -1389,7 +1603,7 @@ export default function PayrollPage() {
               <h2 className="text-base font-bold text-[#17324A]">Employee Loans & Salary Advances</h2>
               <p className="text-xs text-[#667085]">Automated monthly EMI deductions with balance protection.</p>
             </div>
-            {isPrivileged && (
+            {canManagePayroll && (
               <button
                 onClick={() => setShowNewLoanModal(true)}
                 className="px-4 py-2 rounded-xl bg-[#17324A] hover:bg-[#244A68] text-white text-xs font-bold shadow-xs flex items-center gap-1.5 cursor-pointer"
@@ -1441,13 +1655,15 @@ export default function PayrollPage() {
               <h2 className="text-base font-bold text-[#17324A]">Variable Pay, Bonuses & Retroactive Arrears</h2>
               <p className="text-xs text-[#667085]">Approve performance bonuses, sales incentives, and retroactive salary revision arrears.</p>
             </div>
-            <button
-              onClick={() => setShowNewVpModal(true)}
-              className="px-4 py-2 rounded-xl bg-[#17324A] hover:bg-[#244A68] text-white text-xs font-bold shadow-xs flex items-center gap-1.5 cursor-pointer"
-            >
-              <Plus className="w-4 h-4" />
-              Add Variable Pay / Arrear
-            </button>
+            {canManagePayroll && (
+              <button
+                onClick={() => setShowNewVpModal(true)}
+                className="px-4 py-2 rounded-xl bg-[#17324A] hover:bg-[#244A68] text-white text-xs font-bold shadow-xs flex items-center gap-1.5 cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                Add Variable Pay / Arrear
+              </button>
+            )}
           </div>
 
           <div className="overflow-x-auto">
@@ -1556,7 +1772,7 @@ export default function PayrollPage() {
               <h2 className="text-base font-bold text-[#17324A]">Payroll Reconciliation & Anomaly Engine</h2>
               <p className="text-xs text-[#667085]">Cross-validates calculated line items against payslips and bank export amounts.</p>
             </div>
-            {selectedCycle && (
+            {canManagePayroll && selectedCycle && (
               <button
                 onClick={() => handleRunReconciliation(selectedCycle.id)}
                 disabled={reconLoading}
@@ -2056,6 +2272,206 @@ export default function PayrollPage() {
           showAmounts={true}
           onClose={() => setSelectedPayslip(null)}
         />
+      )}
+
+      {/* Calculation Snapshot Modal — renders the immutable per-employee
+          calculation JSON captured when the cycle was computed. */}
+      {snapshotItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 backdrop-blur-xs p-4">
+          <div className="w-full max-w-3xl max-h-[88vh] flex flex-col rounded-2xl bg-white border border-[#D9E5EE] shadow-xl">
+            <div className="flex items-start justify-between gap-3 p-5 border-b border-[#D9E5EE]">
+              <div>
+                <h3 className="text-base font-bold text-[#17324A] flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-[#17324A]" />
+                  Calculation Snapshot
+                </h3>
+                <p className="text-xs text-[#667085] mt-0.5">
+                  {snapshotItem.employeeName} · {snapshotItem.employeeCode} · {snapshotItem.department}
+                </p>
+              </div>
+              <button
+                onClick={() => setSnapshotItem(null)}
+                className="text-[#667085] hover:text-[#17324A] cursor-pointer"
+                title="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-5 space-y-5">
+              {(() => {
+                let snap: any = null;
+                try {
+                  snap = snapshotItem.calculationSnapshotJson ? JSON.parse(snapshotItem.calculationSnapshotJson) : null;
+                } catch {
+                  snap = null;
+                }
+                if (!snap) {
+                  return (
+                    <div className="rounded-xl bg-[#F8FAFC] border border-dashed border-[#D9E5EE] px-4 py-8 text-center text-xs text-[#667085]">
+                      No calculation snapshot was stored for this line item.
+                    </div>
+                  );
+                }
+
+                const rupee = (v: number | undefined) => `₹${Number(v || 0).toLocaleString('en-IN')}`;
+                const e = snap.earnings || {};
+                const d = snap.deductions || {};
+                const er = snap.employerContributions || {};
+                const att = snap.attendance || {};
+                const tax = snap.taxComputation || {};
+
+                const earningRows: [string, number][] = [
+                  ['Basic', e.basic], ['HRA', e.hra], ['Conveyance', e.conveyance],
+                  ['Special Allowance', e.specialAllowance], ['Medical Allowance', e.medicalAllowance],
+                  ['LTA', e.lta], ['Overtime', e.overtimePay], ['Bonus', e.bonus],
+                  ['Incentives', e.incentives], ['Arrears', e.arrears], ['Reimbursements', e.reimbursements],
+                ];
+                const deductionRows: [string, number][] = [
+                  ['PF (Employee)', d.pfEmployee], ['ESIC (Employee)', d.esicEmployee],
+                  ['Professional Tax', d.pt], ['LWF', d.lwf], ['TDS', d.tds],
+                  ['Loan / Advance', d.loanDeduction], ['Other Deductions', d.otherDeductions],
+                ];
+                const employerRows: [string, number][] = [
+                  ['PF (Employer)', er.pfEmployer], ['Employer EPS', er.employerEPS],
+                  ['Employer EPF', er.employerEPF], ['ESIC (Employer)', er.esicEmployer],
+                  ['Employer LWF', er.employerLWF], ['Gratuity Provision', er.gratuityProvision],
+                ];
+
+                const Row = ({ label, value, strong, tone }: { label: string; value: number; strong?: boolean; tone?: 'earn' | 'deduct' }) => (
+                  <div className="flex items-center justify-between py-1.5 px-1 text-xs">
+                    <span className={strong ? 'font-bold text-[#17324A]' : 'text-[#667085]'}>{label}</span>
+                    <span className={`tabular-nums ${strong ? 'font-bold' : 'font-semibold'} ${tone === 'deduct' ? 'text-rose-700' : tone === 'earn' ? 'text-emerald-700' : 'text-[#17324A]'}`}>
+                      {tone === 'deduct' && Number(value) > 0 ? '− ' : ''}{rupee(value)}
+                    </span>
+                  </div>
+                );
+
+                return (
+                  <>
+                    {/* Net pay hero */}
+                    <div className="rounded-2xl bg-gradient-to-br from-[#17324A] to-[#315B76] text-white p-5">
+                      <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#B0D0EA]">Net Payable</span>
+                      <p className="text-3xl font-black mt-1 tabular-nums">{rupee(snap.netPayable)}</p>
+                      <div className="flex flex-wrap gap-x-6 gap-y-1 mt-3 text-xs text-[#DCEAF4]">
+                        <span>Gross <b className="text-white">{rupee(e.grossEarnings)}</b></span>
+                        <span>Deductions <b className="text-white">{rupee(d.totalDeductions)}</b></span>
+                        {snap.calculatedAt && (
+                          <span>Calculated <b className="text-white">{new Date(snap.calculatedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</b></span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Attendance */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      {[
+                        ['Calendar Days', att.totalCalendarDays],
+                        ['Payable Days', att.payableDays],
+                        ['Loss of Pay Days', att.lossOfPayDays],
+                      ].map(([label, val]) => (
+                        <div key={String(label)} className="rounded-xl bg-[#F8FAFC] border border-[#EAF2F8] px-3 py-2.5">
+                          <span className="block text-[10px] font-bold uppercase tracking-wider text-[#667085]">{label}</span>
+                          <span className="text-lg font-black text-[#17324A] tabular-nums">{Number(val || 0)}</span>
+                        </div>
+                      ))}
+                      <div className="rounded-xl bg-[#F8FAFC] border border-[#EAF2F8] px-3 py-2.5">
+                        <span className="block text-[10px] font-bold uppercase tracking-wider text-[#667085]">LOP Deduction</span>
+                        <span className="text-lg font-black text-rose-700 tabular-nums">{rupee(att.lossOfPayDeduction)}</span>
+                      </div>
+                    </div>
+
+                    {/* Earnings + Deductions side by side */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="rounded-xl border border-[#EAF2F8] p-4">
+                        <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-700 mb-2">Earnings</h4>
+                        <div className="divide-y divide-[#F1F5F8]">
+                          {earningRows.filter(([, v]) => Number(v) !== 0).map(([l, v]) => <Row key={l} label={l} value={v} tone="earn" />)}
+                          <Row label="Gross Earnings" value={e.grossEarnings} strong tone="earn" />
+                        </div>
+                      </div>
+                      <div className="rounded-xl border border-[#EAF2F8] p-4">
+                        <h4 className="text-xs font-bold uppercase tracking-wider text-rose-700 mb-2">Deductions</h4>
+                        <div className="divide-y divide-[#F1F5F8]">
+                          {deductionRows.filter(([, v]) => Number(v) !== 0).map(([l, v]) => <Row key={l} label={l} value={v} tone="deduct" />)}
+                          <Row label="Total Deductions" value={d.totalDeductions} strong tone="deduct" />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Employer contributions */}
+                    <div className="rounded-xl border border-[#EAF2F8] p-4">
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-[#5B91B5] mb-2">Employer Contributions (Cost to Company)</h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6">
+                        {employerRows.filter(([, v]) => Number(v) !== 0).map(([l, v]) => <Row key={l} label={l} value={v} />)}
+                      </div>
+                    </div>
+
+                    {/* Tax computation */}
+                    {tax.regime && (
+                      <div className="rounded-xl border border-[#EAF2F8] p-4 space-y-3">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <h4 className="text-xs font-bold uppercase tracking-wider text-[#17324A]">Income Tax Computation</h4>
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#EAF2F8] text-[#315B76]">
+                            {tax.regime} Regime · FY {tax.financialYear}
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6">
+                          <Row label="Annual Gross Salary" value={tax.annualGrossSalary} />
+                          <Row label="Total Exemptions" value={tax.exemptions?.totalExemptions} tone="deduct" />
+                          <Row label="Chapter VI-A Deductions" value={tax.deductions?.totalChapterVIA} tone="deduct" />
+                          <Row label="Taxable Income" value={tax.taxableIncome} strong />
+                        </div>
+
+                        {Array.isArray(tax.slabTaxBreakdown) && tax.slabTaxBreakdown.length > 0 && (
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-left text-[11px] border-collapse">
+                              <thead>
+                                <tr className="border-b border-[#EAF2F8] text-[#667085] font-semibold bg-[#F8FAFC]">
+                                  <th className="py-2 px-2">SLAB</th>
+                                  <th className="py-2 px-2 text-right">RATE</th>
+                                  <th className="py-2 px-2 text-right">TAXABLE</th>
+                                  <th className="py-2 px-2 text-right">TAX</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-[#F1F5F8] text-[#17324A]">
+                                {tax.slabTaxBreakdown.map((s: any, i: number) => (
+                                  <tr key={i} className={Number(s.taxAmount) > 0 ? '' : 'opacity-50'}>
+                                    <td className="py-1.5 px-2">{s.slabRange}</td>
+                                    <td className="py-1.5 px-2 text-right">{s.rate}%</td>
+                                    <td className="py-1.5 px-2 text-right tabular-nums">{rupee(s.taxableAmountInSlab)}</td>
+                                    <td className="py-1.5 px-2 text-right tabular-nums font-semibold">{rupee(s.taxAmount)}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 border-t border-[#EAF2F8] pt-2">
+                          <Row label="Total Slab Tax" value={tax.totalSlabTax} />
+                          <Row label="Section 87A Rebate" value={tax.section87ARebate} tone="deduct" />
+                          <Row label="Surcharge" value={tax.surchargeAmount} />
+                          <Row label="Health & Education Cess" value={tax.healthAndEducationCess} />
+                          <Row label="Total Annual Tax" value={tax.totalAnnualTax} strong />
+                          <Row label="Monthly TDS Projected" value={tax.monthlyTdsProjected} strong tone="deduct" />
+                        </div>
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
+            </div>
+
+            <div className="flex items-center justify-end gap-2 p-4 border-t border-[#D9E5EE]">
+              <button
+                onClick={() => setSnapshotItem(null)}
+                className="px-3.5 py-1.5 rounded-lg bg-[#17324A] hover:bg-[#244A68] text-white text-xs font-bold shadow-xs cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

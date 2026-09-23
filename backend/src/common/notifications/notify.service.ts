@@ -94,4 +94,27 @@ export class NotifyService {
       this.logger.error('Failed to notify manager', error as Error);
     }
   }
+
+  /**
+   * Notify every active member of a department (case-insensitive match).
+   * Used e.g. to alert IT on immediate termination. Never throws.
+   */
+  async notifyDepartment(department: string, payload: Omit<NotifyInput, 'userId'>): Promise<void> {
+    try {
+      const members = await this.prisma.employee.findMany({
+        where: {
+          department: { equals: department, mode: 'insensitive' },
+          status: { in: ['Active', 'OnLeave', 'Remote'] },
+        },
+        select: { id: true },
+      });
+
+      await this.notifyUsers(
+        members.map((member) => member.id),
+        payload,
+      );
+    } catch (error) {
+      this.logger.error(`Failed to notify department ${department}`, error as Error);
+    }
+  }
 }

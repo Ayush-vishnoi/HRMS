@@ -346,7 +346,7 @@ function PolicyViewerModal({
               {policy.summary}
             </p>
             <p className="text-xs text-[#52677A] leading-5">
-              This policy applies to all full-time employees, contractors, consultants, and interns across all operating entities and branch locations of MYLOTIC GROUP PVT. LTD. All personnel are required to review, understand, and strictly abide by these documented terms and operating guidelines.
+              This policy applies to all full-time employees, contractors, consultants, and interns across all operating entities and branch locations of M360. All personnel are required to review, understand, and strictly abide by these documented terms and operating guidelines.
             </p>
           </section>
 

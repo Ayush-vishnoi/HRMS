@@ -13,13 +13,19 @@ exports.EmployeesService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma/prisma.service");
 const notify_service_1 = require("../common/notifications/notify.service");
+const audit_service_1 = require("../common/audit/audit.service");
+const permissions_service_1 = require("../permissions/permissions.service");
 const default_balances_1 = require("../leaves/default-balances");
 let EmployeesService = class EmployeesService {
     prisma;
     notify;
-    constructor(prisma, notify) {
+    audit;
+    permissions;
+    constructor(prisma, notify, audit, permissions) {
         this.prisma = prisma;
         this.notify = notify;
+        this.audit = audit;
+        this.permissions = permissions;
     }
     async findAll(query) {
         const where = {};
@@ -136,6 +142,120 @@ let EmployeesService = class EmployeesService {
         if (!employee)
             throw new common_1.NotFoundException('Employee not found');
         return this.prisma.employee.update({ where: { id }, data });
+    }
+    async terminate(actorId, employeeId, body) {
+        const check = await this.permissions.assertCeoPermission(actorId, 'IMMEDIATE_TERMINATION');
+        const reason = (body?.reason ?? '').trim();
+        if (!reason)
+            throw new common_1.BadRequestException('A termination reason is required.');
+        const employee = await this.prisma.employee.findUnique({ where: { id: employeeId } });
+        if (!employee)
+            throw new common_1.NotFoundException('Employee not found');
+        if (employee.status === 'Terminated' || employee.status === 'Exited') {
+            throw new common_1.BadRequestException(`${employee.name} is already ${employee.status.toLowerCase()}.`);
+        }
+        if ((employee.userRole ?? '') === 'ceo') {
+            throw new common_1.BadRequestException('The CEO account cannot be terminated.');
+        }
+        if (employeeId === actorId) {
+            throw new common_1.BadRequestException('You cannot terminate your own account.');
+        }
+        const typed = (body?.confirmationName ?? '').trim().toLowerCase();
+        if (typed !== employee.name.trim().toLowerCase()) {
+            throw new common_1.BadRequestException('Confirmation name does not match the employee name.');
+        }
+        const now = new Date();
+        const today = now.toISOString().split('T')[0];
+        const onBehalfOfId = check.viaDelegation ? check.delegatorId ?? null : null;
+        await this.prisma.$transaction(async (tx) => {
+            await tx.employee.update({
+                where: { id: employeeId },
+                data: { status: 'Terminated', lockedUntil: now },
+            });
+            const existingExit = await tx.exitRequest.findFirst({
+                where: { employeeId, status: { not: 'Completed' } },
+            });
+            if (!existingExit) {
+                await tx.exitRequest.create({
+                    data: {
+                        employeeId,
+                        resignationDate: today,
+                        requestedRelievingDate: today,
+                        approvedRelievingDate: today,
+                        reasonCategory: 'Terminated',
+                        reasonDetails: reason,
+                        managerApproval: 'Approved',
+                        hrApproval: 'Approved',
+                        managerApprovedAt: now,
+                        hrApprovedAt: now,
+                        noticePeriodDays: 0,
+                        workflowStage: 'Exited',
+                        status: 'Completed',
+                    },
+                });
+            }
+            const assets = await tx.asset.findMany({ where: { assignedToId: employeeId } });
+            if (assets.length) {
+                let seq = (await tx.assetRequest.count()) + 1;
+                for (const asset of assets) {
+                    let arId = `AR-${String(seq).padStart(3, '0')}`;
+                    while (await tx.assetRequest.findUnique({ where: { id: arId } })) {
+                        seq += 1;
+                        arId = `AR-${String(seq).padStart(3, '0')}`;
+                    }
+                    await tx.assetRequest.create({
+                        data: {
+                            id: arId,
+                            type: 'Return',
+                            status: 'Pending',
+                            requestedById: employeeId,
+                            assetId: asset.id,
+                            category: asset.category,
+                            reason: `Asset recovery — immediate termination of ${employee.name}`,
+                            updatedAt: now,
+                        },
+                    });
+                    seq += 1;
+                }
+            }
+            await tx.employeeOffboarding.upsert({
+                where: { employeeId },
+                create: { employeeId, reason, offboardedById: actorId, offboardedAt: now },
+                update: { reason, offboardedById: actorId, offboardedAt: now },
+            });
+        });
+        await this.audit.record({
+            action: 'IMMEDIATE_TERMINATION',
+            module: 'Employees',
+            employeeId,
+            actorId,
+            onBehalfOfId,
+            severity: 'high',
+            details: {
+                employeeName: employee.name,
+                reason,
+                viaDelegation: check.viaDelegation,
+            },
+        });
+        await this.notify.notifyManagerOf(employeeId, {
+            title: 'Employee terminated',
+            message: `${employee.name} has been terminated with immediate effect. Reason: ${reason}`,
+            type: 'Alert',
+            linkUrl: `/employees/${employeeId}`,
+        });
+        await this.notify.notifyUser({
+            userId: employeeId,
+            title: 'Employment terminated',
+            message: 'Your employment has been terminated with immediate effect. Please contact HR for the exit settlement.',
+            type: 'Alert',
+        });
+        await this.notify.notifyDepartment('IT', {
+            title: 'Asset recovery required',
+            message: `${employee.name} has been terminated. Please recover assigned assets and revoke system access.`,
+            type: 'Alert',
+            linkUrl: '/assets',
+        });
+        return { success: true, status: 'Terminated', viaDelegation: check.viaDelegation };
     }
     async get360(id, access) {
         const employee = await this.prisma.employee.findUnique({
@@ -256,6 +376,9 @@ let EmployeesService = class EmployeesService {
 exports.EmployeesService = EmployeesService;
 exports.EmployeesService = EmployeesService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [prisma_service_1.PrismaService, notify_service_1.NotifyService])
+    __metadata("design:paramtypes", [prisma_service_1.PrismaService,
+        notify_service_1.NotifyService,
+        audit_service_1.AuditService,
+        permissions_service_1.PermissionsService])
 ], EmployeesService);
 //# sourceMappingURL=employees.service.js.map

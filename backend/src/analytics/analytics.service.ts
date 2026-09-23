@@ -35,7 +35,7 @@ export class AnalyticsService {
       this.prisma.employee.groupBy({ by: ['department'], _count: { id: true } }),
       this.prisma.employee.findMany({ select: { joinDate: true } }),
       this.prisma.recruitmentJob.findMany({ where: { status: 'Open' }, select: { department: true, openings: true } }),
-      this.prisma.employee.count({ where: { status: { in: ['Offboarded', 'Exited'] } } }),
+      this.prisma.employee.count({ where: { status: { in: ['Offboarded', 'Exited', 'Terminated'] } } }),
       this.prisma.exitRequest.count({ where: { status: { notIn: ['Completed', 'Rejected', 'Withdrawn'] } } }),
     ]);
 

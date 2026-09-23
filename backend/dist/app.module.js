@@ -14,6 +14,8 @@ const legacy_response_interceptor_1 = require("./common/interceptors/legacy-resp
 const legacy_exception_filter_1 = require("./common/filters/legacy-exception.filter");
 const prisma_module_1 = require("./prisma/prisma.module");
 const notify_module_1 = require("./common/notifications/notify.module");
+const audit_module_1 = require("./common/audit/audit.module");
+const permissions_module_1 = require("./permissions/permissions.module");
 const auth_module_1 = require("./auth/auth.module");
 const employees_module_1 = require("./employees/employees.module");
 const attendance_module_1 = require("./attendance/attendance.module");
@@ -62,6 +64,8 @@ exports.AppModule = AppModule = __decorate([
             config_1.ConfigModule.forRoot({ isGlobal: true }),
             prisma_module_1.PrismaModule,
             notify_module_1.NotifyModule,
+            audit_module_1.AuditModule,
+            permissions_module_1.PermissionsModule,
             auth_module_1.AuthModule,
             employees_module_1.EmployeesModule,
             attendance_module_1.AttendanceModule,

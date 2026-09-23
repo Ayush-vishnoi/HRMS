@@ -1,8 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import type { Request } from 'express';
 import { PrismaService } from '../prisma/prisma.service';
+import { LOCKOUT_STATUSES } from '../auth/access-control.constants';
 
 /**
  * Reads the JWT from the standard `Authorization: Bearer <token>` header, and
@@ -42,18 +43,35 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         department: true,
         avatarUrl: true,
         status: true,
+        lockedUntil: true,
       },
     });
+
+    if (!employee) return null;
+
+    // Force-logout of a live session: JWTs are stateless, so a token issued
+    // before an employee was terminated/exited would otherwise keep working
+    // until it expires. We re-load the employee on every request anyway, so
+    // reject here once access has been cut. A *future* lockedUntil on an
+    // Exited account is the post-relieving grace window and still permits
+    // access; a past/absent lockedUntil means access is revoked now.
+    if (LOCKOUT_STATUSES.includes(employee.status)) {
+      if (!employee.lockedUntil || employee.lockedUntil <= new Date()) {
+        throw new UnauthorizedException('Access revoked.');
+      }
+    }
 
     // The database keeps a distinct 'ceo' role for executive accounts, but the
     // API's RBAC surface is employee/manager/admin. Normalize CEO to admin
     // level on req.user so every guard and @CurrentUser role check treats
-    // executives as admins. The raw role still reaches clients through the
-    // /api/auth/login and /api/auth/session responses.
-    if (employee?.userRole === 'ceo') {
-      return { ...employee, userRole: 'admin' as const };
-    }
-
-    return employee;
+    // executives as admins, while exposing the raw role as `rawRole` so
+    // CEO-only capabilities (delegation, immediate termination) can enforce
+    // against it. The raw role also reaches clients through the /api/auth
+    // login and session responses.
+    return {
+      ...employee,
+      rawRole: employee.userRole,
+      userRole: employee.userRole === 'ceo' ? ('admin' as const) : employee.userRole,
+    };
   }
 }

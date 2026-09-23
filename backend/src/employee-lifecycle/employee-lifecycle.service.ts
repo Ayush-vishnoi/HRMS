@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { randomBytes } from 'node:crypto';
 import * as argon2 from 'argon2';
 import { PrismaService } from '../prisma/prisma.service';
@@ -34,7 +34,7 @@ export class EmployeeLifecycleService {
       await Promise.all([
         this.prisma.recruitmentCandidate.findMany({
           where: { stage: { in: ['Shortlisted', 'Selected', 'Offer'] }, onboarding: null },
-          include: { job: { select: { id: true, title: true, department: true, location: true } }, recruitment_offers: { orderBy: { version: 'desc' }, take: 1, include: { document_signatures: true } } },
+          include: { job: { select: { id: true, title: true, department: true, location: true } }, recruitment_offers: { orderBy: { version: 'desc' }, take: 1, include: { document_signatures: true } }, onboardingApproval: true },
           orderBy: { updatedAt: 'desc' },
         }),
         this.prisma.employee.findMany({
@@ -75,6 +75,12 @@ export class EmployeeLifecycleService {
       userRole = 'employee', probationMonths = 6,
       dateOfBirth, gender, currentAddress, emergencyContactName, emergencyContactPhone, emergencyContactRelation,
     } = body;
+
+    // Whitelist the access level a new hire can be created with. HR is stored as
+    // 'admin'; 'ceo' is never grantable through onboarding. Anything else falls
+    // back to the least-privileged 'employee'.
+    const ALLOWED_ONBOARD_ROLES = ['employee', 'manager', 'admin'];
+    const resolvedUserRole = ALLOWED_ONBOARD_ROLES.includes(userRole) ? userRole : 'employee';
     const plainPassword = `Hr!${randomBytes(6).toString('base64url')}9a`;
     const passwordHash = await argon2.hash(plainPassword);
 
@@ -82,9 +88,22 @@ export class EmployeeLifecycleService {
     // transaction timeout is too tight, so allow up to 30s.
     return this.prisma.$transaction(
       async (tx) => {
-      const candidate = await tx.recruitmentCandidate.findUnique({ where: { id: candidateId }, include: { onboarding: true } });
-      if (!candidate) throw new Error('Candidate not found.');
-      if (candidate.onboarding) throw new Error('Candidate already onboarded.');
+      const candidate = await tx.recruitmentCandidate.findUnique({ where: { id: candidateId }, include: { onboarding: true, onboardingApproval: true } });
+      if (!candidate) throw new NotFoundException('Candidate not found.');
+      if (candidate.onboarding) throw new ConflictException('Candidate already onboarded.');
+
+      // Feature 1 — paid-onboarding CEO approval gate. Paid hires (salary > 0)
+      // cannot be onboarded until a CEO (or a delegated admin) has recorded an
+      // Approved OnboardingApproval. Unpaid hires (salary <= 0) skip the gate.
+      // This is the authoritative server-side block: it fires regardless of the
+      // caller (convertOffer or a direct onboard) and regardless of the UI.
+      if (Number(salary) > 0 && candidate.onboardingApproval?.status !== 'Approved') {
+        throw new BadRequestException(
+          candidate.onboardingApproval?.status === 'Rejected'
+            ? 'CEO rejected onboarding for this paid role.'
+            : 'Pending CEO approval — a paid role cannot start onboarding until the CEO approves.',
+        );
+      }
 
       // STEP 1: sequential EMP-YYYY-NNN employee code (collision-safe count).
       const year = new Date().getUTCFullYear();
@@ -100,7 +119,7 @@ export class EmployeeLifecycleService {
 
       // STEP 1 + 2: employee starts in Onboarding status with a forced reset.
       const employee = await tx.employee.create({
-        data: { employeeCode, name, email, passwordHash, phone: phone || null, avatarUrl: avatarUrl || DEFAULT_AVATAR, roleTitle, userRole, department, joinDate, location, salary: Number(salary), managerId: managerId || null, status: 'Onboarding', mustChangePassword: true },
+        data: { employeeCode, name, email, passwordHash, phone: phone || null, avatarUrl: avatarUrl || DEFAULT_AVATAR, roleTitle, userRole: resolvedUserRole, department, joinDate, location, salary: Number(salary), managerId: managerId || null, status: 'Onboarding', mustChangePassword: true },
       });
 
       const onboarding = await tx.employeeOnboarding.create({
@@ -227,8 +246,8 @@ export class EmployeeLifecycleService {
    * Frontend (handleOnboardSubmit) reads result.employee?.employeeCode.
    */
   async convertOffer(user: any, body: any) {
-    const { candidateId, customJoinDate, customManagerId, customProbationMonths, customDateOfBirth, customGender, customCurrentAddress, customEmergencyContactName, customEmergencyContactPhone, customEmergencyContactRelation } = body ?? {};
-    if (!candidateId) throw new Error('candidateId is required.');
+    const { candidateId, customJoinDate, customManagerId, customProbationMonths, customUserRole, customDateOfBirth, customGender, customCurrentAddress, customEmergencyContactName, customEmergencyContactPhone, customEmergencyContactRelation } = body ?? {};
+    if (!candidateId) throw new BadRequestException('candidateId is required.');
 
     const candidate = await this.prisma.recruitmentCandidate.findUnique({
       where: { id: candidateId },
@@ -238,11 +257,11 @@ export class EmployeeLifecycleService {
         recruitment_offers: { orderBy: { version: 'desc' }, take: 1 },
       },
     });
-    if (!candidate) throw new Error('Candidate not found.');
-    if (candidate.onboarding) throw new Error('Candidate already onboarded.');
+    if (!candidate) throw new NotFoundException('Candidate not found.');
+    if (candidate.onboarding) throw new ConflictException('Candidate already onboarded.');
 
     const offer = candidate.recruitment_offers[0];
-    if (!offer) throw new Error('Candidate has no recruitment offer to convert.');
+    if (!offer) throw new BadRequestException('Candidate has no recruitment offer to convert.');
 
     const joinDate = customJoinDate || offer.proposed_join_date || new Date().toISOString().split('T')[0];
     const salary = Number(offer.offered_ctc ?? 0);
@@ -260,6 +279,7 @@ export class EmployeeLifecycleService {
       joinDate,
       salary,
       managerId: customManagerId || null,
+      userRole: customUserRole || 'employee',
       probationMonths: Number(customProbationMonths || 6),
       dateOfBirth: customDateOfBirth,
       gender: customGender,
